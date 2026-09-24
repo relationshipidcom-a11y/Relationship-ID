@@ -1,0 +1,69 @@
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .modalBackdrop {
+    align-items: center;
+    padding: 16px;
+  }
+}
+
+.modalSheet {
+  width: 100%;
+  max-width: 420px;
+  background-color: #1a1530;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  padding: 20px;
+  color: #f7f6fd;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  .modalSheet {
+    border-radius: 24px;
+  }
+}
+
+.channelGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.channelBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 14px;
+  background-color: #211c38;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f7f6fd;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.channelBtn:hover {
+  background-color: #2e264f;
+  border-color: rgba(243, 196, 219, 0.4);
+}
+
+.channelBtn:active {
+  transform: scale(0.95);
+}

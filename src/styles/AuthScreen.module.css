@@ -1,0 +1,109 @@
+.container {
+  width: 100%;
+  max-width: 390px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background: linear-gradient(180deg, #211c38 0%, #1a1530 50%, #120f22 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  position: relative;
+  color: #f7f6fd;
+}
+
+@media (min-width: 640px) {
+  .container {
+    min-height: auto;
+    border-radius: 36px;
+  }
+}
+
+.tabPillContainer {
+  padding: 4px;
+  border-radius: 12px;
+  background-color: #141124;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.activeTab {
+  width: 50%;
+  padding: 8px;
+  border-radius: 12px;
+  background-color: #9b6682;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(155, 102, 130, 0.35);
+  text-align: center;
+  letter-spacing: 0.02em;
+  transition: all 0.2s ease;
+}
+
+.inactiveTab {
+  width: 50%;
+  padding: 8px;
+  border-radius: 12px;
+  color: #b6afd4;
+  font-weight: 500;
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 0.02em;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.inactiveTab:hover {
+  color: #ffffff;
+}
+
+.inputField {
+  width: 100%;
+  background-color: #141124;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 12px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.inputField:focus {
+  border-color: #f3c4db;
+  box-shadow: 0 0 0 2px rgba(155, 102, 130, 0.4);
+}
+
+.submitBtn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 16px;
+  background-color: #9b6682;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 8px 18px rgba(155, 102, 130, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.submitBtn:hover {
+  background-color: #a9718f;
+}
+
+.submitBtn:active {
+  transform: scale(0.98);
+}

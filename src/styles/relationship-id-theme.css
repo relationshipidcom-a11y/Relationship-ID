@@ -1,0 +1,105 @@
+:root {
+  --rid-gradient: linear-gradient(135deg, #262b51 0%, #363a69 52%, #495084 100%);
+  --rid-velvet-bg: #120f22;
+  --rid-canvas: #0e0b1e;
+  --rid-surface: #141124;
+  --rid-surface-low: #1c192c;
+  --rid-surface-container: #201d31;
+  --rid-surface-high: #2b273c;
+  --rid-surface-highest: #363247;
+  --rid-cert-surface: #211c38;
+  --rid-cert-elevated: #2a2447;
+  --rid-cert-border: rgba(255, 255, 255, 0.18);
+  --rid-pill: #9b6682;
+  --rid-pill-hover: #a9718f;
+  --rid-pill-border: #83769c;
+  --rid-accent: #f3c4db;
+  --rid-text-bright: #f7f6fd;
+  --rid-text-muted: #b6afd4;
+  --rid-text-subtle: #8e84af;
+  --rid-action-secondary: #2e264f;
+  --rid-action-secondary-hover: #39305f;
+  --rid-border-subtle: rgba(255, 255, 255, 0.18);
+  --rid-border-light: rgba(255, 255, 255, 0.10);
+  --rid-gold: #e2bd59;
+  --rid-gold-muted: #9a7b2c;
+  --rid-success: #10b981;
+}
+
+body {
+  background-color: var(--rid-velvet-bg);
+  color: var(--rid-text-bright);
+  font-family: 'IBM Plex Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bg-rid-gradient {
+  background: var(--rid-gradient);
+}
+
+.bg-velvet {
+  background-color: var(--rid-velvet-bg);
+}
+
+.bg-cert-surface {
+  background-color: var(--rid-cert-surface);
+}
+
+.bg-cert-elevated {
+  background-color: var(--rid-cert-elevated);
+}
+
+.text-rid-accent {
+  color: var(--rid-accent);
+}
+
+.text-rid-muted {
+  color: var(--rid-text-muted);
+}
+
+.text-rid-subtle {
+  color: var(--rid-text-subtle);
+}
+
+.bg-rid-pill {
+  background-color: var(--rid-pill);
+}
+
+.hover\:bg-rid-pill-hover:hover {
+  background-color: var(--rid-pill-hover);
+}
+
+/* Custom Guilloche Radial Pattern */
+.bg-guilloche-velvet {
+  background-image: 
+    radial-gradient(ellipse 90% 70% at 85% 15%, rgba(243, 196, 219, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 10% 85%, rgba(155, 102, 130, 0.16) 0%, transparent 70%),
+    linear-gradient(160deg, #211c38 0%, #19152b 100%);
+}
+
+.security-concentric-velvet {
+  box-shadow: 
+    0 0 0 1px rgba(247, 246, 253, 0.22),
+    0 0 0 6px transparent,
+    0 0 0 7px rgba(247, 246, 253, 0.14),
+    0 0 0 12px transparent,
+    0 0 0 13px rgba(247, 246, 253, 0.07);
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-certificate-only {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    page-break-inside: avoid;
+    margin: 0 auto !important;
+  }
+}

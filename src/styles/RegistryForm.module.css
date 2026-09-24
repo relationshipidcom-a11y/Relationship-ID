@@ -1,0 +1,110 @@
+.cardSection {
+  background-color: #211c38;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.inputControl {
+  width: 100%;
+  background-color: #141124;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 12px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.inputControl:focus {
+  border-color: #f3c4db;
+  box-shadow: 0 0 0 2px rgba(155, 102, 130, 0.4);
+}
+
+.selectControl {
+  width: 100%;
+  background-color: #141124;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 12px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  outline: none;
+  appearance: none;
+}
+
+.activeTypeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background-color: #9b6682;
+  border: 1px solid rgba(243, 196, 219, 0.40);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(155, 102, 130, 0.35);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inactiveTypeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #1c1732;
+  border: 1px solid #4a3e63;
+  color: #b6afd4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inactiveTypeBtn:hover {
+  color: #f7f6fd;
+}
+
+.primaryCta {
+  width: 100%;
+  background-color: #9b6682;
+  color: #ffffff;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 8px 20px rgba(155, 102, 130, 0.40);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.primaryCta:hover {
+  background-color: #a9718f;
+}
+
+.primaryCta:active {
+  transform: scale(0.99);
+}

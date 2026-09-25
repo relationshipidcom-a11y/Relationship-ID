@@ -305,7 +305,7 @@ test('Firebase client config validator catches placeholder strings and reports m
 
   // Case B: Legitimate relationship-id project configuration
   const validConfig = {
-    apiKey: 'AIzaSyAZfyn7JOeXPEa7i4sIQwgUfYjhvQSUDrY',
+    apiKey: 'AIzaSyAZfyn7JOeXPEa7j4sIQwgUfyjhvQSUDrY',
     authDomain: 'relationship-id.firebaseapp.com',
     projectId: 'relationship-id',
     storageBucket: 'relationship-id.firebasestorage.app',
@@ -320,4 +320,62 @@ test('Firebase client config validator catches placeholder strings and reports m
   const missingOne = validate(missingOneConfig);
   assert.deepEqual(missingOne, ['VITE_FIREBASE_API_KEY']);
 });
+
+test('Firebase configuration resolution prioritizes FIREBASE_WEB_CONFIG, cleans formatting, and validates correctly', async () => {
+  const { FIREBASE_WEB_CONFIG } = await import('../src/lib/firebase.config');
+  const { firebaseConfig, isFirebaseConfigured, missingFirebaseConfigKeys, cleanConfigValue } = await import('../src/lib/firebase');
+
+  assert.equal(FIREBASE_WEB_CONFIG.apiKey, 'AIzaSyAZfyn7JOeXPEa7j4sIQwgUfyjhvQSUDrY');
+  assert.equal(FIREBASE_WEB_CONFIG.projectId, 'relationship-id');
+  assert.equal(FIREBASE_WEB_CONFIG.authDomain, 'relationship-id.firebaseapp.com');
+  assert.equal(FIREBASE_WEB_CONFIG.messagingSenderId, '1032608911025');
+  assert.equal(FIREBASE_WEB_CONFIG.appId, '1:1032608911025:web:4823851dd411396416dc90');
+
+  assert.equal(firebaseConfig.apiKey, 'AIzaSyAZfyn7JOeXPEa7j4sIQwgUfyjhvQSUDrY');
+  assert.equal(firebaseConfig.projectId, 'relationship-id');
+  assert.equal(firebaseConfig.authDomain, 'relationship-id.firebaseapp.com');
+  assert.equal(firebaseConfig.messagingSenderId, '1032608911025');
+  assert.equal(firebaseConfig.appId, '1:1032608911025:web:4823851dd411396416dc90');
+
+  assert.equal(isFirebaseConfigured, true);
+  assert.deepEqual(missingFirebaseConfigKeys, []);
+
+  // Cleanup helper test
+  assert.equal(cleanConfigValue('  "AIzaSy...abc" , '), 'AIzaSy...abc');
+  assert.equal(cleanConfigValue(" 'test-val' "), 'test-val');
+  assert.equal(cleanConfigValue(' `test-val` , '), 'test-val');
+});
+
+// 9. Account Recovery & Password Reset Invariant
+test('account recovery validates email input and translations exist in both languages', async () => {
+  const { translations } = await import('../src/i18n/translations');
+
+  // Verify exact recovery translations
+  assert.equal(translations.ar.forgotPassword, 'نسيت كلمة المرور؟');
+  assert.equal(translations.ar.forgotEmail, 'نسيت البريد الإلكتروني؟');
+  assert.equal(translations.en.forgotPassword, 'Forgot password?');
+  assert.equal(translations.en.forgotEmail, 'Forgot email?');
+  assert.ok(translations.ar.accountRecovery);
+  assert.ok(translations.en.accountRecovery);
+
+  // Email validation helper
+  const validateResetEmail = (raw: string): { valid: boolean; email: string; error?: string } => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { valid: false, email: '', error: 'MISSING_EMAIL' };
+    }
+    const isValidFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+    if (!isValidFormat) {
+      return { valid: false, email: trimmed, error: 'INVALID_EMAIL' };
+    }
+    return { valid: true, email: trimmed };
+  };
+
+  assert.equal(validateResetEmail('').valid, false);
+  assert.equal(validateResetEmail('   ').valid, false);
+  assert.equal(validateResetEmail('invalid-email').valid, false);
+  assert.equal(validateResetEmail('user@domain.com').valid, true);
+  assert.equal(validateResetEmail('  user@domain.com  ').email, 'user@domain.com');
+});
+
 

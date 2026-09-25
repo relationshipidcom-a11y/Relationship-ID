@@ -7,8 +7,8 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-dotenv.config({ path: '.env.local', override: true });
-dotenv.config({ path: '.env', override: true });
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 dotenv.config();
 
 type RelationshipType = 'marriage' | 'engagement' | 'dating';

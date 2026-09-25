@@ -4,8 +4,8 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '.env.local', override: true });
-dotenv.config({ path: '.env', override: true });
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 
 export default defineConfig(() => {
   return {

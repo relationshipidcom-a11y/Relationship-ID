@@ -85,6 +85,46 @@ const USERS_COL = 'users';
 const RELATIONSHIPS_COL = 'relationships';
 const INVITATIONS_COL = 'invitations';
 const CERTIFICATES_COL = 'certificates';
+const CHANGE_REQUESTS_COL = 'change_requests';
+const NOTIFICATIONS_COL = 'notifications';
+
+interface ChangeRequestDoc {
+  id: string;
+  recordId: string;
+  verificationRef?: string;
+  requesterUid: string;
+  requesterRole: 'p1' | 'p2';
+  requesterName: string;
+  approverUid: string;
+  target: 'shared' | 'partner1_name' | 'partner2_name';
+  field: 'type' | 'startDate' | 'partner1FullName' | 'partner2FullName';
+  fieldLabelAr: string;
+  fieldLabelEn: string;
+  oldValue: string;
+  oldValueDisplayAr?: string;
+  oldValueDisplayEn?: string;
+  proposedValue: string;
+  proposedValueDisplayAr?: string;
+  proposedValueDisplayEn?: string;
+  status: 'pending' | 'approved' | 'declined';
+  requestedAt: string;
+  decidedAt?: string;
+  decisionByUid?: string;
+}
+
+interface AppNotification {
+  id: string;
+  userId: string;
+  type: 'relationship_ended' | 'change_request' | 'general';
+  recordId?: string;
+  senderName?: string;
+  messageAr: string;
+  messageEn: string;
+  secondaryAr?: string;
+  secondaryEn?: string;
+  createdAt: string;
+  read: boolean;
+}
 
 const rawProjectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
 const projectId = (rawProjectId && rawProjectId !== 'projectId' && rawProjectId !== 'placeholder') ? rawProjectId : 'relationship-id';
@@ -148,13 +188,26 @@ const getOwnedRecord = async (uid: string): Promise<RelationshipRecord | null> =
   const activeRecordId = userDoc.exists ? (userDoc.data()?.activeRecordId as string | undefined) : undefined;
   if (activeRecordId) {
     const recDoc = await adminDb.collection(RELATIONSHIPS_COL).doc(activeRecordId).get();
-    if (recDoc.exists) return recDoc.data() as RelationshipRecord;
+    if (recDoc.exists) {
+      const rec = recDoc.data() as RelationshipRecord;
+      if (rec.status !== 'ended' && rec.status !== 'cancelled') {
+        return rec;
+      }
+    }
   }
 
-  const p1Snap = await adminDb.collection(RELATIONSHIPS_COL).where('p1Uid', '==', uid).limit(1).get();
+  const p1Snap = await adminDb.collection(RELATIONSHIPS_COL)
+    .where('p1Uid', '==', uid)
+    .where('status', 'in', ['draft', 'pending_partner', 'active'])
+    .limit(1)
+    .get();
   if (!p1Snap.empty) return p1Snap.docs[0].data() as RelationshipRecord;
 
-  const p2Snap = await adminDb.collection(RELATIONSHIPS_COL).where('p2Uid', '==', uid).limit(1).get();
+  const p2Snap = await adminDb.collection(RELATIONSHIPS_COL)
+    .where('p2Uid', '==', uid)
+    .where('status', 'in', ['active', 'pending_partner'])
+    .limit(1)
+    .get();
   if (!p2Snap.empty) return p2Snap.docs[0].data() as RelationshipRecord;
 
   return null;
@@ -178,6 +231,8 @@ async function startServer() {
     try {
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
       const user = userFromResponse(res);
+      const userDoc = await adminDb.collection(USERS_COL).doc(user.uid).get();
+      const userProfile = userDoc.exists ? (userDoc.data()?.profile as PartnerData | undefined) : null;
       const record = await getOwnedRecord(user.uid);
       let invitation: Invitation | null = null;
       if (record?.inviteId) {
@@ -186,7 +241,11 @@ async function startServer() {
           invitation = invDoc.data() as Invitation;
         }
       }
-      return res.json({ record: record || null, invitation: invitation || null });
+      return res.json({
+        record: record || null,
+        invitation: invitation || null,
+        userProfile: userProfile || null
+      });
     } catch (error) {
       console.error('Error fetching relationship:', error);
       return res.status(500).json({
@@ -653,11 +712,652 @@ async function startServer() {
       const certRef = adminDb.collection(CERTIFICATES_COL).doc(cleanRef);
       const certDoc = await certRef.get();
       if (certDoc.exists) {
-        return res.json({ found: true, record: certDoc.data() });
+        const raw = certDoc.data() || {};
+        // Explicitly project only safe public verification fields (zero PII, zero internal UIDs)
+        const safeRecord = {
+          verificationRef: raw.verificationRef || cleanRef,
+          recordNumber: raw.recordNumber || '',
+          partner1Name: raw.partner1Name || '',
+          partner2Name: raw.partner2Name || '',
+          partner1En: raw.partner1En || null,
+          partner2En: raw.partner2En || null,
+          type: raw.type,
+          startDate: raw.startDate,
+          startDateAr: raw.startDateAr,
+          status: raw.status || 'ended',
+          issuedDate: raw.issuedDate,
+          issuedDateAr: raw.issuedDateAr
+        };
+        return res.json({ found: true, record: safeRecord });
       }
       return res.status(404).json({ found: false, message: 'No record found' });
     } catch (error) {
       console.error('Error verifying record:', error);
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get('/api/change-requests', requireAuth, async (_req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const record = await getOwnedRecord(user.uid);
+      if (!record || record.status !== 'active') {
+        return res.json({ changeRequests: [] });
+      }
+
+      const snap = await adminDb
+        .collection(CHANGE_REQUESTS_COL)
+        .where('recordId', '==', record.id)
+        .get();
+
+      const changeRequests: ChangeRequestDoc[] = [];
+      snap.forEach((doc) => {
+        changeRequests.push(doc.data() as ChangeRequestDoc);
+      });
+
+      // Sort descending by requestedAt
+      changeRequests.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+
+      return res.json({ changeRequests });
+    } catch (error) {
+      console.error('Error fetching change requests:', error);
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post('/api/change-requests', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const record = await getOwnedRecord(user.uid);
+      if (!record || record.status !== 'active') {
+        return res.status(404).json({ error: 'ACTIVE_RELATIONSHIP_NOT_FOUND' });
+      }
+
+      const isP1 = record.p1Uid === user.uid;
+      const isP2 = record.p2Uid === user.uid;
+      if (!isP1 && !isP2) {
+        return res.status(403).json({ error: 'NOT_RELATIONSHIP_PARTICIPANT' });
+      }
+
+      const requesterRole: 'p1' | 'p2' = isP1 ? 'p1' : 'p2';
+      const requesterName = isP1 ? record.partner1.fullName : record.partner2.fullName;
+      const approverUid = isP1 ? record.p2Uid : record.p1Uid;
+
+      if (!approverUid) {
+        return res.status(400).json({ error: 'NO_PARTNER_TO_APPROVE' });
+      }
+
+      const { field, proposedValue } = req.body as {
+        field?: string;
+        proposedValue?: string;
+      };
+
+      if (!field || typeof proposedValue !== 'string') {
+        return res.status(400).json({ error: 'INVALID_REQUEST_PARAMETERS' });
+      }
+
+      const cleanProposed = proposedValue.trim();
+      let target: 'shared' | 'partner1_name' | 'partner2_name' = 'shared';
+      let fieldLabelAr = '';
+      let fieldLabelEn = '';
+      let oldValue = '';
+      let oldValueDisplayAr: string | undefined;
+      let oldValueDisplayEn: string | undefined;
+      let proposedValueDisplayAr: string | undefined;
+      let proposedValueDisplayEn: string | undefined;
+
+      if (field === 'type') {
+        if (!['marriage', 'engagement', 'dating'].includes(cleanProposed)) {
+          return res.status(400).json({ error: 'INVALID_RELATIONSHIP_TYPE' });
+        }
+        oldValue = record.type;
+        if (cleanProposed === oldValue) {
+          return res.status(400).json({ error: 'VALUE_UNCHANGED' });
+        }
+        fieldLabelAr = 'مرحلة العلاقة';
+        fieldLabelEn = 'Relationship Stage';
+        const typeNamesAr: Record<string, string> = { marriage: 'زواج', engagement: 'خطوبة', dating: 'تعارف' };
+        const typeNamesEn: Record<string, string> = { marriage: 'Marriage', engagement: 'Engagement', dating: 'Dating' };
+        oldValueDisplayAr = typeNamesAr[oldValue] || oldValue;
+        oldValueDisplayEn = typeNamesEn[oldValue] || oldValue;
+        proposedValueDisplayAr = typeNamesAr[cleanProposed] || cleanProposed;
+        proposedValueDisplayEn = typeNamesEn[cleanProposed] || cleanProposed;
+      } else if (field === 'startDate') {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        if (!cleanProposed || cleanProposed > todayIso) {
+          return res.status(400).json({ error: 'INVALID_START_DATE' });
+        }
+        oldValue = record.startDateIso || record.startDate;
+        if (cleanProposed === record.startDateIso) {
+          return res.status(400).json({ error: 'VALUE_UNCHANGED' });
+        }
+        fieldLabelAr = 'تاريخ البداية';
+        fieldLabelEn = 'Start Date';
+        oldValueDisplayAr = record.startDateAr;
+        oldValueDisplayEn = record.startDate;
+        proposedValueDisplayAr = formatDate(cleanProposed, 'ar');
+        proposedValueDisplayEn = formatDate(cleanProposed, 'en');
+      } else if (field === 'partner1FullName') {
+        if (!isP1) {
+          return res.status(403).json({ error: 'CANNOT_EDIT_PARTNER_INFO' });
+        }
+        if (!cleanProposed) {
+          return res.status(400).json({ error: 'NAME_REQUIRED' });
+        }
+        oldValue = record.partner1.fullName;
+        if (cleanProposed === oldValue) {
+          return res.status(400).json({ error: 'VALUE_UNCHANGED' });
+        }
+        target = 'partner1_name';
+        fieldLabelAr = 'اسم الشريك الأول (في الشهادة)';
+        fieldLabelEn = 'Partner 1 Name (on Certificate)';
+        oldValueDisplayAr = oldValue;
+        oldValueDisplayEn = oldValue;
+        proposedValueDisplayAr = cleanProposed;
+        proposedValueDisplayEn = cleanProposed;
+      } else if (field === 'partner2FullName') {
+        if (!isP2) {
+          return res.status(403).json({ error: 'CANNOT_EDIT_PARTNER_INFO' });
+        }
+        if (!cleanProposed) {
+          return res.status(400).json({ error: 'NAME_REQUIRED' });
+        }
+        oldValue = record.partner2.fullName;
+        if (cleanProposed === oldValue) {
+          return res.status(400).json({ error: 'VALUE_UNCHANGED' });
+        }
+        target = 'partner2_name';
+        fieldLabelAr = 'اسم الشريك الثاني (في الشهادة)';
+        fieldLabelEn = 'Partner 2 Name (on Certificate)';
+        oldValueDisplayAr = oldValue;
+        oldValueDisplayEn = oldValue;
+        proposedValueDisplayAr = cleanProposed;
+        proposedValueDisplayEn = cleanProposed;
+      } else {
+        return res.status(400).json({ error: 'INVALID_CHANGE_FIELD' });
+      }
+
+      // Check if duplicate pending request exists
+      const existingSnap = await adminDb
+        .collection(CHANGE_REQUESTS_COL)
+        .where('recordId', '==', record.id)
+        .where('field', '==', field)
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get();
+
+      if (!existingSnap.empty) {
+        return res.status(409).json({
+          error: 'PENDING_REQUEST_EXISTS',
+          changeRequest: existingSnap.docs[0].data()
+        });
+      }
+
+      const requestId = randomId('cr', 12);
+      const nowIso = new Date().toISOString();
+
+      const newChangeRequest: ChangeRequestDoc = {
+        id: requestId,
+        recordId: record.id,
+        verificationRef: record.verificationRef,
+        requesterUid: user.uid,
+        requesterRole,
+        requesterName,
+        approverUid,
+        target,
+        field: field as ChangeRequestDoc['field'],
+        fieldLabelAr,
+        fieldLabelEn,
+        oldValue,
+        oldValueDisplayAr,
+        oldValueDisplayEn,
+        proposedValue: cleanProposed,
+        proposedValueDisplayAr,
+        proposedValueDisplayEn,
+        status: 'pending',
+        requestedAt: nowIso
+      };
+
+      await adminDb.collection(CHANGE_REQUESTS_COL).doc(requestId).set(newChangeRequest);
+
+      return res.json({ success: true, changeRequest: newChangeRequest });
+    } catch (error) {
+      console.error('Error creating change request:', error);
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post('/api/change-requests/:requestId/approve', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const reqId = req.params.requestId;
+      const crRef = adminDb.collection(CHANGE_REQUESTS_COL).doc(reqId);
+
+      const result = await adminDb.runTransaction(async (transaction) => {
+        const crDoc = await transaction.get(crRef);
+        if (!crDoc.exists) throw new Error('REQUEST_NOT_FOUND');
+        const cr = crDoc.data() as ChangeRequestDoc;
+
+        if (cr.status !== 'pending') throw new Error(`REQUEST_${cr.status.toUpperCase()}`);
+        if (cr.approverUid !== user.uid) throw new Error('UNAUTHORIZED_APPROVER');
+
+        const relRef = adminDb.collection(RELATIONSHIPS_COL).doc(cr.recordId);
+        const relDoc = await transaction.get(relRef);
+        if (!relDoc.exists) throw new Error('RELATIONSHIP_NOT_FOUND');
+        const record = relDoc.data() as RelationshipRecord;
+        if (record.status !== 'active') throw new Error('RELATIONSHIP_NOT_ACTIVE');
+
+        const nowIso = new Date().toISOString();
+        const updatedRecord: RelationshipRecord = { ...record };
+
+        if (cr.field === 'type') {
+          updatedRecord.type = cr.proposedValue as RelationshipType;
+        } else if (cr.field === 'startDate') {
+          updatedRecord.startDateIso = cr.proposedValue;
+          updatedRecord.startDate = formatDate(cr.proposedValue, 'en');
+          updatedRecord.startDateAr = formatDate(cr.proposedValue, 'ar');
+        } else if (cr.field === 'partner1FullName') {
+          updatedRecord.partner1 = { ...updatedRecord.partner1, fullName: cr.proposedValue };
+        } else if (cr.field === 'partner2FullName') {
+          updatedRecord.partner2 = { ...updatedRecord.partner2, fullName: cr.proposedValue };
+        }
+
+        transaction.set(relRef, updatedRecord);
+
+        // Update public certificate projection
+        if (record.verificationRef) {
+          const certRef = adminDb.collection(CERTIFICATES_COL).doc(record.verificationRef);
+          transaction.set(certRef, {
+            type: updatedRecord.type,
+            startDate: updatedRecord.startDate,
+            startDateAr: updatedRecord.startDateAr,
+            startDateIso: updatedRecord.startDateIso || null,
+            partner1Name: updatedRecord.partner1.fullName,
+            partner2Name: updatedRecord.partner2.fullName
+          }, { merge: true });
+        }
+
+        // Update change request
+        const updatedCr: ChangeRequestDoc = {
+          ...cr,
+          status: 'approved',
+          decidedAt: nowIso,
+          decisionByUid: user.uid
+        };
+        transaction.set(crRef, updatedCr);
+
+        return { record: updatedRecord, changeRequest: updatedCr };
+      });
+
+      return res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('Error approving change request:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      const statusMap: Record<string, number> = {
+        REQUEST_NOT_FOUND: 404,
+        RELATIONSHIP_NOT_FOUND: 404,
+        UNAUTHORIZED_APPROVER: 403,
+        REQUEST_APPROVED: 409,
+        REQUEST_DECLINED: 409,
+        RELATIONSHIP_NOT_ACTIVE: 409
+      };
+      const statusCode = statusMap[msg] || 500;
+      return res.status(statusCode).json({ error: msg });
+    }
+  });
+
+  app.post('/api/change-requests/:requestId/decline', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const reqId = req.params.requestId;
+      const crRef = adminDb.collection(CHANGE_REQUESTS_COL).doc(reqId);
+
+      const result = await adminDb.runTransaction(async (transaction) => {
+        const crDoc = await transaction.get(crRef);
+        if (!crDoc.exists) throw new Error('REQUEST_NOT_FOUND');
+        const cr = crDoc.data() as ChangeRequestDoc;
+
+        if (cr.status !== 'pending') throw new Error(`REQUEST_${cr.status.toUpperCase()}`);
+        if (cr.approverUid !== user.uid) throw new Error('UNAUTHORIZED_APPROVER');
+
+        const nowIso = new Date().toISOString();
+        const updatedCr: ChangeRequestDoc = {
+          ...cr,
+          status: 'declined',
+          decidedAt: nowIso,
+          decisionByUid: user.uid
+        };
+        transaction.set(crRef, updatedCr);
+        return { changeRequest: updatedCr };
+      });
+
+      return res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('Error declining change request:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      const statusMap: Record<string, number> = {
+        REQUEST_NOT_FOUND: 404,
+        UNAUTHORIZED_APPROVER: 403,
+        REQUEST_APPROVED: 409,
+        REQUEST_DECLINED: 409
+      };
+      const statusCode = statusMap[msg] || 500;
+      return res.status(statusCode).json({ error: msg });
+    }
+  });
+
+  app.patch('/api/profile/me', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const record = await getOwnedRecord(user.uid);
+      if (!record || record.status !== 'active') {
+        return res.status(404).json({ error: 'ACTIVE_RELATIONSHIP_NOT_FOUND' });
+      }
+
+      const isP1 = record.p1Uid === user.uid;
+      const isP2 = record.p2Uid === user.uid;
+      if (!isP1 && !isP2) {
+        return res.status(403).json({ error: 'NOT_RELATIONSHIP_PARTICIPANT' });
+      }
+
+      // Check if body attempts to target partner fields directly
+      const body = req.body as Record<string, unknown>;
+      if (isP1 && (body.partner2 || body.partner2FullName || body.target === 'partner2')) {
+        return res.status(403).json({ error: 'CANNOT_EDIT_PARTNER_INFO' });
+      }
+      if (isP2 && (body.partner1 || body.partner1FullName || body.target === 'partner1')) {
+        return res.status(403).json({ error: 'CANNOT_EDIT_PARTNER_INFO' });
+      }
+
+      const { socialHandle, fullNameEn, whatsappNumber, whatsappCountry } = req.body as {
+        socialHandle?: string;
+        fullNameEn?: string;
+        whatsappNumber?: string;
+        whatsappCountry?: string;
+      };
+
+      const updatedRecord: RelationshipRecord = { ...record };
+
+      if (isP1) {
+        const p1 = { ...updatedRecord.partner1 };
+        if (socialHandle !== undefined) {
+          p1.socialHandle = socialHandle ? socialHandle.trim().replace(/^@/, '') : undefined;
+        }
+        if (fullNameEn !== undefined) {
+          p1.fullNameEn = fullNameEn.trim() || undefined;
+        }
+        if (whatsappNumber !== undefined) {
+          p1.whatsappNumber = whatsappNumber.trim();
+        }
+        if (whatsappCountry !== undefined) {
+          p1.whatsappCountry = whatsappCountry.trim();
+        }
+        updatedRecord.partner1 = p1;
+      } else {
+        const p2 = { ...updatedRecord.partner2 };
+        if (socialHandle !== undefined) {
+          p2.socialHandle = socialHandle ? socialHandle.trim().replace(/^@/, '') : undefined;
+        }
+        if (fullNameEn !== undefined) {
+          p2.fullNameEn = fullNameEn.trim() || undefined;
+        }
+        if (whatsappNumber !== undefined) {
+          p2.whatsappNumber = whatsappNumber.trim();
+        }
+        if (whatsappCountry !== undefined) {
+          p2.whatsappCountry = whatsappCountry.trim();
+        }
+        updatedRecord.partner2 = p2;
+      }
+
+      await adminDb.collection(RELATIONSHIPS_COL).doc(record.id).set(updatedRecord);
+
+      // Update certificate projection for english display names if present
+      if (record.verificationRef && fullNameEn !== undefined) {
+        await adminDb.collection(CERTIFICATES_COL).doc(record.verificationRef).set({
+          partner1En: updatedRecord.partner1.fullNameEn || null,
+          partner2En: updatedRecord.partner2.fullNameEn || null
+        }, { merge: true });
+      }
+
+      return res.json({ success: true, record: updatedRecord });
+    } catch (error) {
+      console.error('Error updating personal profile:', error);
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Shared trusted backend operation for relationship termination
+  interface TerminateRelationshipResult {
+    updatedRecord: RelationshipRecord;
+    partnerUid: string | null;
+    requesterName: string;
+  }
+
+  async function terminateActiveRelationship(
+    db: FirebaseFirestore.Firestore,
+    callerUid: string,
+    record: RelationshipRecord,
+    batch: FirebaseFirestore.WriteBatch,
+    endReason: string = 'user_ended'
+  ): Promise<TerminateRelationshipResult> {
+    if (record.status !== 'active') {
+      throw new Error('ACTIVE_RELATIONSHIP_NOT_FOUND');
+    }
+
+    if (record.p1Uid !== callerUid && record.p2Uid !== callerUid) {
+      throw new Error('NOT_RELATIONSHIP_PARTICIPANT');
+    }
+
+    const nowIso = new Date().toISOString();
+    const updatedRecord: RelationshipRecord = {
+      ...record,
+      status: 'ended'
+    };
+
+    const partnerUid = (record.p1Uid === callerUid ? record.p2Uid : record.p1Uid) || null;
+    const requesterName = record.p1Uid === callerUid ? record.partner1.fullName : record.partner2.fullName;
+
+    // 1. Authoritative relationship document status transition and audit trail
+    batch.set(db.collection(RELATIONSHIPS_COL).doc(record.id), {
+      status: 'ended',
+      previousStatus: record.status,
+      endedAt: nowIso,
+      endedByUid: callerUid,
+      endReason,
+      actionType: endReason === 'account_deletion' ? 'end_relationship_and_delete_account' : 'end_relationship'
+    }, { merge: true });
+
+    // 2. Deactivate public certificate projection and QR verification
+    if (record.verificationRef) {
+      batch.set(db.collection(CERTIFICATES_COL).doc(record.verificationRef), {
+        status: 'ended',
+        endedAt: nowIso
+      }, { merge: true });
+    }
+
+    // 3. Clear active relationship pointer from both partners (keeps user profile intact)
+    if (record.p1Uid) {
+      batch.set(db.collection(USERS_COL).doc(record.p1Uid), {
+        activeRecordId: FieldValue.delete(),
+        updatedAt: nowIso
+      }, { merge: true });
+    }
+    if (record.p2Uid) {
+      batch.set(db.collection(USERS_COL).doc(record.p2Uid), {
+        activeRecordId: FieldValue.delete(),
+        updatedAt: nowIso
+      }, { merge: true });
+    }
+
+    // 4. Close/cancel all pending change requests for this relationship to prevent stale approvals
+    const pendingSnap = await db.collection(CHANGE_REQUESTS_COL)
+      .where('recordId', '==', record.id)
+      .where('status', '==', 'pending')
+      .get();
+
+    pendingSnap.forEach((doc) => {
+      batch.set(doc.ref, {
+        status: 'declined',
+        declinedReason: 'relationship_ended',
+        decidedAt: nowIso,
+        decisionByUid: callerUid
+      }, { merge: true });
+    });
+
+    // 5. Send informational in-app notification to the other partner
+    if (partnerUid) {
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      batch.set(db.collection(NOTIFICATIONS_COL).doc(notifId), {
+        id: notifId,
+        userId: partnerUid,
+        type: 'relationship_ended',
+        recordId: record.id,
+        senderName: requesterName,
+        messageAr: `قام ${requesterName} بإنهاء العلاقة.`,
+        messageEn: `${requesterName} ended the relationship.`,
+        secondaryAr: 'لم تعد شهادة العلاقة نشطة.',
+        secondaryEn: 'The relationship certificate is no longer active.',
+        createdAt: nowIso,
+        read: false
+      });
+    }
+
+    return {
+      updatedRecord,
+      partnerUid,
+      requesterName
+    };
+  }
+
+  app.post('/api/relationship/end', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const record = await getOwnedRecord(user.uid);
+      if (!record || record.status !== 'active') {
+        return res.status(404).json({ error: 'ACTIVE_RELATIONSHIP_NOT_FOUND' });
+      }
+
+      if (req.body?.relationshipId && req.body.relationshipId !== record.id) {
+        return res.status(403).json({ error: 'RELATIONSHIP_MISMATCH' });
+      }
+
+      const batch = adminDb.batch();
+      const { updatedRecord } = await terminateActiveRelationship(adminDb, user.uid, record, batch, 'unilateral_end');
+      await batch.commit();
+
+      return res.json({ success: true, record: updatedRecord });
+    } catch (error) {
+      console.error('Error ending relationship:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg === 'NOT_RELATIONSHIP_PARTICIPANT') return res.status(403).json({ error: msg });
+      if (msg === 'ACTIVE_RELATIONSHIP_NOT_FOUND') return res.status(404).json({ error: msg });
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: msg
+      });
+    }
+  });
+
+  app.post('/api/account/delete', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const record = await getOwnedRecord(user.uid);
+
+      if (req.body?.relationshipId && record && req.body.relationshipId !== record.id) {
+        return res.status(403).json({ error: 'RELATIONSHIP_MISMATCH' });
+      }
+
+      const batch = adminDb.batch();
+
+      // If user has an active relationship, terminate it via the shared termination flow first
+      if (record && record.status === 'active') {
+        await terminateActiveRelationship(adminDb, user.uid, record, batch, 'account_deletion');
+      }
+
+      // Delete ONLY the requesting user's Firestore user document
+      batch.delete(adminDb.collection(USERS_COL).doc(user.uid));
+      await batch.commit();
+
+      // Delete ONLY the requesting user from Firebase Auth
+      if (adminAuth) {
+        try {
+          await adminAuth.deleteUser(user.uid);
+        } catch (authErr) {
+          console.error('Error deleting auth user in adminAuth:', authErr);
+        }
+      }
+
+      return res.json({ success: true, message: 'ACCOUNT_DELETED' });
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg === 'NOT_RELATIONSHIP_PARTICIPANT') return res.status(403).json({ error: msg });
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: msg
+      });
+    }
+  });
+
+  app.get('/api/notifications', requireAuth, async (_req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const snap = await adminDb.collection(NOTIFICATIONS_COL)
+        .where('userId', '==', user.uid)
+        .where('read', '==', false)
+        .orderBy('createdAt', 'desc')
+        .limit(10)
+        .get();
+
+      const notifications: AppNotification[] = [];
+      snap.forEach((doc) => {
+        notifications.push(doc.data() as AppNotification);
+      });
+      return res.json({ notifications });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      return res.status(500).json({
+        error: 'DATABASE_ERROR',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post('/api/notifications/:id/dismiss', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const notifRef = adminDb.collection(NOTIFICATIONS_COL).doc(req.params.id);
+      const notifDoc = await notifRef.get();
+      if (!notifDoc.exists) return res.status(404).json({ error: 'NOTIFICATION_NOT_FOUND' });
+      const notif = notifDoc.data() as AppNotification;
+      if (notif.userId !== user.uid) return res.status(403).json({ error: 'UNAUTHORIZED' });
+
+      await notifRef.update({ read: true });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('Error dismissing notification:', error);
       return res.status(500).json({
         error: 'DATABASE_ERROR',
         details: error instanceof Error ? error.message : String(error)

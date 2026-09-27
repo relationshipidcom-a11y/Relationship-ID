@@ -1,5 +1,5 @@
-import React from 'react';
-import { Globe, LogOut, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Globe, LogOut, ShieldCheck, MoreVertical, Edit3, HeartOff, Trash2, Home } from 'lucide-react';
 import { Language, ScreenId } from '../types';
 import { translations } from '../i18n/translations';
 
@@ -10,29 +10,80 @@ interface TopBarProps {
   onNavigate: (screen: ScreenId) => void;
   onOpenVerifyModal?: () => void;
   onSignOut?: () => void;
+  onAdjustInfo?: () => void;
+  onExitRelationship?: () => void;
+  onDeleteAccount?: () => void;
+  onHome?: () => void;
   signedIn?: boolean;
+  isAtHome?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
   language,
   onToggleLanguage,
+  currentScreen,
   onOpenVerifyModal,
   onSignOut,
-  signedIn = false
+  onAdjustInfo,
+  onExitRelationship,
+  onDeleteAccount,
+  onHome,
+  signedIn = false,
+  isAtHome = false
 }) => {
   const t = translations[language];
+  const targetLanguageLabel = language === 'ar' ? 'English' : 'العربية';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const showHomeButton = signedIn && onHome && !isAtHome;
 
   return (
     <header className="px-4 pt-4 pb-3 border-b border-white/10 flex items-center justify-between gap-2 relative z-30">
-      <button
-        onClick={onToggleLanguage}
-        aria-label={t.languageLabel}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#211c38] text-xs text-[#b6afd4] hover:text-white transition-colors cursor-pointer"
-        type="button"
-      >
-        <Globe className="w-3.5 h-3.5 text-[#f3c4db]" />
-        <span className="font-medium">{t.languageLabel}</span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        {showHomeButton && (
+          <button
+            onClick={onHome}
+            aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
+            title={language === 'ar' ? 'الرئيسية' : 'Home'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#211c38] text-xs text-[#b6afd4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
+            type="button"
+          >
+            <Home className="w-3.5 h-3.5 text-[#f3c4db]" />
+            <span className="font-medium hidden sm:inline">{t.homeBtn}</span>
+          </button>
+        )}
+        <button
+          onClick={onToggleLanguage}
+          aria-label={language === 'ar' ? 'Switch to English' : 'التحويل إلى اللغة العربية'}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#211c38] text-xs text-[#b6afd4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
+          type="button"
+        >
+          <Globe className="w-3.5 h-3.5 text-[#f3c4db]" />
+          <span className="font-medium">{targetLanguageLabel}</span>
+        </button>
+      </div>
 
       <div className="text-center flex-1 select-none">
         <h1 className="text-sm font-bold tracking-tight text-white leading-none">{t.appName}</h1>
@@ -40,29 +91,118 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       <div className="flex items-center gap-1.5">
-        {signedIn && onSignOut && (
-          <button
-            onClick={onSignOut}
-            title={language === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
-            aria-label={language === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
-            className="w-9 h-9 rounded-full bg-[#211c38] border border-white/20 flex items-center justify-center text-[#b6afd4] hover:text-white transition-colors cursor-pointer"
-            type="button"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+        {signedIn ? (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              aria-label={t.accountMenuLabel}
+              title={t.accountMenuLabel}
+              className="w-9 h-9 rounded-full bg-[#211c38] border border-white/20 flex items-center justify-center text-[#b6afd4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
+              type="button"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                aria-label={t.accountMenuLabel}
+                className="absolute top-full mt-2 ltr:right-0 rtl:left-0 w-52 sm:w-56 py-1.5 rounded-2xl bg-[#1f1938] border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col text-start animate-in fade-in zoom-in-95 duration-100"
+              >
+                {/* 1. Adjust My Information */}
+                {onAdjustInfo && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAdjustInfo();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                  >
+                    <Edit3 className="w-4 h-4 text-[#f3c4db] shrink-0" />
+                    <span className="font-medium">{t.adjustMyInfoMenu}</span>
+                  </button>
+                )}
+
+                {/* 2. Verify Relationship */}
+                {onOpenVerifyModal && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenVerifyModal();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#f3c4db] shrink-0" />
+                    <span className="font-medium">{t.verifyRelationshipMenu}</span>
+                  </button>
+                )}
+
+                {/* 3. Sign Out */}
+                {onSignOut && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onSignOut();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#b6afd4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                  >
+                    <LogOut className="w-4 h-4 text-[#8e84af] shrink-0" />
+                    <span className="font-medium">{t.signOutMenu}</span>
+                  </button>
+                )}
+
+                {/* Divider */}
+                {(onExitRelationship || onDeleteAccount) && (
+                  <div className="my-1 border-t border-white/10" />
+                )}
+
+                {/* 4. End Relationship */}
+                {onExitRelationship && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onExitRelationship();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-amber-300 hover:bg-amber-950/40 transition-colors text-start cursor-pointer focus:outline-none focus:bg-amber-950/60"
+                  >
+                    <HeartOff className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span className="font-medium">{t.endRelationshipMenu}</span>
+                  </button>
+                )}
+
+                {/* 5. End Relationship & Delete Account */}
+                {onDeleteAccount && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onDeleteAccount();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-rose-400 hover:bg-rose-950/40 transition-colors text-start cursor-pointer focus:outline-none focus:bg-rose-950/60"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span className="font-medium">{t.endRelationshipAndDeleteAccountMenu}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="w-9" aria-hidden="true" />
         )}
-        {onOpenVerifyModal ? (
-          <button
-            onClick={onOpenVerifyModal}
-            title={language === 'ar' ? 'التحقق من شهادة' : 'Verify a certificate'}
-            aria-label={language === 'ar' ? 'التحقق من شهادة' : 'Verify a certificate'}
-            className="w-9 h-9 rounded-full bg-[#211c38] border border-white/20 flex items-center justify-center text-[#f3c4db] hover:text-white transition-colors cursor-pointer"
-            type="button"
-          >
-            <ShieldCheck className="w-4 h-4" />
-          </button>
-        ) : <div className="w-9" />}
       </div>
     </header>
   );
 };
+

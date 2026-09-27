@@ -19,7 +19,7 @@ interface P1InviteScreenProps {
     partner2Whatsapp?: string;
     partner2WhatsappCountry?: string;
   }) => Promise<void> | void;
-  onBackToP1: () => void;
+  onBackToP1?: () => void;
 }
 
 export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
@@ -27,8 +27,7 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
   defaultPartnerName = '',
   defaultPartnerEmail = '',
   defaultPartnerPhone = '',
-  onCreateInvite,
-  onBackToP1
+  onCreateInvite
 }) => {
   const t = translations[language];
   const [partnerName, setPartnerName] = useState(defaultPartnerName);
@@ -79,7 +78,7 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
 
   return (
     <div className="flex-1 px-4 py-3 flex flex-col justify-between">
-      <section className="mb-4 flex justify-center">
+      <section className="mb-4 flex items-center justify-end">
         <div className="inline-flex items-center gap-1 bg-[#1a1530] border border-white/10 rounded-full px-3 py-1 text-xs text-[#b6afd4]">
           <span className="w-4 h-4 rounded-full bg-[#2a2447] text-[11px] flex items-center justify-center font-bold">1</span>
           <span className="text-[11px]">{t.step1Tab}</span>
@@ -136,7 +135,6 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
             <Sparkles className="w-4 h-4" />
             <span>{submitting ? '...' : t.createInviteBtn}</span>
           </button>
-          <button type="button" onClick={onBackToP1} className="w-full py-3 px-4 rounded-xl bg-[#211c38] hover:bg-[#2e264f] border border-white/20 text-white font-medium text-xs cursor-pointer">{t.backToYourDataBtn}</button>
         </div>
       </form>
     </div>

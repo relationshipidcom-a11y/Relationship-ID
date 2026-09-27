@@ -12,7 +12,7 @@ import {
 } from './types';
 import { auth, db } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { authFetch } from './utils/api';
+import { authFetch, parseApiError, getLocalizedErrorMessage } from './utils/api';
 import { TopBar } from './components/TopBar';
 import { AuthScreen } from './components/AuthScreen';
 import { P1RegistrationScreen } from './components/P1RegistrationScreen';
@@ -24,7 +24,10 @@ import { P2RegistrationScreen } from './components/P2RegistrationScreen';
 import { ReviewControlsScreen } from './components/ReviewControlsScreen';
 import { CertificateScreen } from './components/CertificateScreen';
 import { VerifyPortalModal } from './components/VerifyPortalModal';
-import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AccountActionModals } from './components/AccountActionModals';
+import { ChangeRequestModal } from './components/ChangeRequestModal';
+import { ChangeRequest, AppNotification } from './types';
+import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X } from 'lucide-react';
 
 const emptyPartner = (): PartnerData => ({
   fullName: '',
@@ -79,17 +82,18 @@ const getRouteState = (): { screen: ScreenId; inviteId?: string; certRef?: strin
   if (typeof window === 'undefined') return { screen: 'auth' };
   const path = window.location.pathname;
   const inviteAuthMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)\/auth/);
-  if (inviteAuthMatch) return { screen: 'p2_auth', inviteId: inviteAuthMatch[1] };
+  if (inviteAuthMatch && inviteAuthMatch[1] !== 'current') return { screen: 'p2_auth', inviteId: inviteAuthMatch[1] };
   const inviteDetailsMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)\/(?:details|complete)/);
-  if (inviteDetailsMatch) return { screen: 'p2_details', inviteId: inviteDetailsMatch[1] };
+  if (inviteDetailsMatch && inviteDetailsMatch[1] !== 'current') return { screen: 'p2_details', inviteId: inviteDetailsMatch[1] };
   const inviteLandingMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)/);
-  if (inviteLandingMatch) return { screen: 'p2_landing', inviteId: inviteLandingMatch[1] };
+  if (inviteLandingMatch && inviteLandingMatch[1] !== 'current') return { screen: 'p2_landing', inviteId: inviteLandingMatch[1] };
   const certMatch = path.match(/^\/(?:cert|certificate)(?:\/([a-zA-Z0-9_-]+))?/);
   if (certMatch) return { screen: 'official_certificate', certRef: certMatch[1] };
   const verifyMatch = path.match(/^\/verify(?:\/([a-zA-Z0-9_-]+))?/);
   if (verifyMatch) return { screen: 'verify_portal', certRef: verifyMatch[1] };
   if (path === '/review') return { screen: 'review_controls' };
   if (path === '/waiting') return { screen: 'p1_waiting' };
+  if (path === '/p2') return { screen: 'p2_details' };
   return { screen: 'auth' };
 };
 
@@ -105,12 +109,6 @@ const formatStartDate = (iso: string, locale: 'en' | 'ar') => {
   return new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
 };
 
-const parseApiError = async (response: Response) => {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `HTTP_${response.status}`);
-  return data;
-};
-
 export default function App() {
   const [language, setLanguage] = useState<Language>('ar');
   const [currentScreen, setCurrentScreen] = useState<ScreenId>(() => getRouteState().screen);
@@ -121,14 +119,60 @@ export default function App() {
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [appError, setAppError] = useState('');
   const [p2PendingAction, setP2PendingAction] = useState<'accept' | 'decline'>('accept');
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+  const [accountActionLoading, setAccountActionLoading] = useState(false);
+  const [accountActionError, setAccountActionError] = useState('');
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [activeNotification, setActiveNotification] = useState<AppNotification | null>(null);
   const hasAutoNavigatedRef = useRef(false);
+  const activeAuthUidRef = useRef<string | null>(null);
+  const privateRecordRequestIdRef = useRef(0);
+  const invitationRequestIdRef = useRef(0);
 
   const allowScreenExplorer = useMemo(
     () => import.meta.env.DEV && import.meta.env.VITE_ENABLE_SCREEN_EXPLORER === 'true',
     []
   );
 
+  const fetchNotifications = async () => {
+    if (!auth?.currentUser) return;
+    try {
+      const res = await authFetch('/api/notifications');
+      const data = await parseApiError(res);
+      if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+        const latest = data.notifications[0];
+        setActiveNotification(latest);
+        if (latest.type === 'relationship_ended') {
+          // Sync local state: clear active relationship
+          setRecord((prev) => ({
+            ...initialRecord,
+            partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
+          }));
+          setInvitation(initialInvitation);
+        }
+      }
+    } catch {
+      // ignore background notification poll errors
+    }
+  };
+
+  const handleDismissNotification = async (notifId: string) => {
+    try {
+      await authFetch(`/api/notifications/${notifId}/dismiss`, { method: 'POST' });
+    } catch {
+      // ignore
+    }
+    setActiveNotification(null);
+    navigateTo('p1_details', '/');
+  };
+
   const navigateTo = (screen: ScreenId, path?: string) => {
+    // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating currentScreen
+    if (auth?.currentUser && activeAuthUidRef.current !== auth.currentUser.uid) {
+      return;
+    }
     if (screen === 'p1_waiting') {
       hasAutoNavigatedRef.current = false;
     }
@@ -138,22 +182,52 @@ export default function App() {
 
   const loadPrivateRecord = async (routeAfterLoad = false) => {
     if (!auth?.currentUser) return null;
+    const requestUid = auth.currentUser.uid;
+    const requestId = ++privateRecordRequestIdRef.current;
+    activeAuthUidRef.current = requestUid;
     try {
       const response = await authFetch('/api/record');
       const data = await parseApiError(response);
+
+      // Guard against stale async responses after sign-out, account switch, or superseded requests
+      if (
+        privateRecordRequestIdRef.current !== requestId ||
+        activeAuthUidRef.current !== requestUid ||
+        !auth?.currentUser ||
+        auth.currentUser.uid !== requestUid
+      ) {
+        return null;
+      }
+
       const loadedRecord = data.record as RelationshipRecord | null;
       const loadedInvitation = data.invitation as Invitation | null;
 
       if (loadedRecord) setRecord(loadedRecord);
       else setRecord(initialRecord);
+
       if (loadedInvitation) setInvitation(loadedInvitation);
       else setInvitation(initialInvitation);
 
       if (routeAfterLoad) {
+        // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before triggering navigateTo
+        if (
+          !auth?.currentUser ||
+          activeAuthUidRef.current !== auth.currentUser.uid ||
+          activeAuthUidRef.current !== requestUid
+        ) {
+          return null;
+        }
         if (!loadedRecord) {
           navigateTo('p1_details', '/');
         } else if (loadedRecord.status === 'active') {
-          navigateTo('review_controls', '/review');
+          if (loadedRecord.p2Uid === requestUid) {
+            const p2InviteId = (loadedRecord.inviteId && loadedRecord.inviteId !== 'current')
+              ? loadedRecord.inviteId
+              : (loadedInvitation?.id && loadedInvitation.id !== 'current' ? loadedInvitation.id : '');
+            navigateTo('p2_details', p2InviteId ? `/invite/${p2InviteId}/details` : '/p2');
+          } else {
+            navigateTo('p1_details', '/');
+          }
         } else if (loadedRecord.status === 'pending_partner' && loadedInvitation?.id) {
           navigateTo('p1_waiting', '/waiting');
         } else if (loadedRecord.partner1.fullName) {
@@ -164,19 +238,53 @@ export default function App() {
       }
       return data;
     } catch (error) {
-      setAppError(error instanceof Error ? error.message : 'Unable to load relationship');
+      if (
+        privateRecordRequestIdRef.current === requestId &&
+        activeAuthUidRef.current === requestUid &&
+        auth?.currentUser?.uid === requestUid
+      ) {
+        setAppError(getLocalizedErrorMessage(error, language));
+      }
       return null;
     }
   };
 
-  const loadInvitation = async (inviteId: string) => {
+  const loadInvitation = async (inviteId: string, skipRecordOverwrite = false) => {
+    if (!inviteId || inviteId === 'current') return;
+    const requestUid = auth?.currentUser?.uid || null;
+    const requestId = ++invitationRequestIdRef.current;
     try {
       const response = await fetch(`/api/invitations/${inviteId}`);
       const data = await parseApiError(response);
+
+      // Guard against stale asynchronous responses after sign-out, account switch, or superseded requests
+      if (
+        invitationRequestIdRef.current !== requestId ||
+        activeAuthUidRef.current !== requestUid ||
+        (auth?.currentUser?.uid || null) !== requestUid
+      ) {
+        return;
+      }
+
       if (data.invitation) setInvitation(data.invitation);
-      if (data.record) setRecord(data.record);
+
+      // A public invitation preview must never replace an authorized private active record
+      if (!skipRecordOverwrite && data.record) {
+        setRecord((prev) => {
+          if (prev.status === 'active' && prev.p1Uid && (prev.p1Uid === requestUid || prev.p2Uid === requestUid)) {
+            return prev;
+          }
+          return data.record;
+        });
+      }
     } catch (error) {
-      setAppError(error instanceof Error ? error.message : 'Unable to load invitation');
+      if (
+        invitationRequestIdRef.current === requestId &&
+        activeAuthUidRef.current === requestUid &&
+        (auth?.currentUser?.uid || null) === requestUid
+      ) {
+        setAppError(getLocalizedErrorMessage(error, language));
+      }
     }
   };
 
@@ -186,33 +294,81 @@ export default function App() {
     if (auth) auth.languageCode = language;
   }, [language]);
 
+  // Single coordinated authority for initial startup, login, and logout lifecycle
   useEffect(() => {
-    if (!auth) return;
-    return onAuthStateChanged(auth, (user) => {
+    if (!auth) {
+      const route = getRouteState();
+      if (route.inviteId && route.inviteId !== 'current') {
+        void loadInvitation(route.inviteId);
+      }
+      return;
+    }
+    return onAuthStateChanged(auth, async (user) => {
       if (user) {
+        activeAuthUidRef.current = user.uid;
         setAuthUser(toAuthUser(user.uid, user.email, user.displayName));
         const route = getRouteState();
-        if (!route.inviteId) void loadPrivateRecord(route.screen === 'auth');
+
+        // Always load private record for authenticated users regardless of route
+        const privateData = await loadPrivateRecord(route.screen === 'auth');
+        // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before continuing
+        if (
+          !privateData ||
+          activeAuthUidRef.current !== user.uid ||
+          !auth?.currentUser ||
+          auth.currentUser.uid !== user.uid
+        ) {
+          return;
+        }
+        const activeRecord = privateData.record as RelationshipRecord | null;
+
+        // If route has an inviteId:
+        if (route.inviteId && route.inviteId !== 'current') {
+          const isAlreadyActive = Boolean(activeRecord && activeRecord.status === 'active');
+          void loadInvitation(route.inviteId, isAlreadyActive);
+        }
       } else {
+        activeAuthUidRef.current = null;
+        privateRecordRequestIdRef.current += 1;
+        invitationRequestIdRef.current += 1;
         setAuthUser(null);
         setRecord(initialRecord);
         setInvitation(initialInvitation);
         hasAutoNavigatedRef.current = false;
+        const route = getRouteState();
+        if (route.inviteId && route.inviteId !== 'current') {
+          void loadInvitation(route.inviteId);
+        }
       }
     });
   }, []);
 
   useEffect(() => {
-    const route = getRouteState();
-    if (route.inviteId) void loadInvitation(route.inviteId);
-    else if (auth?.currentUser) void loadPrivateRecord();
-  }, []);
-
-  useEffect(() => {
     const handlePopState = () => {
       const route = getRouteState();
+      // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating currentScreen or triggering navigateTo
+      if (auth?.currentUser && activeAuthUidRef.current !== auth.currentUser.uid) {
+        return;
+      }
       setCurrentScreen(route.screen);
-      if (route.inviteId) void loadInvitation(route.inviteId);
+      if (auth?.currentUser) {
+        void loadPrivateRecord().then((data) => {
+          if (
+            !data ||
+            !auth?.currentUser ||
+            activeAuthUidRef.current !== auth.currentUser.uid
+          ) {
+            return;
+          }
+          const rec = data.record as RelationshipRecord | null;
+          const isActive = rec?.status === 'active';
+          if (route.inviteId && route.inviteId !== 'current') {
+            void loadInvitation(route.inviteId, isActive);
+          }
+        });
+      } else if (route.inviteId && route.inviteId !== 'current') {
+        void loadInvitation(route.inviteId);
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -224,10 +380,28 @@ export default function App() {
     const unsub = onSnapshot(
       doc(db, 'users', authUser.id),
       (userSnap) => {
+        // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
+        if (
+          !auth?.currentUser ||
+          activeAuthUidRef.current !== auth.currentUser.uid ||
+          auth.currentUser.uid !== authUser.id
+        ) {
+          return;
+        }
         if (userSnap.exists()) {
           const data = userSnap.data();
           if (data.activeRecordId && data.activeRecordId !== record.id) {
             void loadPrivateRecord();
+          } else if (!data.activeRecordId && record.status === 'active') {
+            // Relationship was ended by partner
+            setRecord((prev) => ({
+              ...initialRecord,
+              partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
+            }));
+            setInvitation(initialInvitation);
+            setChangeRequests([]);
+            void fetchNotifications();
+            navigateTo('p1_details', '/');
           }
         }
       },
@@ -237,7 +411,7 @@ export default function App() {
       }
     );
     return () => unsub();
-  }, [authUser?.id, record.id]);
+  }, [authUser?.id, record.id, record.status]);
 
   // Real-time listener for active relationship document (/relationships/{recordId})
   useEffect(() => {
@@ -245,14 +419,33 @@ export default function App() {
     const unsub = onSnapshot(
       doc(db, 'relationships', record.id),
       (relSnap) => {
+        // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
+        if (
+          !auth?.currentUser ||
+          activeAuthUidRef.current !== auth.currentUser.uid ||
+          auth.currentUser.uid !== authUser.id
+        ) {
+          return;
+        }
         if (relSnap.exists()) {
           const updated = relSnap.data() as RelationshipRecord;
-          setRecord(updated);
-          // When P2 accepts and status becomes active, advance P1 waiting screen automatically once
-          if (updated.status === 'active' && currentScreen === 'p1_waiting') {
-            if (!hasAutoNavigatedRef.current) {
-              hasAutoNavigatedRef.current = true;
-              navigateTo('review_controls', '/review');
+          if (updated.status === 'ended') {
+            setRecord((prev) => ({
+              ...initialRecord,
+              partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
+            }));
+            setInvitation(initialInvitation);
+            setChangeRequests([]);
+            void fetchNotifications();
+            navigateTo('p1_details', '/');
+          } else {
+            setRecord(updated);
+            // When P2 accepts and status becomes active, advance P1 waiting screen automatically once
+            if (updated.status === 'active' && currentScreen === 'p1_waiting') {
+              if (!hasAutoNavigatedRef.current) {
+                hasAutoNavigatedRef.current = true;
+                navigateTo('review_controls', '/review');
+              }
             }
           }
         }
@@ -270,6 +463,14 @@ export default function App() {
     const unsub = onSnapshot(
       doc(db, 'invitations', invitation.id),
       (invSnap) => {
+        // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
+        if (
+          !auth?.currentUser ||
+          activeAuthUidRef.current !== auth.currentUser.uid ||
+          auth.currentUser.uid !== authUser.id
+        ) {
+          return;
+        }
         if (invSnap.exists()) {
           const updated = invSnap.data() as Invitation;
           setInvitation(updated);
@@ -303,14 +504,128 @@ export default function App() {
   const handleSignOut = async () => {
     if (!auth) return;
     setAppError('');
+    activeAuthUidRef.current = null;
+    privateRecordRequestIdRef.current += 1;
+    invitationRequestIdRef.current += 1;
     try {
       await signOut(auth);
       setAuthUser(null);
       setRecord(initialRecord);
       setInvitation(initialInvitation);
+      setChangeRequests([]);
+      setActiveNotification(null);
       navigateTo('auth', '/');
     } catch (error) {
-      setAppError(error instanceof Error ? error.message : 'Unable to sign out');
+      setAppError(getLocalizedErrorMessage(error, language));
+    }
+  };
+
+  const fetchChangeRequests = async () => {
+    try {
+      const res = await authFetch('/api/change-requests');
+      const data = await parseApiError(res);
+      if (Array.isArray(data.changeRequests)) {
+        setChangeRequests(data.changeRequests);
+      }
+    } catch (err) {
+      console.error('Failed to fetch change requests:', err);
+    }
+  };
+
+  const handleAdjustInfo = () => {
+    void fetchChangeRequests();
+    setShowChangeRequestModal(true);
+  };
+
+  const handleConfirmExitRelationship = async () => {
+    setAccountActionLoading(true);
+    setAccountActionError('');
+    try {
+      const res = await authFetch('/api/relationship/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relationshipId: record.id })
+      });
+      await parseApiError(res);
+      setShowExitModal(false);
+      // Keep current user's personal profile and reset relationship state
+      setRecord((prev) => ({
+        ...initialRecord,
+        partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
+      }));
+      setInvitation(initialInvitation);
+      setChangeRequests([]);
+      navigateTo('p1_details', '/');
+    } catch (err) {
+      setAccountActionError(getLocalizedErrorMessage(err, language));
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setAccountActionLoading(true);
+    setAccountActionError('');
+    try {
+      const res = await authFetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relationshipId: record.id })
+      });
+      await parseApiError(res);
+      setShowDeleteModal(false);
+      await handleSignOut();
+    } catch (err) {
+      setAccountActionError(getLocalizedErrorMessage(err, language));
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleSubmitChangeRequest = async (field: string, proposedValue: string) => {
+    const res = await authFetch('/api/change-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field, proposedValue })
+    });
+    const data = await parseApiError(res);
+    if (data.changeRequest) {
+      setChangeRequests((prev) => [data.changeRequest, ...prev.filter((c) => c.id !== data.changeRequest.id)]);
+    }
+  };
+
+  const handleSavePersonalInfo = async (personalData: { socialHandle?: string; fullNameEn?: string; whatsappNumber?: string; whatsappCountry?: string }) => {
+    const res = await authFetch('/api/profile/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(personalData)
+    });
+    const data = await parseApiError(res);
+    if (data.record) {
+      setRecord(data.record);
+    }
+  };
+
+  const handleApproveChangeRequest = async (requestId: string) => {
+    const res = await authFetch(`/api/change-requests/${requestId}/approve`, {
+      method: 'POST'
+    });
+    const data = await parseApiError(res);
+    if (data.record) {
+      setRecord(data.record);
+    }
+    if (data.changeRequest) {
+      setChangeRequests((prev) => prev.map((c) => (c.id === requestId ? data.changeRequest : c)));
+    }
+  };
+
+  const handleDeclineChangeRequest = async (requestId: string) => {
+    const res = await authFetch(`/api/change-requests/${requestId}/decline`, {
+      method: 'POST'
+    });
+    const data = await parseApiError(res);
+    if (data.changeRequest) {
+      setChangeRequests((prev) => prev.map((c) => (c.id === requestId ? data.changeRequest : c)));
     }
   };
 
@@ -356,7 +671,7 @@ export default function App() {
       if (data.record) setRecord(data.record);
       navigateTo('p1_invite_create');
     } catch (error) {
-      setAppError(error instanceof Error ? error.message : 'Unable to cancel invitation');
+      setAppError(getLocalizedErrorMessage(error, language));
     }
   };
 
@@ -395,6 +710,9 @@ export default function App() {
       body: JSON.stringify({ partner2: p2Data })
     });
     const data = await parseApiError(response);
+    if (!data.success || !data.record || data.record.status !== 'active') {
+      throw new Error(data.error || 'ACCEPTANCE_FAILED_OR_INACTIVE');
+    }
     setInvitation(data.invitation);
     setRecord(data.record);
     navigateTo('official_certificate', `/certificate/${data.record.verificationRef}`);
@@ -424,6 +742,31 @@ export default function App() {
     { id: 'verify_portal', labelAr: '11. التحقق', labelEn: '11. Verify' }
   ];
 
+  const hasActiveRelationship = record?.status === 'active';
+  const isP2User = Boolean(authUser?.id && record?.p2Uid === authUser.id);
+  const isParticipant = Boolean(
+    authUser?.id &&
+    hasActiveRelationship &&
+    (record.p1Uid === authUser.id || record.p2Uid === authUser.id)
+  );
+  const homeScreen: ScreenId = (isP2User && hasActiveRelationship) ? 'p2_details' : 'p1_details';
+  const isAtHome = currentScreen === homeScreen;
+
+  const handleGoHome = () => {
+    if (isP2User && hasActiveRelationship) {
+      const p2InviteId = (record.inviteId && record.inviteId !== 'current')
+        ? record.inviteId
+        : (invitation.id && invitation.id !== 'current' ? invitation.id : '');
+      if (p2InviteId) {
+        navigateTo('p2_details', `/invite/${p2InviteId}/details`);
+      } else {
+        navigateTo('p2_details', '/p2');
+      }
+    } else {
+      navigateTo('p1_details', '/');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#110d21] text-slate-100 flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#9b6682] selection:text-white">
       <div className="w-full max-w-[430px] min-h-[844px] bg-[#1a1530] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-white/15">
@@ -435,6 +778,17 @@ export default function App() {
           onOpenVerifyModal={() => setShowVerifyModal(true)}
           signedIn={Boolean(authUser)}
           onSignOut={() => void handleSignOut()}
+          onAdjustInfo={handleAdjustInfo}
+          onHome={authUser ? handleGoHome : undefined}
+          isAtHome={isAtHome}
+          onExitRelationship={hasActiveRelationship ? () => {
+            setAccountActionError('');
+            setShowExitModal(true);
+          } : undefined}
+          onDeleteAccount={hasActiveRelationship ? () => {
+            setAccountActionError('');
+            setShowDeleteModal(true);
+          } : undefined}
         />
 
         {appError && (
@@ -458,6 +812,10 @@ export default function App() {
               relationshipType={record.type}
               initialStartDate={record.startDateIso || ''}
               onSaveAndNext={handleP1SaveAndNext}
+              isActive={hasActiveRelationship}
+              record={record}
+              onRequestChange={handleAdjustInfo}
+              onViewControls={() => navigateTo('review_controls', '/review')}
             />
           )}
 
@@ -501,8 +859,8 @@ export default function App() {
                 if (auth?.currentUser) navigateTo('p2_details', `/invite/${invitation.id}/complete`);
                 else navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
               }}
-              onDecline={() => void handleDeclineInvitation().catch((error) => setAppError(error instanceof Error ? error.message : 'Unable to decline invitation'))}
-              onViewCertificate={() => navigateTo('official_certificate', `/certificate/${record.verificationRef}`)}
+              onDecline={() => void handleDeclineInvitation().catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
+              onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
             />
           )}
 
@@ -520,7 +878,8 @@ export default function App() {
               language={language}
               record={{ ...record, partner2: { ...record.partner2, email: record.partner2.email || authUser?.email || '' } }}
               onAcceptRelationship={handleAcceptRelationship}
-              onBackToInvite={() => navigateTo('p2_landing', `/invite/${invitation.id}`)}
+              onRequestChange={handleAdjustInfo}
+              onViewControls={() => navigateTo('review_controls', '/review')}
             />
           )}
 
@@ -528,14 +887,35 @@ export default function App() {
             <ReviewControlsScreen
               language={language}
               record={record}
-              onUpdateSettings={(settings) => void handleUpdateSettings(settings).catch((error) => setAppError(error instanceof Error ? error.message : 'Unable to update settings'))}
-              onEditDetails={() => navigateTo('p1_details')}
+              currentUserId={authUser?.id}
+              onUpdateSettings={(settings) => void handleUpdateSettings(settings).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
+              onEditDetails={() => navigateTo(isP2User ? 'p2_details' : 'p1_details')}
               onViewCertificate={() => navigateTo('official_certificate', `/certificate/${record.verificationRef}`)}
+              onRecordUpdated={(updated) => setRecord(updated)}
+              onExitRelationship={hasActiveRelationship ? () => {
+                setAccountActionError('');
+                setShowExitModal(true);
+              } : undefined}
             />
           )}
 
           {currentScreen === 'official_certificate' && (
-            <CertificateScreen language={language} record={record} onBackToControls={() => navigateTo('review_controls', '/review')} />
+            isParticipant ? (
+              <CertificateScreen language={language} record={record} onHome={handleGoHome} />
+            ) : (
+              <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-[#b6afd4]">
+                  {language === 'ar' ? 'لا توجد شهادة نشطة لعرضها.' : 'No active certificate to display.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGoHome}
+                  className="mt-4 px-4 py-2 rounded-xl bg-[#9b6682] text-white text-xs font-semibold cursor-pointer"
+                >
+                  {language === 'ar' ? 'الرئيسية' : 'Home'}
+                </button>
+              </div>
+            )
           )}
 
           {currentScreen === 'verify_portal' && (
@@ -574,11 +954,95 @@ export default function App() {
           isOpen={showVerifyModal || currentScreen === 'verify_portal'}
           onClose={() => {
             setShowVerifyModal(false);
-            if (currentScreen === 'verify_portal') navigateTo(authUser ? 'review_controls' : 'auth', authUser ? '/review' : '/');
+            if (currentScreen === 'verify_portal') {
+              const defaultScreen = record?.status === 'active' ? 'review_controls' : 'p1_details';
+              const defaultPath = record?.status === 'active' ? '/review' : '/';
+              navigateTo(authUser ? defaultScreen : 'auth', authUser ? defaultPath : '/');
+            }
           }}
           record={record}
           initialRef={currentScreen === 'verify_portal' ? getRouteState().certRef : undefined}
         />
+
+        <AccountActionModals
+          language={language}
+          showExitModal={showExitModal}
+          showDeleteModal={showDeleteModal}
+          loading={accountActionLoading}
+          error={accountActionError}
+          onCloseExitModal={() => {
+            if (!accountActionLoading) setShowExitModal(false);
+          }}
+          onCloseDeleteModal={() => {
+            if (!accountActionLoading) setShowDeleteModal(false);
+          }}
+          onConfirmExitRelationship={handleConfirmExitRelationship}
+          onConfirmDeleteAccount={handleConfirmDeleteAccount}
+        />
+
+        {showChangeRequestModal && (
+          <ChangeRequestModal
+            language={language}
+            record={record}
+            currentUserId={authUser?.id}
+            changeRequests={changeRequests}
+            onClose={() => setShowChangeRequestModal(false)}
+            onSubmitChangeRequest={handleSubmitChangeRequest}
+            onSavePersonalInfo={handleSavePersonalInfo}
+            onApproveRequest={handleApproveChangeRequest}
+            onDeclineRequest={handleDeclineChangeRequest}
+          />
+        )}
+
+        {/* Informational Partner Notification Dialog (e.g. Relationship Ended) */}
+        {activeNotification && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+            <div className="w-full max-w-sm rounded-2xl bg-[#1a1530] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
+                    <HeartOff className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+                    {language === 'ar' ? 'إشعار إنهاء العلاقة' : 'Relationship Ended'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleDismissNotification(activeNotification.id)}
+                  className="p-1 text-[#b6afd4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-white">
+                  {language === 'ar' ? activeNotification.messageAr : activeNotification.messageEn}
+                </p>
+                {activeNotification.secondaryAr && (
+                  <p className="text-xs text-[#b6afd4]">
+                    {language === 'ar' ? activeNotification.secondaryAr : activeNotification.secondaryEn}
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => void handleDismissNotification(activeNotification.id)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#9b6682] to-[#7d4865] text-xs font-semibold text-white transition shadow-sm cursor-pointer hover:opacity-95 active:scale-[0.98]"
+                >
+                  {language === 'ar' ? 'فهمت ذلك ومتابعة' : 'Understood'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

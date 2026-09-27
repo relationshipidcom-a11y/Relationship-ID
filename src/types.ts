@@ -78,6 +78,44 @@ export interface AuthUser {
   token?: string;
 }
 
+export interface ChangeRequest {
+  id: string;
+  recordId: string;
+  verificationRef?: string;
+  requesterUid: string;
+  requesterRole: 'p1' | 'p2';
+  requesterName: string;
+  approverUid: string;
+  target: 'shared' | 'partner1_name' | 'partner2_name';
+  field: 'type' | 'startDate' | 'partner1FullName' | 'partner2FullName';
+  fieldLabelAr: string;
+  fieldLabelEn: string;
+  oldValue: string;
+  oldValueDisplayAr?: string;
+  oldValueDisplayEn?: string;
+  proposedValue: string;
+  proposedValueDisplayAr?: string;
+  proposedValueDisplayEn?: string;
+  status: 'pending' | 'approved' | 'declined';
+  requestedAt: string;
+  decidedAt?: string;
+  decisionByUid?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: 'relationship_ended' | 'change_request' | 'general';
+  recordId?: string;
+  senderName?: string;
+  messageAr: string;
+  messageEn: string;
+  secondaryAr?: string;
+  secondaryEn?: string;
+  createdAt: string;
+  read: boolean;
+}
+
 export type ScreenId =
   | 'auth'
   | 'p1_details'

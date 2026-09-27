@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Share2, Download, CheckCircle, Sliders, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Shield, Share2, Download, CheckCircle, Sliders, Home } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Language, RelationshipRecord } from '../types';
 import { translations } from '../i18n/translations';
@@ -9,7 +9,7 @@ import styles from '../styles/Certificate.module.css';
 interface CertificateScreenProps {
   language: Language;
   record: RelationshipRecord;
-  onBackToControls: () => void;
+  onHome: () => void;
 }
 
 const getMonthName = (monthStr: string, lang: Language): string => {
@@ -37,7 +37,7 @@ const QrMatrixBlock: React.FC<{ value: string }> = ({ value }) => (
 export const CertificateScreen: React.FC<CertificateScreenProps> = ({
   language,
   record,
-  onBackToControls
+  onHome
 }) => {
   const t = translations[language];
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -77,11 +77,12 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
       <div className="flex items-center justify-between mb-2 px-1">
         <button
           type="button"
-          onClick={onBackToControls}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#211c38] hover:bg-[#2e264f] border border-white/15 text-xs text-[#b6afd4] hover:text-white transition-all cursor-pointer"
+          onClick={onHome}
+          aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#211c38] hover:bg-[#2e264f] border border-white/15 text-xs text-[#b6afd4] hover:text-white transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
         >
-          {language === 'ar' ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
-          <span>{t.controlPanelBtn}</span>
+          <Home className="w-3.5 h-3.5 text-[#f3c4db]" />
+          <span>{t.homeBtn}</span>
         </button>
 
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
@@ -263,11 +264,12 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
 
         <button
           type="button"
-          onClick={onBackToControls}
-          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-[#211c38] hover:bg-[#2e264f] text-[#b6afd4] hover:text-white font-medium text-xs border border-white/15 transition-all active:scale-95 cursor-pointer"
+          onClick={onHome}
+          aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
+          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-[#211c38] hover:bg-[#2e264f] text-[#b6afd4] hover:text-white font-medium text-xs border border-white/15 transition-all active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
         >
-          <Sliders className="w-4 h-4 text-[#f3c4db]" />
-          <span>{t.controlPanelBtn}</span>
+          <Home className="w-4 h-4 text-[#f3c4db]" />
+          <span>{t.homeBtn}</span>
         </button>
       </div>
 

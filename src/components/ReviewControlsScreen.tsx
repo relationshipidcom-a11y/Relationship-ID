@@ -1,31 +1,115 @@
-import React from 'react';
-import { Settings, Eye, Edit3, Shield, AtSign, QrCode } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Eye, Edit3, Shield, AtSign, QrCode, Clock, CheckCircle2, HeartOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Language, RelationshipRecord, CertificateSettings } from '../types';
+import { Language, RelationshipRecord, CertificateSettings, ChangeRequest } from '../types';
 import { translations } from '../i18n/translations';
+import { ChangeRequestModal } from './ChangeRequestModal';
+import { authFetch, parseApiError } from '../utils/api';
 import styles from '../styles/Certificate.module.css';
 
 interface ReviewControlsScreenProps {
   language: Language;
   record: RelationshipRecord;
+  currentUserId?: string;
   onUpdateSettings: (newSettings: Partial<CertificateSettings>) => void;
   onEditDetails: () => void;
   onViewCertificate: () => void;
+  onRecordUpdated?: (newRecord: RelationshipRecord) => void;
+  onExitRelationship?: () => void;
 }
 
 export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
   language,
   record,
+  currentUserId,
   onUpdateSettings,
   onEditDetails,
-  onViewCertificate
+  onViewCertificate,
+  onRecordUpdated,
+  onExitRelationship
 }) => {
   const t = translations[language];
+  const [showChangeModal, setShowChangeModal] = useState(false);
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  const fetchChangeRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const res = await authFetch('/api/change-requests');
+      const data = await parseApiError(res);
+      if (Array.isArray(data.changeRequests)) {
+        setChangeRequests(data.changeRequests);
+      }
+    } catch (err) {
+      console.error('Failed to fetch change requests:', err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchChangeRequests();
+  }, [record.id]);
+
+  const handleSubmitChangeRequest = async (field: string, proposedValue: string) => {
+    const res = await authFetch('/api/change-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field, proposedValue })
+    });
+    const data = await parseApiError(res);
+    if (data.changeRequest) {
+      setChangeRequests((prev) => [data.changeRequest, ...prev.filter((c) => c.id !== data.changeRequest.id)]);
+    }
+  };
+
+  const handleSavePersonalInfo = async (personalData: { socialHandle?: string; fullNameEn?: string; whatsappNumber?: string; whatsappCountry?: string }) => {
+    const res = await authFetch('/api/profile/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(personalData)
+    });
+    const data = await parseApiError(res);
+    if (data.record && onRecordUpdated) {
+      onRecordUpdated(data.record);
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    const res = await authFetch(`/api/change-requests/${requestId}/approve`, {
+      method: 'POST'
+    });
+    const data = await parseApiError(res);
+    if (data.record && onRecordUpdated) {
+      onRecordUpdated(data.record);
+    }
+    if (data.changeRequest) {
+      setChangeRequests((prev) => prev.map((c) => (c.id === requestId ? data.changeRequest : c)));
+    }
+  };
+
+  const handleDeclineRequest = async (requestId: string) => {
+    const res = await authFetch(`/api/change-requests/${requestId}/decline`, {
+      method: 'POST'
+    });
+    const data = await parseApiError(res);
+    if (data.changeRequest) {
+      setChangeRequests((prev) => prev.map((c) => (c.id === requestId ? data.changeRequest : c)));
+    }
+  };
+
+  const pendingRequestsForMe = changeRequests.filter(
+    (cr) => cr.status === 'pending' && currentUserId && cr.approverUid === currentUserId
+  );
+  const pendingRequestsByMe = changeRequests.filter(
+    (cr) => cr.status === 'pending' && currentUserId && cr.requesterUid === currentUserId
+  );
 
   return (
     <div className="flex-1 flex flex-col justify-between px-4 py-3">
       {/* Stepper Navigation */}
-      <nav aria-label="Step Navigation" className="my-2">
+      <nav aria-label="Step Navigation" className="my-2 flex items-center justify-end">
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#9b6682]/20 text-[#f3c4db] border border-[#9b6682]/50 font-semibold w-fit">
           <span className="w-4 h-4 rounded-full bg-[#9b6682] text-[10px] flex items-center justify-center text-white font-bold">
             3
@@ -183,7 +267,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
       {/* Control Dashboard Panel with Live Toggles */}
       <div className="my-2 w-full rounded-xl border border-white/20 p-3.5 bg-[#211c38] shadow-xl text-right">
         {/* Header */}
-        <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+        <div className="flex items-center pb-2 mb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-[#9b6682]/20 border border-[#f3c4db]/30 flex items-center justify-center text-[#f3c4db]">
               <Settings className="w-4 h-4" />
@@ -196,12 +280,6 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
                 {t.dashboardPanelDesc}
               </span>
             </div>
-          </div>
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#9b6682]/20 border border-[#f3c4db]/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#f3c4db] animate-pulse" />
-            <span className="text-[8px] font-mono font-semibold text-[#f3c4db]">
-              {t.liveBadge}
-            </span>
           </div>
         </div>
 
@@ -265,11 +343,14 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
         <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-white/10">
           <button
             type="button"
-            onClick={onEditDetails}
-            className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-[10.5px] font-medium text-[#f3c4db] transition-colors border border-[#f3c4db]/35 bg-[#9b6682]/20 hover:bg-white/5 active:scale-[0.98] cursor-pointer"
+            onClick={() => setShowChangeModal(true)}
+            className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-[10.5px] font-medium text-[#f3c4db] transition-colors border border-[#f3c4db]/35 bg-[#9b6682]/20 hover:bg-[#9b6682]/35 active:scale-[0.98] cursor-pointer relative"
           >
             <Edit3 className="w-3.5 h-3.5" />
-            <span>{t.editCertDetailsBtn}</span>
+            <span>{t.requestChangeBtn}</span>
+            {pendingRequestsForMe.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute top-1 right-1" />
+            )}
           </button>
 
           <button
@@ -281,7 +362,64 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
             <span>{t.previewPrintBtn}</span>
           </button>
         </div>
+
+        {/* Secondary Destructive Action: End Relationship */}
+        {onExitRelationship && (
+          <div className="mt-2 pt-2 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onExitRelationship}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[10.5px] font-medium text-amber-300 hover:text-amber-200 bg-amber-950/20 hover:bg-amber-950/35 border border-amber-500/25 transition-colors cursor-pointer active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              aria-label={language === 'ar' ? 'إنهاء العلاقة' : 'End Relationship'}
+            >
+              <HeartOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>{t.endRelationshipMenu}</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Pending Approval Notice if any */}
+      {pendingRequestsForMe.length > 0 && (
+        <div className="my-1.5 p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between gap-2 shadow-sm text-right">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-300 shrink-0" />
+            <div className="text-[11px]">
+              <span className="text-amber-200 font-bold block">{t.pendingRequestsTitle}</span>
+              <span className="text-amber-100/80 text-[10px]">
+                {language === 'ar' ? 'لديك طلب تعديل معلق من شريكك بانتظار قرارك' : 'You have a pending change request from your partner'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowChangeModal(true)}
+            className="py-1 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[10.5px] font-semibold cursor-pointer shrink-0 transition"
+          >
+            {language === 'ar' ? 'مراجعة الطلب' : 'Review'}
+          </button>
+        </div>
+      )}
+
+      {pendingRequestsByMe.length > 0 && pendingRequestsForMe.length === 0 && (
+        <div className="my-1.5 p-2.5 rounded-xl bg-[#211c38] border border-white/10 flex items-center justify-between gap-2 text-right">
+          <div className="flex items-center gap-2 text-[10.5px] text-[#b6afd4]">
+            <Clock className="w-3.5 h-3.5 text-[#f3c4db] shrink-0" />
+            <span>
+              {language === 'ar'
+                ? 'تم إرسال طلب التعديل وهو بانتظار موافقة الشريك.'
+                : 'Change request submitted and awaiting partner approval.'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowChangeModal(true)}
+            className="text-[10px] text-[#f3c4db] underline hover:text-white cursor-pointer bg-transparent border-none p-0 shrink-0"
+          >
+            {language === 'ar' ? 'عرض السجل' : 'View'}
+          </button>
+        </div>
+      )}
 
       {/* Main Full-Width Certificate Viewer Action */}
       <div className="mt-2 mb-1">
@@ -294,6 +432,20 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           <span>{t.previewAndShareCertBtn}</span>
         </button>
       </div>
+
+      {showChangeModal && (
+        <ChangeRequestModal
+          language={language}
+          record={record}
+          currentUserId={currentUserId}
+          changeRequests={changeRequests}
+          onClose={() => setShowChangeModal(false)}
+          onSubmitChangeRequest={handleSubmitChangeRequest}
+          onSavePersonalInfo={handleSavePersonalInfo}
+          onApproveRequest={handleApproveRequest}
+          onDeclineRequest={handleDeclineRequest}
+        />
+      )}
     </div>
   );
 };

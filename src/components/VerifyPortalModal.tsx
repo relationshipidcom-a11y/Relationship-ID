@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle, AlertCircle, X, Loader2, Search, QrCode } from 'lucide-react';
 import { Language, RelationshipRecord, RelationshipType } from '../types';
 import { translations } from '../i18n/translations';
+import { withAppCheckHeaders } from '../utils/api';
 
 interface VerifyPortalModalProps {
   language: Language;
@@ -12,50 +13,104 @@ interface VerifyPortalModalProps {
 }
 
 interface PublicVerificationRecord {
-  recordNumber: string;
-  verificationRef: string;
-  issuedDate: string;
-  issuedDateAr: string;
-  type: RelationshipType;
-  startDate: string;
-  startDateAr: string;
-  partner1Name: string;
-  partner2Name: string;
+  recordNumber?: string;
+  verificationRef?: string;
+  issuedDate?: string;
+  issuedDateAr?: string;
+  type?: RelationshipType;
+  stage?: string;
+  startDate?: string;
+  startDateAr?: string;
+  partner1Name?: string;
+  partner2Name?: string;
   partner1En?: string;
   partner2En?: string;
-  status: string;
+  status?: string;
 }
 
 export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, isOpen, onClose, record, initialRef = '' }) => {
   const t = translations[language];
+  const [searchMode, setSearchMode] = useState<'ref' | 'contact'>('ref');
   const [searchRef, setSearchRef] = useState(initialRef || '');
   const [searchResult, setSearchResult] = useState<PublicVerificationRecord | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const runSearch = async (rawRef: string) => {
+  const runSearch = async (rawInput: string, mode: 'ref' | 'contact') => {
     setHasSearched(true);
     setLoading(true);
     setError('');
     setSearchResult(null);
     try {
-      const ref = rawRef.trim();
-      if (!ref) throw new Error(language === 'ar' ? 'أدخل رقم التحقق.' : 'Enter a verification number.');
-      const response = await fetch(`/api/verify/${encodeURIComponent(ref)}`);
-      let data: any = {};
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('Verification response was not JSON', parseError);
+      const query = rawInput.trim();
+      if (!query) {
+        throw new Error(language === 'ar' ? 'أدخل معلومات البحث.' : 'Enter search information.');
       }
-      if (!response.ok || !data.found) {
-        if (response.status !== 404) setError(data.message || data.error || `HTTP_${response.status}`);
-        return;
+
+      if (mode === 'ref') {
+        const headers = await withAppCheckHeaders();
+        const response = await fetch(`/api/verify/${encodeURIComponent(query)}`, { headers });
+        let data: any = {};
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error('Verification response was not JSON', parseError);
+        }
+        if (!response.ok || !data.found) {
+          if (response.status !== 404) {
+            setError(data.message || data.error || `HTTP_${response.status}`);
+          } else {
+            setError(language === 'ar' ? 'لا يوجد سجل نشط متاح للبحث العام' : 'No publicly searchable active record');
+          }
+          return;
+        }
+        setSearchResult(data.record as PublicVerificationRecord);
+      } else {
+        const headers = await withAppCheckHeaders({ 'Content-Type': 'application/json' });
+        const response = await fetch('/api/verify/contact', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query })
+        });
+        let data: any = {};
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error('Contact verification response was not JSON', parseError);
+        }
+        if (response.status === 429) {
+          setError(
+            language === 'ar'
+              ? 'طلبات كثيرة جداً. يرجى المحاولة لاحقاً.'
+              : 'Too many requests. Please try again later.'
+          );
+          return;
+        }
+        if (response.status === 503) {
+          setError(
+            language === 'ar'
+              ? 'الخدمة غير متوفرة مؤقتاً. يرجى المحاولة لاحقاً.'
+              : 'Service temporarily unavailable. Please try again later.'
+          );
+          return;
+        }
+        if (!response.ok || !data.found || !data.stage) {
+          setError(
+            language === 'ar'
+              ? 'لا يوجد سجل نشط متاح للبحث العام'
+              : 'No publicly searchable active record'
+          );
+          return;
+        }
+        setSearchResult({ stage: data.stage, status: 'active' });
       }
-      setSearchResult(data.record as PublicVerificationRecord);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification request failed');
+      setError(
+        language === 'ar'
+          ? 'الخدمة غير متوفرة مؤقتاً. يرجى المحاولة لاحقاً.'
+          : 'Service temporarily unavailable. Please try again later.'
+      );
     } finally {
       setLoading(false);
     }
@@ -68,7 +123,8 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
     setSearchResult(null);
     setHasSearched(false);
     setError('');
-    if (nextRef) void runSearch(nextRef);
+    setSearchMode('ref');
+    if (nextRef) void runSearch(nextRef, 'ref');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialRef]);
 
@@ -87,13 +143,14 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    await runSearch(searchRef);
+    await runSearch(searchRef, searchMode);
   };
 
-  const getStageLabel = (type: RelationshipType) => {
-    if (type === 'marriage') return language === 'ar' ? 'متزوجان' : 'Married';
-    if (type === 'engagement') return language === 'ar' ? 'مخطوبان' : 'Engaged';
-    return language === 'ar' ? 'في علاقة تعارف' : 'In a Relationship';
+  const getStageLabel = (type?: RelationshipType) => {
+    if (!type) return '';
+    if (type === 'marriage') return language === 'ar' ? 'متزوجان (Married)' : 'Married';
+    if (type === 'engagement') return language === 'ar' ? 'مخطوبان (Engaged)' : 'Engaged';
+    return language === 'ar' ? 'في علاقة تعارف (Dating)' : 'Dating';
   };
 
   return (
@@ -122,14 +179,52 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
           {t.verifyPortalDesc}
         </p>
 
+        {/* Search Mode Tabs */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#141124] rounded-xl border border-white/10 mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSearchMode('ref');
+              setSearchResult(null);
+              setHasSearched(false);
+              setError('');
+            }}
+            className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+              searchMode === 'ref'
+                ? 'bg-[#9b6682] text-white shadow'
+                : 'text-[#b6afd4] hover:text-white bg-transparent'
+            }`}
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span>{t.searchByRefTab}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchMode('contact');
+              setSearchResult(null);
+              setHasSearched(false);
+              setError('');
+            }}
+            className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+              searchMode === 'contact'
+                ? 'bg-[#9b6682] text-white shadow'
+                : 'text-[#b6afd4] hover:text-white bg-transparent'
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>{t.searchByContactTab}</span>
+          </button>
+        </div>
+
         <form onSubmit={handleSearch} className="flex gap-2 mb-4">
           <input
             type="text"
             value={searchRef}
             onChange={(e) => setSearchRef(e.target.value)}
-            placeholder={t.verifyInputPlaceholder}
+            placeholder={searchMode === 'ref' ? t.verifyInputPlaceholder : t.verifyContactInputPlaceholder}
             className="flex-1 bg-[#141124] border border-white/20 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
-            dir="ltr"
+            dir={searchMode === 'ref' ? 'ltr' : 'auto'}
             disabled={loading}
           />
           <button
@@ -143,7 +238,20 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
         </form>
 
         {searchResult ? (
-          searchResult.status === 'active' ? (
+          searchMode === 'contact' ? (
+            <div className="p-4 rounded-xl bg-[#211c38] border border-[#9b6682]/50 text-center space-y-1.5">
+              <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs">
+                <CheckCircle className="w-4 h-4" />
+                <span>{language === 'ar' ? 'تم العثور على علاقة نشطة' : 'Active Relationship Found'}</span>
+              </div>
+              <p className="text-[11px] text-[#b6afd4]">
+                {language === 'ar' ? 'مرحلة العلاقة' : 'Relationship Stage'}
+              </p>
+              <p className="text-base font-bold text-[#f3c4db]">
+                {searchResult.stage}
+              </p>
+            </div>
+          ) : searchResult.status === 'active' ? (
             <div className="p-3.5 rounded-xl bg-[#211c38] border border-[#9b6682]/50 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-[#f3c4db] font-bold text-xs">
@@ -159,7 +267,7 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
                   {language === 'ar' ? searchResult.partner1Name : (searchResult.partner1En || searchResult.partner1Name)} &amp; {language === 'ar' ? searchResult.partner2Name : (searchResult.partner2En || searchResult.partner2Name)}
                 </p>
                 <p className="text-[11px] text-[#b6afd4]">
-                  {language === 'ar' ? 'مرحلة العلاقة' : 'Stage'}:{' '}
+                  {language === 'ar' ? 'مرحلة العلاقة' : 'Relationship Stage'}:{' '}
                   <span className="text-white font-medium">{getStageLabel(searchResult.type)}</span>
                 </p>
                 <p className="text-[11px] text-[#b6afd4]">
@@ -168,7 +276,7 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
                 </p>
                 <p className="text-[11px] text-[#b6afd4]">
                   {language === 'ar' ? 'الحالة' : 'Status'}:{' '}
-                  <span className="text-emerald-400 font-semibold">{language === 'ar' ? 'نشطة' : 'Active'}</span>
+                  <span className="text-emerald-400 font-semibold">{language === 'ar' ? 'نشطة (Active)' : 'Active'}</span>
                 </p>
               </div>
             </div>
@@ -181,7 +289,7 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
         ) : hasSearched && !loading ? (
           <div className="p-3.5 rounded-xl bg-[#211c38] border border-rose-500/40 flex items-start gap-2.5 text-rose-300 text-xs">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-            <span>{error || t.recordNotFound}</span>
+            <span>{error || (language === 'ar' ? 'لا يوجد سجل نشط متاح للبحث العام' : 'No publicly searchable active record')}</span>
           </div>
         ) : null}
       </div>

@@ -312,6 +312,43 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           </div>
 
 
+          {/* Toggle: Public Contact Search Consent */}
+          <div className={styles.toggleRow}>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#9b6682]/15 flex items-center justify-center text-[#f3c4db]">
+                <Settings className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex flex-col text-right">
+                <span className="text-[11px] font-semibold text-white">
+                  {t.toggleContactSearchTitle}
+                </span>
+                <span className="text-[8.5px] text-[#b6afd4]">
+                  {t.toggleContactSearchDesc}
+                </span>
+              </div>
+            </div>
+            <label className={styles.toggleSwitch}>
+              <input
+                type="checkbox"
+                checked={
+                  record.p1Uid === currentUserId
+                    ? Boolean(record.settings.publicContactSearchP1)
+                    : Boolean(record.settings.publicContactSearchP2)
+                }
+                onChange={(e) => {
+                  const isP1 = record.p1Uid === currentUserId;
+                  onUpdateSettings(
+                    isP1
+                      ? { publicContactSearchP1: e.target.checked }
+                      : { publicContactSearchP2: e.target.checked }
+                  );
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-8 h-4 rounded-full bg-[#2b273c] peer-checked:bg-[#9b6682] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
+            </label>
+          </div>
+
           {/* Toggle 3: QR Code Matrix */}
           <div className={styles.toggleRow}>
             <div className="flex items-center gap-2">

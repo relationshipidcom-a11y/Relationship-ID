@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken, type AppCheck } from 'firebase/app-check';
 import { FIREBASE_WEB_CONFIG } from './firebase.config';
 
 export function cleanConfigValue(val: unknown): string {
@@ -144,8 +145,48 @@ export const firebaseApp = isFirebaseConfigured
   ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
   : null;
 
+if (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.DEV) {
+  if (typeof self !== 'undefined') {
+    (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+}
+
+export const appCheck: AppCheck | null = (() => {
+  if (!firebaseApp || typeof window === 'undefined') return null;
+  const siteKey = (import.meta as any)?.env?.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY;
+  if (!siteKey) return null;
+  try {
+    return initializeAppCheck(firebaseApp, {
+      provider: new ReCaptchaEnterpriseProvider(siteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (err) {
+    console.warn('[Firebase AppCheck] Failed to initialize App Check:', err);
+    return null;
+  }
+})();
+
+/**
+ * Shared helper that retrieves the current App Check token and attaches the X-Firebase-AppCheck header.
+ */
+export async function withAppCheckHeaders(initHeaders?: HeadersInit): Promise<Headers> {
+  const headers = new Headers(initHeaders || {});
+  if (appCheck) {
+    try {
+      const result = await getToken(appCheck, false);
+      if (result?.token) {
+        headers.set('X-Firebase-AppCheck', result.token);
+      }
+    } catch (err) {
+      console.warn('[Firebase AppCheck] Failed to get App Check token:', err);
+    }
+  }
+  return headers;
+}
+
 export const auth = firebaseApp ? getAuth(firebaseApp) : null;
 export const db = firebaseApp ? getFirestore(firebaseApp) : null;
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 

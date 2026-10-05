@@ -12,7 +12,8 @@ import {
 } from './types';
 import { auth, db } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { authFetch, parseApiError, getLocalizedErrorMessage } from './utils/api';
+import { authFetch, parseApiError, getLocalizedErrorMessage, ALLOWED_ERROR_CODES, withAppCheckHeaders } from './utils/api';
+import { getAccountMenuItems, classifyRelationshipSnapshot } from './utils/relationshipState';
 import { TopBar } from './components/TopBar';
 import { AuthScreen } from './components/AuthScreen';
 import { P1RegistrationScreen } from './components/P1RegistrationScreen';
@@ -26,6 +27,10 @@ import { CertificateScreen } from './components/CertificateScreen';
 import { VerifyPortalModal } from './components/VerifyPortalModal';
 import { AccountActionModals } from './components/AccountActionModals';
 import { ChangeRequestModal } from './components/ChangeRequestModal';
+import { BlockedPeopleModal } from './components/BlockedPeopleModal';
+import { LegalPage } from './components/LegalPage';
+import { LegalFooter } from './components/LegalFooter';
+import { LEGAL_VERSION } from './content/legal';
 import { ChangeRequest, AppNotification } from './types';
 import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X } from 'lucide-react';
 
@@ -94,6 +99,8 @@ const getRouteState = (): { screen: ScreenId; inviteId?: string; certRef?: strin
   if (path === '/review') return { screen: 'review_controls' };
   if (path === '/waiting') return { screen: 'p1_waiting' };
   if (path === '/p2') return { screen: 'p2_details' };
+  if (path === '/privacy') return { screen: 'privacy' };
+  if (path === '/terms') return { screen: 'terms' };
   return { screen: 'auth' };
 };
 
@@ -122,14 +129,17 @@ export default function App() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [accountActionLoading, setAccountActionLoading] = useState(false);
   const [accountActionError, setAccountActionError] = useState('');
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [activeNotification, setActiveNotification] = useState<AppNotification | null>(null);
   const hasAutoNavigatedRef = useRef(false);
   const activeAuthUidRef = useRef<string | null>(null);
+  const clearedRecordIdRef = useRef<string | null>(null);
   const privateRecordRequestIdRef = useRef(0);
   const invitationRequestIdRef = useRef(0);
+  const changeRequestsRequestIdRef = useRef(0);
 
   const allowScreenExplorer = useMemo(
     () => import.meta.env.DEV && import.meta.env.VITE_ENABLE_SCREEN_EXPLORER === 'true',
@@ -254,7 +264,10 @@ export default function App() {
     const requestUid = auth?.currentUser?.uid || null;
     const requestId = ++invitationRequestIdRef.current;
     try {
-      const response = await fetch(`/api/invitations/${inviteId}`);
+      const headers = await withAppCheckHeaders();
+      const response = auth?.currentUser
+        ? await authFetch(`/api/invitations/${inviteId}`)
+        : await fetch(`/api/invitations/${inviteId}`, { headers });
       const data = await parseApiError(response);
 
       // Guard against stale asynchronous responses after sign-out, account switch, or superseded requests
@@ -392,7 +405,7 @@ export default function App() {
           const data = userSnap.data();
           if (data.activeRecordId && data.activeRecordId !== record.id) {
             void loadPrivateRecord();
-          } else if (!data.activeRecordId && record.status === 'active') {
+          } else if (!data.activeRecordId && (record.status === 'active' || (record.status as string) === 'deleting' || Boolean(record.id))) {
             // Relationship was ended by partner
             setRecord((prev) => ({
               ...initialRecord,
@@ -413,11 +426,32 @@ export default function App() {
     return () => unsub();
   }, [authUser?.id, record.id, record.status]);
 
+  const applyServerRecord = (nextRecord: RelationshipRecord | null | undefined) => {
+    if (!nextRecord) return;
+    if (nextRecord.id && nextRecord.id === clearedRecordIdRef.current) return;
+    if (!auth?.currentUser || activeAuthUidRef.current !== auth.currentUser.uid) return;
+    setRecord(nextRecord);
+  };
+
+  const resetAfterRelationshipCleared = (recordId: string) => {
+    if (clearedRecordIdRef.current === recordId) return;
+    clearedRecordIdRef.current = recordId;
+    setRecord((prev) => ({
+      ...initialRecord,
+      partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
+    }));
+    setInvitation(initialInvitation);
+    setChangeRequests([]);
+    void fetchNotifications();
+    navigateTo('p1_details', '/');
+  };
+
   // Real-time listener for active relationship document (/relationships/{recordId})
   useEffect(() => {
     if (!db || !record.id || !authUser?.id) return;
+    const currentRelId = record.id;
     const unsub = onSnapshot(
-      doc(db, 'relationships', record.id),
+      doc(db, 'relationships', currentRelId),
       (relSnap) => {
         // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
         if (
@@ -427,35 +461,57 @@ export default function App() {
         ) {
           return;
         }
-        if (relSnap.exists()) {
+        const outcome = classifyRelationshipSnapshot({
+          exists: relSnap.exists(),
+          status: relSnap.data()?.status
+        });
+        if (outcome === 'cleared') {
+          resetAfterRelationshipCleared(currentRelId);
+        } else {
           const updated = relSnap.data() as RelationshipRecord;
-          if (updated.status === 'ended') {
-            setRecord((prev) => ({
-              ...initialRecord,
-              partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
-            }));
-            setInvitation(initialInvitation);
-            setChangeRequests([]);
-            void fetchNotifications();
-            navigateTo('p1_details', '/');
-          } else {
-            setRecord(updated);
-            // When P2 accepts and status becomes active, advance P1 waiting screen automatically once
-            if (updated.status === 'active' && currentScreen === 'p1_waiting') {
-              if (!hasAutoNavigatedRef.current) {
-                hasAutoNavigatedRef.current = true;
-                navigateTo('review_controls', '/review');
-              }
+          setRecord(updated);
+          // When P2 accepts and status becomes active, advance P1 waiting screen automatically once
+          if (updated.status === 'active' && currentScreen === 'p1_waiting') {
+            if (!hasAutoNavigatedRef.current) {
+              hasAutoNavigatedRef.current = true;
+              navigateTo('review_controls', '/review');
             }
           }
         }
       },
       (error) => {
         console.debug('Realtime relationship subscription notice:', error.message);
+        if (error.code !== 'permission-denied' && (error as any).code !== 'not-found') {
+          return;
+        }
+        const requestUid = auth?.currentUser?.uid || null;
+        if (!requestUid) return;
+        const requestId = ++privateRecordRequestIdRef.current;
+        void (async () => {
+          try {
+            const response = await authFetch('/api/record');
+            const data = await parseApiError(response);
+            if (
+              privateRecordRequestIdRef.current !== requestId ||
+              activeAuthUidRef.current !== requestUid ||
+              !auth?.currentUser ||
+              auth.currentUser.uid !== requestUid
+            ) {
+              return;
+            }
+            if (!data.record || data.record.id !== currentRelId) {
+              resetAfterRelationshipCleared(currentRelId);
+            } else {
+              setRecord(data.record as RelationshipRecord);
+            }
+          } catch (serverErr) {
+            setAppError(getLocalizedErrorMessage(serverErr, language));
+          }
+        })();
       }
     );
     return () => unsub();
-  }, [db, record.id, authUser?.id, currentScreen]);
+  }, [db, record.id, authUser?.id, currentScreen, language]);
 
   // Real-time listener for invitation document (/invitations/{inviteId})
   useEffect(() => {
@@ -507,6 +563,7 @@ export default function App() {
     activeAuthUidRef.current = null;
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
+    changeRequestsRequestIdRef.current += 1;
     try {
       await signOut(auth);
       setAuthUser(null);
@@ -521,9 +578,13 @@ export default function App() {
   };
 
   const fetchChangeRequests = async () => {
+    const requestId = ++changeRequestsRequestIdRef.current;
     try {
       const res = await authFetch('/api/change-requests');
       const data = await parseApiError(res);
+      if (changeRequestsRequestIdRef.current !== requestId) {
+        return;
+      }
       if (Array.isArray(data.changeRequests)) {
         setChangeRequests(data.changeRequests);
       }
@@ -540,6 +601,9 @@ export default function App() {
   const handleConfirmExitRelationship = async () => {
     setAccountActionLoading(true);
     setAccountActionError('');
+    privateRecordRequestIdRef.current += 1;
+    invitationRequestIdRef.current += 1;
+    changeRequestsRequestIdRef.current += 1;
     try {
       const res = await authFetch('/api/relationship/end', {
         method: 'POST',
@@ -547,6 +611,9 @@ export default function App() {
         body: JSON.stringify({ relationshipId: record.id })
       });
       await parseApiError(res);
+      privateRecordRequestIdRef.current += 1;
+      invitationRequestIdRef.current += 1;
+      changeRequestsRequestIdRef.current += 1;
       setShowExitModal(false);
       // Keep current user's personal profile and reset relationship state
       setRecord((prev) => ({
@@ -555,6 +622,7 @@ export default function App() {
       }));
       setInvitation(initialInvitation);
       setChangeRequests([]);
+      setActiveNotification(null);
       navigateTo('p1_details', '/');
     } catch (err) {
       setAccountActionError(getLocalizedErrorMessage(err, language));
@@ -566,19 +634,53 @@ export default function App() {
   const handleConfirmDeleteAccount = async () => {
     setAccountActionLoading(true);
     setAccountActionError('');
+    privateRecordRequestIdRef.current += 1;
+    invitationRequestIdRef.current += 1;
+    changeRequestsRequestIdRef.current += 1;
     try {
       const res = await authFetch('/api/account/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ relationshipId: record.id })
       });
-      await parseApiError(res);
+      const data = await parseApiError(res);
+      privateRecordRequestIdRef.current += 1;
+      invitationRequestIdRef.current += 1;
+      changeRequestsRequestIdRef.current += 1;
+      let noticeText = '';
+      if (res.status === 202 && data?.status === 'DELETION_PENDING') {
+        noticeText = language === 'ar' ? (data.messageAr || data.messageEn || '') : (data.messageEn || data.messageAr || '');
+      }
       setShowDeleteModal(false);
       await handleSignOut();
+      if (noticeText) {
+        setAppError(noticeText);
+      }
     } catch (err) {
       setAccountActionError(getLocalizedErrorMessage(err, language));
     } finally {
       setAccountActionLoading(false);
+    }
+  };
+
+  const handleDownloadMyData = async () => {
+    setAppError('');
+    try {
+      const res = await authFetch('/api/account/export');
+      const data = await parseApiError(res);
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const yyyyMmDd = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relationship-id-export-${yyyyMmDd}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAppError(getLocalizedErrorMessage(err, language));
     }
   };
 
@@ -602,7 +704,7 @@ export default function App() {
     });
     const data = await parseApiError(res);
     if (data.record) {
-      setRecord(data.record);
+      applyServerRecord(data.record);
     }
   };
 
@@ -612,7 +714,7 @@ export default function App() {
     });
     const data = await parseApiError(res);
     if (data.record) {
-      setRecord(data.record);
+      applyServerRecord(data.record);
     }
     if (data.changeRequest) {
       setChangeRequests((prev) => prev.map((c) => (c.id === requestId ? data.changeRequest : c)));
@@ -624,6 +726,9 @@ export default function App() {
       method: 'POST'
     });
     const data = await parseApiError(res);
+    if (data.record) {
+      applyServerRecord(data.record);
+    }
     if (data.changeRequest) {
       setChangeRequests((prev) => prev.map((c) => (c.id === requestId ? data.changeRequest : c)));
     }
@@ -634,10 +739,15 @@ export default function App() {
     const response = await authFetch('/api/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ partner1: p1Data, type: relType, startDate: startDateIso })
+      body: JSON.stringify({
+        partner1: p1Data,
+        type: relType,
+        startDate: startDateIso,
+        acceptedLegalVersion: LEGAL_VERSION
+      })
     });
     const data = await parseApiError(response);
-    setRecord(data.record);
+    applyServerRecord(data.record);
     navigateTo('p1_invite_create');
   };
 
@@ -657,7 +767,7 @@ export default function App() {
     });
     const data = await parseApiError(response);
     setInvitation(data.invitation);
-    if (data.record) setRecord(data.record);
+    if (data.record) applyServerRecord(data.record);
     navigateTo('invite_success');
   };
 
@@ -668,21 +778,25 @@ export default function App() {
       const response = await authFetch(`/api/invitations/${invitation.id}/cancel`, { method: 'POST' });
       const data = await parseApiError(response);
       if (data.invitation) setInvitation(data.invitation);
-      if (data.record) setRecord(data.record);
+      if (data.record) applyServerRecord(data.record);
       navigateTo('p1_invite_create');
     } catch (error) {
       setAppError(getLocalizedErrorMessage(error, language));
     }
   };
 
-  const handleDeclineInvitation = async () => {
+  const handleDeclineInvitation = async (block = false) => {
     if (!invitation.id) return;
     if (!auth?.currentUser) {
       setP2PendingAction('decline');
       navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
       return;
     }
-    const response = await authFetch(`/api/invitations/${invitation.id}/decline`, { method: 'POST' });
+    const response = await authFetch(`/api/invitations/${invitation.id}/decline`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ block })
+    });
     const data = await parseApiError(response);
     setInvitation(data.invitation);
     navigateTo('p2_landing', `/invite/${invitation.id}`);
@@ -690,6 +804,13 @@ export default function App() {
 
   const handleP2Authenticated = async (user: AuthUser) => {
     setAuthUser(user);
+    if (invitation.id && invitation.id !== 'current') {
+      try {
+        await loadInvitation(invitation.id);
+      } catch (err) {
+        console.error('Failed to load private invitation details after login', err);
+      }
+    }
     if (p2PendingAction === 'decline') {
       try {
         await handleDeclineInvitation();
@@ -702,20 +823,43 @@ export default function App() {
   };
 
   const handleAcceptRelationship = async (p2Data: PartnerData) => {
+    if (!auth?.currentUser) throw new Error('AUTH_REQUIRED');
     if (!invitation.id) throw new Error('INVITATION_NOT_LOADED');
+
+    const requestUid = auth.currentUser.uid;
+    const targetInviteId = invitation.id;
     setAppError('');
-    const response = await authFetch(`/api/invitations/${invitation.id}/accept`, {
+
+    const response = await authFetch(`/api/invitations/${targetInviteId}/accept`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ partner2: p2Data })
+      body: JSON.stringify({ partner2: p2Data, acceptedLegalVersion: LEGAL_VERSION })
     });
     const data = await parseApiError(response);
-    if (!data.success || !data.record || data.record.status !== 'active') {
-      throw new Error(data.error || 'ACCEPTANCE_FAILED_OR_INACTIVE');
+
+    // Stale response guard: check UID and invitation identity before applying state changes
+    if (
+      !auth?.currentUser ||
+      auth.currentUser.uid !== requestUid ||
+      activeAuthUidRef.current !== requestUid ||
+      invitation.id !== targetInviteId
+    ) {
+      return;
     }
-    setInvitation(data.invitation);
-    setRecord(data.record);
-    navigateTo('official_certificate', `/certificate/${data.record.verificationRef}`);
+
+    const confirmedRecord = data.record as RelationshipRecord | null;
+    const confirmedInvitation = data.invitation as Invitation | null;
+
+    if (!data.success || !confirmedRecord || confirmedRecord.status !== 'active') {
+      const fallbackCode = typeof data.error === 'string' && ALLOWED_ERROR_CODES.has(data.error)
+        ? data.error
+        : 'ACCEPTANCE_FAILED_OR_INACTIVE';
+      throw new Error(fallbackCode);
+    }
+
+    if (confirmedInvitation) setInvitation(confirmedInvitation);
+    setRecord(confirmedRecord);
+    navigateTo('official_certificate', `/certificate/${confirmedRecord.verificationRef}`);
   };
 
   const handleUpdateSettings = async (newSettings: Partial<CertificateSettings>) => {
@@ -739,10 +883,18 @@ export default function App() {
     { id: 'p2_details', labelAr: '8. بيانات P2', labelEn: '8. P2 Details' },
     { id: 'review_controls', labelAr: '9. لوحة العلاقة', labelEn: '9. Relationship' },
     { id: 'official_certificate', labelAr: '10. الشهادة', labelEn: '10. Certificate' },
-    { id: 'verify_portal', labelAr: '11. التحقق', labelEn: '11. Verify' }
+    { id: 'verify_portal', labelAr: '11. التحقق', labelEn: '11. Verify' },
+    { id: 'privacy', labelAr: '12. الخصوصية', labelEn: '12. Privacy' },
+    { id: 'terms', labelAr: '13. الشروط', labelEn: '13. Terms' }
   ];
 
   const hasActiveRelationship = record?.status === 'active';
+  const isDeleting = (record?.status as string) === 'deleting';
+  const accountMenuItems = getAccountMenuItems({
+    signedIn: Boolean(authUser),
+    hasActiveRelationship,
+    isDeleting
+  });
   const isP2User = Boolean(authUser?.id && record?.p2Uid === authUser.id);
   const isParticipant = Boolean(
     authUser?.id &&
@@ -776,19 +928,21 @@ export default function App() {
           currentScreen={currentScreen}
           onNavigate={(screen) => navigateTo(screen)}
           onOpenVerifyModal={() => setShowVerifyModal(true)}
+          onOpenBlockedModal={authUser ? () => setShowBlockedModal(true) : undefined}
           signedIn={Boolean(authUser)}
           onSignOut={() => void handleSignOut()}
           onAdjustInfo={handleAdjustInfo}
           onHome={authUser ? handleGoHome : undefined}
           isAtHome={isAtHome}
-          onExitRelationship={hasActiveRelationship ? () => {
+          onExitRelationship={accountMenuItems.endRelationship ? () => {
             setAccountActionError('');
             setShowExitModal(true);
           } : undefined}
-          onDeleteAccount={hasActiveRelationship ? () => {
+          onDeleteAccount={accountMenuItems.deleteAccount ? () => {
             setAccountActionError('');
             setShowDeleteModal(true);
           } : undefined}
+          onDownloadMyData={accountMenuItems.deleteAccount ? handleDownloadMyData : undefined}
         />
 
         {appError && (
@@ -802,6 +956,7 @@ export default function App() {
             <AuthScreen
               language={language}
               onAuthSuccess={handleNormalAuthSuccess}
+              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
             />
           )}
 
@@ -816,6 +971,8 @@ export default function App() {
               record={record}
               onRequestChange={handleAdjustInfo}
               onViewControls={() => navigateTo('review_controls', '/review')}
+              onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
+              onOpenTerms={() => navigateTo('terms', '/terms')}
             />
           )}
 
@@ -859,8 +1016,9 @@ export default function App() {
                 if (auth?.currentUser) navigateTo('p2_details', `/invite/${invitation.id}/complete`);
                 else navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
               }}
-              onDecline={() => void handleDeclineInvitation().catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
+              onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
               onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
+              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
             />
           )}
 
@@ -870,6 +1028,7 @@ export default function App() {
               isP2InvitationFlow
               inviterName={invitation.inviterName}
               onAuthSuccess={(user) => void handleP2Authenticated(user)}
+              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
             />
           )}
 
@@ -880,6 +1039,8 @@ export default function App() {
               onAcceptRelationship={handleAcceptRelationship}
               onRequestChange={handleAdjustInfo}
               onViewControls={() => navigateTo('review_controls', '/review')}
+              onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
+              onOpenTerms={() => navigateTo('terms', '/terms')}
             />
           )}
 
@@ -892,7 +1053,7 @@ export default function App() {
               onEditDetails={() => navigateTo(isP2User ? 'p2_details' : 'p1_details')}
               onViewCertificate={() => navigateTo('official_certificate', `/certificate/${record.verificationRef}`)}
               onRecordUpdated={(updated) => setRecord(updated)}
-              onExitRelationship={hasActiveRelationship ? () => {
+              onExitRelationship={accountMenuItems.endRelationship ? () => {
                 setAccountActionError('');
                 setShowExitModal(true);
               } : undefined}
@@ -925,7 +1086,26 @@ export default function App() {
               </button>
             </div>
           )}
+
+          {(currentScreen === 'privacy' || currentScreen === 'terms') && (
+            <LegalPage
+              page={currentScreen}
+              language={language}
+              onBack={() => {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  navigateTo(authUser ? 'p1_details' : 'auth', '/');
+                }
+              }}
+            />
+          )}
         </div>
+
+        <LegalFooter
+          language={language}
+          onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : '/terms')}
+        />
 
         {allowScreenExplorer && showScreenSwitcher && (
           <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#141124]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
@@ -969,6 +1149,7 @@ export default function App() {
           showExitModal={showExitModal}
           showDeleteModal={showDeleteModal}
           loading={accountActionLoading}
+          hasActiveRelationship={hasActiveRelationship}
           error={accountActionError}
           onCloseExitModal={() => {
             if (!accountActionLoading) setShowExitModal(false);
@@ -991,6 +1172,14 @@ export default function App() {
             onSavePersonalInfo={handleSavePersonalInfo}
             onApproveRequest={handleApproveChangeRequest}
             onDeclineRequest={handleDeclineChangeRequest}
+          />
+        )}
+
+        {showBlockedModal && (
+          <BlockedPeopleModal
+            language={language}
+            isOpen={showBlockedModal}
+            onClose={() => setShowBlockedModal(false)}
           />
         )}
 

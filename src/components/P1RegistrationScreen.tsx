@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, CheckCircle, Heart, Mail, Phone, Plus, Shield, Lock, User, Edit3, Sliders } from 'lucide-react';
 import type { CountryCode } from 'libphonenumber-js';
 import { Language, PartnerData, RelationshipRecord, RelationshipType } from '../types';
 import { translations } from '../i18n/translations';
 import { PhoneVerificationField } from './PhoneVerificationField';
 import { auth } from '../lib/firebase';
+import { authFetch } from '../utils/api';
 import {
   countryFromLegacyValue,
   legacyCountryValue,
@@ -24,6 +25,8 @@ interface P1RegistrationScreenProps {
   record?: RelationshipRecord;
   onRequestChange?: () => void;
   onViewControls?: () => void;
+  onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
 }
 
 const isoFromParts = (year?: string, month?: string, day?: string) => {
@@ -48,7 +51,9 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   isActive = false,
   record,
   onRequestChange,
-  onViewControls
+  onViewControls,
+  onOpenPrivacy,
+  onOpenTerms
 }) => {
   const t = translations[language];
 
@@ -226,15 +231,122 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const [sameWhatsapp, setSameWhatsapp] = useState(initialSameWhatsapp);
   const [whatsappCountry, setWhatsappCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.whatsappCountry || initialData.phoneCountry));
   const [whatsappNumber, setWhatsappNumber] = useState(initialData.whatsappNumber || '');
+  const [whatsappVerifyEnabled, setWhatsappVerifyEnabled] = useState(false);
+  const [whatsappCode, setWhatsappCode] = useState('');
+  const [whatsappCodeSent, setWhatsappCodeSent] = useState(false);
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappVerifying, setWhatsappVerifying] = useState(false);
+  const [whatsappVerifiedNumber, setWhatsappVerifiedNumber] = useState<string | null>(
+    initialData.whatsappTrusted && initialData.whatsappE164 ? initialData.whatsappE164 : null
+  );
+  const [whatsappError, setWhatsappError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    authFetch('/api/whatsapp/verify/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.enabled === 'boolean') {
+          setWhatsappVerifyEnabled(data.enabled);
+        }
+      })
+      .catch(() => {
+        setWhatsappVerifyEnabled(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      cooldownTimerRef.current = setTimeout(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, [resendCooldown]);
+
   const [socialHandle, setSocialHandle] = useState(initialData.socialHandle || '');
   const [showSocialField, setShowSocialField] = useState(Boolean(initialData.socialHandle));
   const [relType, setRelType] = useState<RelationshipType>(initialRelType || 'dating');
   const [startDate, setStartDate] = useState(initialStartDate.match(/^\d{4}-\d{2}-\d{2}$/) ? initialStartDate : '');
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [error, setError] = useState('');
 
   const canonicalPhone = useMemo(() => normalizePhoneNumber(phoneCountry, phoneNumber), [phoneCountry, phoneNumber]);
   const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
   const todayIso = new Date().toISOString().slice(0, 10);
+
+  const canonicalWa = useMemo(() => normalizePhoneNumber(whatsappCountry, whatsappNumber), [whatsappCountry, whatsappNumber]);
+  const isDifferentWa = Boolean(!sameWhatsapp && canonicalWa && canonicalPhone && canonicalWa !== canonicalPhone);
+  const isWaApproved = Boolean(whatsappVerifiedNumber && canonicalWa && whatsappVerifiedNumber === canonicalWa);
+
+  const handleSendWhatsappCode = async () => {
+    setWhatsappError('');
+    if (!canonicalWa) {
+      setWhatsappError(language === 'ar' ? 'رقم الواتساب غير صالح.' : 'Invalid WhatsApp phone number.');
+      return;
+    }
+    setWhatsappSending(true);
+    try {
+      const res = await authFetch('/api/whatsapp/verify/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country: legacyCountryValue(whatsappCountry),
+          number: whatsappNumber
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 429) {
+          setWhatsappError(language === 'ar' ? 'محاولات تحقق كثيرة جداً. يرجى الانتظار ساعة قبل المحاولة مرة أخرى.' : 'Too many verification attempts. Please wait an hour before trying again.');
+        } else {
+          setWhatsappError(language === 'ar' ? (data.messageAr || 'تعذر إرسال رمز التحقق.') : (data.messageEn || 'Failed to send verification code.'));
+        }
+        return;
+      }
+      setWhatsappCodeSent(true);
+      setResendCooldown(60);
+    } catch {
+      setWhatsappError(language === 'ar' ? 'حدث خطأ في الاتصال.' : 'Network error. Please try again.');
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+
+  const handleVerifyWhatsappCode = async () => {
+    setWhatsappError('');
+    if (whatsappCode.trim().length !== 6) {
+      setWhatsappError(language === 'ar' ? 'أدخل رمزاً مكوناً من 6 أرقام.' : 'Enter a 6-digit verification code.');
+      return;
+    }
+    setWhatsappVerifying(true);
+    try {
+      const res = await authFetch('/api/whatsapp/verify/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country: legacyCountryValue(whatsappCountry),
+          number: whatsappNumber,
+          code: whatsappCode.trim()
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWhatsappError(language === 'ar' ? (data.messageAr || 'رمز غير صالح أو منتهي الصلاحية.') : (data.messageEn || 'Invalid or expired verification code.'));
+        return;
+      }
+      setWhatsappVerifiedNumber(canonicalWa);
+      setWhatsappCode('');
+      setWhatsappCodeSent(false);
+    } catch {
+      setWhatsappError(language === 'ar' ? 'حدث خطأ في الاتصال.' : 'Network error. Please try again.');
+    } finally {
+      setWhatsappVerifying(false);
+    }
+  };
 
   const handlePhoneVerified = (e164: string | null) => {
     setVerifiedPhone(e164);
@@ -255,6 +367,10 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!acceptedLegal) {
+      setError(language === 'ar' ? 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.' : 'Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
     if (!birthDate || !isAtLeast18(birthDate)) {
       setError(language === 'ar' ? 'يجب أن يكون العمر 18 سنة أو أكثر.' : 'You must be at least 18 years old.');
       return;
@@ -269,7 +385,12 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
     }
 
     const [birthYear, birthMonth, birthDay] = birthDate.split('-');
-    const whatsappE164 = sameWhatsapp ? canonicalPhone : normalizePhoneNumber(whatsappCountry, whatsappNumber) || undefined;
+    const normWa = normalizePhoneNumber(whatsappCountry, whatsappNumber);
+    if (!sameWhatsapp && whatsappNumber.trim() && !normWa) {
+      setError(language === 'ar' ? 'رقم الواتساب غير صالح.' : 'Invalid WhatsApp phone number.');
+      return;
+    }
+    const whatsappE164 = sameWhatsapp ? canonicalPhone : (normWa || undefined);
 
     onSaveAndNext(
       {
@@ -285,7 +406,8 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         whatsappCountry: legacyCountryValue(sameWhatsapp ? phoneCountry : whatsappCountry),
         whatsappNumber: sameWhatsapp ? phoneNumber : whatsappNumber,
         whatsappE164,
-        whatsappTrusted: sameWhatsapp,
+        whatsappTrusted: sameWhatsapp || Boolean(whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa),
+        whatsappVerifiedAt: (!sameWhatsapp && whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa) ? new Date().toISOString() : undefined,
         socialHandle: socialHandle.trim() || undefined
       },
       relType,
@@ -385,12 +507,89 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
               ) : (
                 <>
                   <div className="grid grid-cols-12 gap-2" dir="ltr">
-                    <select value={whatsappCountry} onChange={(e) => setWhatsappCountry(e.target.value as CountryCode)} className="col-span-5 bg-[#141124] border border-white/20 text-white rounded-xl px-2 py-2.5 text-[11px]">
+                    <select
+                      value={whatsappCountry}
+                      onChange={(e) => {
+                        setWhatsappCountry(e.target.value as CountryCode);
+                        setWhatsappCodeSent(false);
+                        setWhatsappCode('');
+                        setWhatsappError('');
+                      }}
+                      className="col-span-5 bg-[#141124] border border-white/20 text-white rounded-xl px-2 py-2.5 text-[11px]"
+                    >
                       {supportedCountries.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.dialCode} {language === 'ar' ? item.nameAr : item.nameEn}</option>)}
                     </select>
-                    <input type="tel" value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} className={`${styles.inputControl} col-span-7`} dir="ltr" placeholder="WhatsApp" />
+                    <input
+                      type="tel"
+                      value={whatsappNumber}
+                      onChange={(e) => {
+                        setWhatsappNumber(e.target.value);
+                        setWhatsappCodeSent(false);
+                        setWhatsappCode('');
+                        setWhatsappError('');
+                      }}
+                      className={`${styles.inputControl} col-span-7`}
+                      dir="ltr"
+                      placeholder="WhatsApp"
+                    />
                   </div>
-                  <p className="text-[9.5px] text-amber-300">{language === 'ar' ? 'رقم واتساب المختلف غير موثوق حتى يتوفر تحقق حقيقي لواتساب.' : 'A different WhatsApp number remains unverified until genuine WhatsApp ownership proof is configured.'}</p>
+                  {!whatsappVerifyEnabled ? (
+                    <p className="text-[9.5px] text-amber-300">
+                      {language === 'ar' ? 'رقم واتساب المختلف غير موثوق حتى يتوفر تحقق حقيقي لواتساب.' : 'A different WhatsApp number remains unverified until genuine WhatsApp ownership proof is configured.'}
+                    </p>
+                  ) : isDifferentWa ? (
+                    isWaApproved ? (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold w-fit">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{t.whatsappVerifiedBadge}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 pt-1">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={whatsappSending || !canonicalWa || resendCooldown > 0}
+                            onClick={handleSendWhatsappCode}
+                            className="py-1.5 px-3 rounded-xl bg-[#9b6682] hover:bg-[#a9718f] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition cursor-pointer"
+                          >
+                            {whatsappSending
+                              ? t.whatsappSendingCode
+                              : resendCooldown > 0
+                              ? (language === 'ar' ? `إعادة الإرسال بعد ${resendCooldown} ثانية` : `Resend in ${resendCooldown}s`)
+                              : (whatsappCodeSent ? t.resendWhatsappCodeBtn : t.sendWhatsappCodeBtn)}
+                          </button>
+                        </div>
+
+                        {whatsappCodeSent && (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={6}
+                              placeholder={t.whatsappCodePlaceholder}
+                              value={whatsappCode}
+                              onChange={(e) => setWhatsappCode(e.target.value.replace(/\D/g, ''))}
+                              className={`${styles.inputControl} max-w-[130px] text-center font-mono tracking-widest text-sm`}
+                              dir="ltr"
+                            />
+                            <button
+                              type="button"
+                              disabled={whatsappVerifying || whatsappCode.trim().length !== 6}
+                              onClick={handleVerifyWhatsappCode}
+                              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition cursor-pointer"
+                            >
+                              {whatsappVerifying ? t.whatsappVerifyingCode : t.verifyWhatsappCodeBtn}
+                            </button>
+                          </div>
+                        )}
+
+                        {whatsappError && (
+                          <p className="text-[10px] text-red-400">{whatsappError}</p>
+                        )}
+                      </div>
+                    )
+                  ) : null}
                 </>
               )}
             </div>
@@ -443,10 +642,76 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </div>
         </section>
 
+        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#1a1530] border border-white/10 text-xs text-[#b6afd4]">
+          <input
+            id="p1-legal-consent"
+            type="checkbox"
+            checked={acceptedLegal}
+            onChange={(e) => setAcceptedLegal(e.target.checked)}
+            required
+            className="mt-0.5 rounded border-white/20 bg-[#251e3b] text-[#9b6682] focus:ring-[#9b6682] cursor-pointer"
+          />
+          <label htmlFor="p1-legal-consent" className="cursor-pointer text-[11px] leading-relaxed select-none">
+            {language === 'ar' ? (
+              <>
+                أؤكد أن عمري 18 سنة أو أكثر، وأوافق على{' '}
+                <a
+                  href="/terms"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenTerms?.();
+                  }}
+                  className="text-[#f3c4db] underline hover:text-white"
+                >
+                  شروط الاستخدام
+                </a>{' '}
+                و
+                <a
+                  href="/privacy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenPrivacy?.();
+                  }}
+                  className="text-[#f3c4db] underline hover:text-white"
+                >
+                  سياسة الخصوصية
+                </a>
+                .
+              </>
+            ) : (
+              <>
+                I confirm I am 18 or older, and I agree to the{' '}
+                <a
+                  href="/terms"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenTerms?.();
+                  }}
+                  className="text-[#f3c4db] underline hover:text-white"
+                >
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a
+                  href="/privacy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenPrivacy?.();
+                  }}
+                  className="text-[#f3c4db] underline hover:text-white"
+                >
+                  Privacy Policy
+                </a>
+                .
+              </>
+            )}
+          </label>
+        </div>
+
         {error && <p className="text-[10.5px] text-rose-300 leading-relaxed">{error}</p>}
 
         <div className="pt-2">
-          <button type="submit" className={styles.primaryCta}>
+          <button type="submit" disabled={!acceptedLegal} className={`${styles.primaryCta} disabled:opacity-50`}>
             <span>{t.continueToPartnerBtn}</span>
           </button>
         </div>

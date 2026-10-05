@@ -18,11 +18,26 @@ This project is prepared for the **new** Relationship ID Google AI Studio / Fire
 - Public verification exposes names, stage, start date and status only.
 - No payments, no Apple sign-in, no AI coach, no automatic deployment.
 
-## Important test-build limitation
+## Backend Architecture and Server Credentials
 
-The Relationship/Invitation API currently uses an **in-memory server store** so the complete flow can be tested inside one running AI Studio session without server credentials. Restarting the AI Studio server clears those relationship/invitation test records.
+The backend uses durable Firestore persistence via the Firebase Admin SDK (`adminDb`), connecting to database `(default)` under project `relationship-id`. The server does NOT use an in-memory or fake data store.
 
-Firebase Authentication and phone OTP are real. The in-memory relationship store is **not the final production database**. Firestore persistence should be the next backend checkpoint after the complete P1 -> P2 flow works in AI Studio.
+### Frontend Web vs. Backend Admin Credentials
+- **Client Web App (`VITE_FIREBASE_*`)**: The browser React app uses client configuration exclusively for client-side Firebase Authentication (Email/Password, Google Sign-In, Phone OTP). Client keys never have Admin database privileges.
+- **Server Firebase Admin (`adminDb` / `adminAuth`)**: The Express backend requires server-side Application Default Credentials (ADC) to verify tokens and perform Firestore operations.
+- **Google-Hosted Runtimes**: In supported Google Cloud environments (such as Cloud Run or Compute Engine), credentials are provided automatically via the attached service account identity. Do not assume AI Studio preview environments automatically provide backend ADC credentials.
+- **Local / Preview Development**: Local execution requires an explicitly configured, supported credential mechanism (e.g. `GOOGLE_APPLICATION_CREDENTIALS` pointing to a local service account key file, or active credentials via `gcloud auth application-default login`).
+- **Security Invariant**: Never place service-account secrets or private keys in frontend variables, repository source files, or chat.
+- **Access Boundary**: Missing server credentials or IAM permissions require external environment setup; backend code cannot manufacture credentials or bypass GCP IAM.
+
+### Backend Readiness (`/api/health`)
+The `/api/health` route tests live Firestore reachability via a bounded read-only probe:
+- Returns **HTTP 200** with `status: "ok"` and `firestoreReachable: true` only when the Firestore probe succeeds.
+- Returns **HTTP 503** with `status: "unavailable"` and `firestoreReachable: false` when initialization, credentials, or Firestore reachability fail.
+- All internal error details, tokens, and stack traces are strictly stripped from readiness responses.
+
+### Automatic Deletion Reconciliation
+Deletion cleanup must be triggered by Google Cloud Scheduler calling POST /internal/reconcile every 10 minutes with header X-Reconcile-Secret. The in-process timer is only a backup. For launch, run the server with a single instance (Cloud Run max instances = 1) so rate limits are enforced consistently.
 
 ## AI Studio setup
 
@@ -91,4 +106,4 @@ If Google popup or Phone/reCAPTCHA is blocked in the embedded AI Studio preview,
 
 ## Deployment
 
-**DO NOT DEPLOY YET.** Complete the AI Studio manual flow first, then replace the in-memory relationship/invitation store with durable Firestore-backed storage and run security tests.
+**DO NOT DEPLOY YET.** Complete the AI Studio verification first, ensure backend Application Default Credentials and security tests pass, and only deploy upon explicit authorization.

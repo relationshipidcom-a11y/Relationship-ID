@@ -1,14 +1,15 @@
-import React from 'react';
-import { Shield, Clock, Heart, Calendar, Lock, LogIn, X } from 'lucide-react';
-import { Language, Invitation } from '../types';
+import React, { useState } from 'react';
+import { Shield, Clock, Heart, Lock, LogIn, X, UserX, AlertTriangle } from 'lucide-react';
+import { Language, Invitation, ScreenId } from '../types';
 import { translations } from '../i18n/translations';
 
 interface P2LandingScreenProps {
   language: Language;
   invitation: Invitation;
   onAccept: () => void;
-  onDecline: () => void;
+  onDecline: (block?: boolean) => void;
   onViewCertificate?: () => void;
+  onNavigate?: (screen: ScreenId) => void;
 }
 
 export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
@@ -16,9 +17,11 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   invitation,
   onAccept,
   onDecline,
-  onViewCertificate
+  onViewCertificate,
+  onNavigate
 }) => {
   const t = translations[language];
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
 
   // If already declined
   if (invitation.status === 'declined') {
@@ -116,7 +119,6 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
         <div className="flex items-center justify-center mb-5 relative">
           <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent to-white/20" />
           <div className="mx-4 p-3 rounded-2xl bg-[#312952]/60 border border-[#f3c4db]/35 shadow-lg flex items-center justify-center">
-            {/* Elegant Fingerprint Heart Vector */}
             <svg
               className="w-12 h-12 text-[#f3c4db]"
               fill="none"
@@ -149,10 +151,21 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
 
         {/* Details Box */}
         <div className="bg-[#141124]/75 border border-white/15 rounded-xl p-4 space-y-3 mb-5">
-          {/* Stage */}
+          {/* Inviter Info */}
           <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
             <div className="flex items-center gap-2 text-[#b6afd4] font-medium">
-              <span>{t.relationshipStage}</span>
+              <span>{t.invitationFrom}</span>
+              <span className="text-white font-semibold">{invitation.inviterName}</span>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-[#2e264f] flex items-center justify-center text-[#b6afd4]">
+              <Shield className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Requested Stage */}
+          <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
+            <div className="flex items-center gap-2 text-[#b6afd4] font-medium">
+              <span>{t.requestedRelationshipStage}</span>
               <span className="text-white font-semibold">
                 {invitation.relationshipType === 'marriage'
                   ? t.marriage
@@ -163,19 +176,6 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             </div>
             <div className="w-7 h-7 rounded-lg bg-[#2e264f] flex items-center justify-center text-[#b6afd4]">
               <Heart className="w-3.5 h-3.5 fill-current" />
-            </div>
-          </div>
-
-          {/* Start Date */}
-          <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
-            <div className="flex items-center gap-2 text-[#b6afd4] font-medium">
-              <span>{t.startDateLabel}</span>
-              <span className="text-white font-semibold">
-                {language === 'ar' ? invitation.startDateAr : invitation.startDate}
-              </span>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-[#2e264f] flex items-center justify-center text-[#b6afd4]">
-              <Calendar className="w-3.5 h-3.5" />
             </div>
           </div>
 
@@ -201,21 +201,107 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <span>{t.p2AcceptBtn}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={onDecline}
-            className="w-full py-2.5 px-4 rounded-xl border border-[#9b6682]/45 bg-[#5e3c4f]/20 hover:bg-[#5e3c4f]/35 text-[#e8bad0] hover:text-white font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span>{t.p2DeclineBtn}</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onDecline(false)}
+              className="w-full py-2.5 px-3 rounded-xl border border-[#9b6682]/45 bg-[#5e3c4f]/20 hover:bg-[#5e3c4f]/35 text-[#e8bad0] hover:text-white font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>{t.p2DeclineBtn}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowBlockConfirm(true)}
+              className="w-full py-2.5 px-3 rounded-xl border border-rose-500/40 bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+            >
+              <UserX className="w-3.5 h-3.5" />
+              <span>{t.declineAndBlock}</span>
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Decline and Block Confirmation Dialog */}
+      {showBlockConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowBlockConfirm(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-[#1a1530] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-white tracking-wide">
+                {t.declineAndBlock}
+              </h3>
+            </div>
+
+            <p className="text-xs text-gray-300 leading-relaxed">
+              {t.declineAndBlockConfirm}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowBlockConfirm(false)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-semibold transition-colors"
+              >
+                {t.cancelBtn}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBlockConfirm(false);
+                  onDecline(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-lg shadow-rose-900/40 transition-colors flex items-center gap-1.5"
+              >
+                <UserX className="w-3.5 h-3.5" />
+                <span>{t.declineAndBlock}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Assurance footer */}
-      <div className="mt-4 flex items-center gap-1.5 text-[11px] text-[#b6afd4]">
-        <Shield className="w-3.5 h-3.5 text-[#f3c4db]" />
-        <span>{t.dataPrivacyAssurance}</span>
+      <div className="mt-4 flex flex-col items-center gap-2 text-[11px] text-[#b6afd4]">
+        <div className="flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5 text-[#f3c4db]" />
+          <span>{t.dataPrivacyAssurance}</span>
+        </div>
+        <div className="flex items-center justify-center gap-3 text-[10.5px] text-[#8e84af]">
+          <a
+            href="/privacy"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate?.('privacy');
+            }}
+            className="text-[#8e84af] hover:text-[#f3c4db] transition-colors underline"
+          >
+            {t.privacyPolicy}
+          </a>
+          <span>•</span>
+          <a
+            href="/terms"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate?.('terms');
+            }}
+            className="text-[#8e84af] hover:text-[#f3c4db] transition-colors underline"
+          >
+            {t.termsOfService}
+          </a>
+        </div>
       </div>
     </main>
   );

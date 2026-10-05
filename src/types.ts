@@ -19,6 +19,7 @@ export interface PartnerData {
   whatsappNumber?: string;
   whatsappE164?: string;
   whatsappTrusted?: boolean;
+  whatsappVerifiedAt?: string;
   socialHandle?: string;
 }
 
@@ -26,6 +27,8 @@ export interface CertificateSettings {
   showSocialHandles: boolean;
   showContactDetails: boolean;
   showQrMatrix: boolean;
+  publicContactSearchP1?: boolean;
+  publicContactSearchP2?: boolean;
 }
 
 export interface RelationshipRecord {
@@ -127,4 +130,6 @@ export type ScreenId =
   | 'p2_details'
   | 'review_controls'
   | 'official_certificate'
-  | 'verify_portal';
+  | 'verify_portal'
+  | 'privacy'
+  | 'terms';

@@ -1,5 +1,7 @@
-import { auth } from '../lib/firebase';
+import { auth, withAppCheckHeaders } from '../lib/firebase';
 import { Language } from '../types';
+
+export { withAppCheckHeaders };
 
 export interface DiagnosticErrorEntry {
   status: number;
@@ -30,6 +32,8 @@ export const ALLOWED_ERROR_CODES = new Set([
   'PARTNER2_PROFILE_REQUIRED',
   'CANNOT_ACCEPT_OWN_INVITE',
   'ALREADY_IN_ACTIVE_RELATIONSHIP',
+  'P2_ALREADY_IN_ACTIVE_RELATIONSHIP',
+  'CONTACT_IN_ACTIVE_RELATIONSHIP',
   'RELATIONSHIP_NOT_FOUND',
   'ACTIVE_RELATIONSHIP_NOT_FOUND',
   'NOT_RELATIONSHIP_PARTICIPANT',
@@ -48,6 +52,19 @@ export const ALLOWED_ERROR_CODES = new Set([
   'RELATIONSHIP_MISMATCH',
   'NOTIFICATION_NOT_FOUND',
   'ACCEPTANCE_FAILED_OR_INACTIVE',
+  'ACCOUNT_DELETION_PENDING',
+  'RELATIONSHIP_DELETION_PENDING',
+  'INVITATION_IDENTITY_MISMATCH',
+  'CANNOT_ACCEPT_OWN_INVITATION',
+  'INVITER_CANNOT_DECLINE_AS_P2',
+  'NOT_INVITATION_RECIPIENT',
+  'AUTH_DELETION_FAILED',
+  'WHATSAPP_VERIFY_UNAVAILABLE',
+  'WHATSAPP_VERIFY_RATE_LIMITED',
+  'INVALID_VERIFICATION_CODE',
+  'INVALID_CODE',
+  'RATE_LIMITED',
+  'DATABASE_ERROR',
   'INVALID_REQUEST',
   'NOT_FOUND',
   'CONFLICT',
@@ -108,6 +125,14 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'You already have an active relationship record.',
     ar: 'لديك سجل علاقة نشط بالفعل.'
   },
+  P2_ALREADY_IN_ACTIVE_RELATIONSHIP: {
+    en: 'This user is already associated with an active relationship.',
+    ar: 'هذا المستخدم مرتبط بسجل علاقة نشط بالفعل.'
+  },
+  CONTACT_IN_ACTIVE_RELATIONSHIP: {
+    en: 'This contact is already associated with an active relationship.',
+    ar: 'جهة الاتصال هذه مرتبطة بسجل علاقة نشط بالفعل.'
+  },
   PARTNER_NAME_REQUIRED: {
     en: 'Partner name is required.',
     ar: 'اسم الشريك مطلوب.'
@@ -147,6 +172,58 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   ACCEPTANCE_FAILED_OR_INACTIVE: {
     en: 'Relationship acceptance could not be completed.',
     ar: 'تعذر إتمام قبول العلاقة.'
+  },
+  ACCOUNT_DELETION_PENDING: {
+    en: 'Your account deletion is currently being processed.',
+    ar: 'يجري حالياً معالجة حذف الحساب.'
+  },
+  RELATIONSHIP_DELETION_PENDING: {
+    en: 'This relationship is currently being ended.',
+    ar: 'يجري حالياً إنهاء هذه العلاقة.'
+  },
+  INVITATION_IDENTITY_MISMATCH: {
+    en: 'You are not the intended recipient of this invitation.',
+    ar: 'أنت لست المستلم المقصود لهذه الدعوة.'
+  },
+  CANNOT_ACCEPT_OWN_INVITATION: {
+    en: 'You cannot accept your own invitation.',
+    ar: 'لا يمكنك قبول دعوتك الخاصة.'
+  },
+  INVITER_CANNOT_DECLINE_AS_P2: {
+    en: 'You cannot decline your own invitation.',
+    ar: 'لا يمكنك رفض دعوتك الخاصة.'
+  },
+  NOT_INVITATION_RECIPIENT: {
+    en: 'You are not authorized to respond to this invitation.',
+    ar: 'غير مصرح لك بالرد على هذه الدعوة.'
+  },
+  AUTH_DELETION_FAILED: {
+    en: 'Account authentication deletion failed. Please retry.',
+    ar: 'فشل حذف مصادقة الحساب. يرجى إعادة المحاولة.'
+  },
+  WHATSAPP_VERIFY_UNAVAILABLE: {
+    en: 'WhatsApp verification is currently unavailable.',
+    ar: 'خدمة التحقق من واتساب غير متاحة حالياً.'
+  },
+  WHATSAPP_VERIFY_RATE_LIMITED: {
+    en: 'Too many verification attempts. Please try again in an hour.',
+    ar: 'محاولات تحقق كثيرة جداً. يرجى المحاولة بعد ساعة.'
+  },
+  INVALID_VERIFICATION_CODE: {
+    en: 'Invalid or expired verification code.',
+    ar: 'رمز التحقق غير صالح أو منتهي الصلاحية.'
+  },
+  INVALID_CODE: {
+    en: 'Invalid or expired verification code.',
+    ar: 'رمز التحقق غير صالح أو منتهي الصلاحية.'
+  },
+  RATE_LIMITED: {
+    en: 'Too many requests. Please wait a minute and try again.',
+    ar: 'طلبات كثيرة. يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.'
+  },
+  DATABASE_ERROR: {
+    en: 'A database error occurred. Please try again.',
+    ar: 'حدث خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.'
   },
   NOT_FOUND: {
     en: 'Requested resource not found.',
@@ -201,8 +278,12 @@ export function getRouteTemplate(urlOrPath: string): string {
   if (path === '/api/change-requests') return '/api/change-requests';
   if (path === '/api/profile/me') return '/api/profile/me';
   if (path === '/api/relationship/end') return '/api/relationship/end';
+  if (path === '/api/account/export') return '/api/account/export';
   if (path === '/api/account/delete') return '/api/account/delete';
   if (path === '/api/notifications') return '/api/notifications';
+  if (path === '/api/whatsapp/verify/status') return '/api/whatsapp/verify/status';
+  if (path === '/api/whatsapp/verify/start') return '/api/whatsapp/verify/start';
+  if (path === '/api/whatsapp/verify/check') return '/api/whatsapp/verify/check';
   if (path === '/api/health') return '/api/health';
   if (path.startsWith('/api/')) return '/api/other';
   return '/api/unknown';
@@ -265,7 +346,7 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   }
 
   const token = await auth.currentUser.getIdToken(true);
-  const headers = new Headers(init.headers || {});
+  const headers = await withAppCheckHeaders(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
 
   return fetch(input, { ...init, headers });

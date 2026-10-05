@@ -11,7 +11,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test:unit": "tsx --test tests/*.test.ts",
+    "test:unit": "NODE_ENV=test tsx --test tests/*.test.ts",
     "test": "npm run test:unit"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "twilio": "^6.1.2",
     "vite": "^8.3.0"
   },
   "devDependencies": {
@@ -33,7 +34,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

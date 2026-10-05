@@ -8,6 +8,7 @@ interface AccountActionModalsProps {
   showExitModal: boolean;
   showDeleteModal: boolean;
   loading: boolean;
+  hasActiveRelationship?: boolean;
   error?: string;
   onCloseExitModal: () => void;
   onCloseDeleteModal: () => void;
@@ -20,6 +21,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
   showExitModal,
   showDeleteModal,
   loading,
+  hasActiveRelationship = false,
   error,
   onCloseExitModal,
   onCloseDeleteModal,
@@ -131,7 +133,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
           </div>
 
           <p className="text-xs text-[#b6afd4] leading-relaxed whitespace-pre-line">
-            {t.deleteAccountDesc}
+            {hasActiveRelationship ? t.deleteAccountDesc : t.deleteAccountDescNoRelationship}
           </p>
 
           <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[11px] flex items-center gap-1.5">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, LogOut, ShieldCheck, MoreVertical, Edit3, HeartOff, Trash2, Home } from 'lucide-react';
+import { Globe, LogOut, ShieldCheck, MoreVertical, Edit3, HeartOff, Trash2, Home, UserX, Download } from 'lucide-react';
 import { Language, ScreenId } from '../types';
 import { translations } from '../i18n/translations';
 
@@ -9,6 +9,8 @@ interface TopBarProps {
   currentScreen: ScreenId;
   onNavigate: (screen: ScreenId) => void;
   onOpenVerifyModal?: () => void;
+  onOpenBlockedModal?: () => void;
+  onDownloadMyData?: () => void;
   onSignOut?: () => void;
   onAdjustInfo?: () => void;
   onExitRelationship?: () => void;
@@ -23,6 +25,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleLanguage,
   currentScreen,
   onOpenVerifyModal,
+  onOpenBlockedModal,
+  onDownloadMyData,
   onSignOut,
   onAdjustInfo,
   onExitRelationship,
@@ -140,6 +144,38 @@ export const TopBar: React.FC<TopBarProps> = ({
                   >
                     <ShieldCheck className="w-4 h-4 text-[#f3c4db] shrink-0" />
                     <span className="font-medium">{t.verifyRelationshipMenu}</span>
+                  </button>
+                )}
+
+                {/* Blocked People */}
+                {onOpenBlockedModal && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenBlockedModal();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#b6afd4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                  >
+                    <UserX className="w-4 h-4 text-[#8e84af] shrink-0" />
+                    <span className="font-medium">{t.blockedPeopleMenu}</span>
+                  </button>
+                )}
+
+                {/* Download My Data */}
+                {onDownloadMyData && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onDownloadMyData();
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#b6afd4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                  >
+                    <Download className="w-4 h-4 text-[#8e84af] shrink-0" />
+                    <span className="font-medium">{t.downloadMyDataMenu}</span>
                   </button>
                 )}
 

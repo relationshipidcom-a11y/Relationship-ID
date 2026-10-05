@@ -4,6 +4,7 @@ import type { CountryCode } from 'libphonenumber-js';
 import { Language } from '../types';
 import { translations } from '../i18n/translations';
 import { legacyCountryValue, normalizePhoneNumber, supportedCountries } from '../utils/phone';
+import { getLocalizedErrorMessage } from '../utils/api';
 import styles from '../styles/RegistryForm.module.css';
 
 interface P1InviteScreenProps {
@@ -70,7 +71,7 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
         partner2WhatsappCountry: normalizedWhatsapp ? legacyCountryValue(whatsappCountry) : undefined
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create invitation');
+      setError(getLocalizedErrorMessage(err, language));
     } finally {
       setSubmitting(false);
     }

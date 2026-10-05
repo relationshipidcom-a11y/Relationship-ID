@@ -9,10 +9,9 @@ import {
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   updateProfile
 } from 'firebase/auth';
-import { Language, AuthUser } from '../types';
+import { Language, AuthUser, ScreenId } from '../types';
 import { translations } from '../i18n/translations';
 import {
   auth,
@@ -24,6 +23,9 @@ import {
   testFirebaseApiKey
 } from '../lib/firebase';
 import styles from '../styles/AuthScreen.module.css';
+import { readableError } from '../utils/authErrors';
+
+export { readableError };
 
 interface AuthScreenProps {
   language: Language;
@@ -32,6 +34,7 @@ interface AuthScreenProps {
   inviterName?: string;
   defaultEmail?: string;
   defaultFullName?: string;
+  onNavigate?: (screen: ScreenId) => void;
 }
 
 const toAuthUser = (user: { uid: string; email: string | null; displayName: string | null }): AuthUser => ({
@@ -40,71 +43,14 @@ const toAuthUser = (user: { uid: string; email: string | null; displayName: stri
   name: user.displayName || user.email?.split('@')[0] || 'Relationship ID User'
 });
 
-const readableError = (error: unknown, language: Language = 'ar'): string => {
-  if (error instanceof Error) {
-    const code = String(Reflect.get(error, 'code') || '');
-    if (code.startsWith('auth/api-key-not-valid') || code === 'auth/invalid-api-key') {
-      return language === 'ar'
-        ? 'مفتاح Firebase API غير صالح (auth/api-key-not-valid). مفتاح API الحالي غير معتمد لدى خدمة Google Identity Toolkit. لحل المشكلة: افتح Firebase Console لمشروعك (relationship-id)، وتأكد من تفعيل Authentication، ثم انسخ الـ apiKey من إعدادات المشروع (Project Settings -> General -> Your apps -> Web app) وضعه في ملف .env.'
-        : 'Firebase API key is invalid (auth/api-key-not-valid). The current key is not recognized by Google Identity Toolkit. To fix this: open your project in Firebase Console, ensure Authentication is enabled, copy the Web apiKey from Project Settings -> General -> Your apps -> Web app into your .env file.';
-    }
-    if (code === 'auth/operation-not-allowed') {
-      return language === 'ar'
-        ? 'تسجيل الدخول بالبريد الإلكتروني غير مفعّل. افتح Firebase Console -> Build -> Authentication -> Sign-in method وقم بتفعيل Email/Password.'
-        : 'Email/Password sign-in is not enabled. Go to Firebase Console -> Build -> Authentication -> Sign-in method and enable Email/Password.';
-    }
-    if (code === 'auth/email-already-in-use') {
-      return language === 'ar'
-        ? 'هذا البريد الإلكتروني مسجل مسبقاً. يرجى التبديل إلى تبويب "تسجيل الدخول".'
-        : 'This email is already in use. Please switch to "Sign In".';
-    }
-    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-      return language === 'ar'
-        ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
-        : 'Invalid email or password.';
-    }
-    if (code === 'auth/user-not-found') {
-      return language === 'ar'
-        ? 'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يرجى إنشاء حساب أولاً.'
-        : 'No account found with this email. Please create an account first.';
-    }
-    if (code === 'auth/invalid-email') {
-      return language === 'ar'
-        ? 'صيغة البريد الإلكتروني غير صحيحة.'
-        : 'Invalid email address format.';
-    }
-    if (code === 'auth/missing-email') {
-      return language === 'ar'
-        ? 'يرجى إدخال عنوان البريد الإلكتروني.'
-        : 'Please enter your email address.';
-    }
-    if (code === 'auth/too-many-requests') {
-      return language === 'ar'
-        ? 'تم حظر الطلبات مؤقتاً بسبب تكرار المحاولات. يرجى الانتظار بضع دقائق والمحاولة مجدداً.'
-        : 'Too many requests. Please wait a few minutes and try again.';
-    }
-    if (code === 'auth/weak-password') {
-      return language === 'ar'
-        ? 'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف على الأقل.'
-        : 'Password is too weak. It must be at least 6 characters.';
-    }
-    if (code === 'auth/unauthorized-domain') {
-      return language === 'ar'
-        ? 'نطاق التطبيق غير مصرّح به في Firebase. أضف نطاق المعاينة في Firebase Console -> Authentication -> Settings -> Authorized domains.'
-        : 'Domain not authorized. Add this preview domain in Firebase Console -> Authentication -> Settings -> Authorized domains.';
-    }
-    return typeof code === 'string' && code ? `${code}: ${error.message}` : error.message;
-  }
-  return 'Unknown authentication error';
-};
-
 export const AuthScreen: React.FC<AuthScreenProps> = ({
   language,
   onAuthSuccess,
   isP2InvitationFlow = false,
   inviterName = '',
   defaultEmail = '',
-  defaultFullName = ''
+  defaultFullName = '',
+  onNavigate
 }) => {
   const t = translations[language];
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
@@ -125,6 +71,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
+
+  useEffect(() => {
+    if (!auth) return;
+    setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence).catch(() => {});
+  }, [rememberMe]);
 
   useEffect(() => {
     if (!auth) return;
@@ -172,18 +123,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setLoading(true);
     try {
       const firebaseAuth = requireFirebase();
-      await setPersistence(firebaseAuth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-      try {
-        const credential = await signInWithPopup(firebaseAuth, googleProvider);
-        onAuthSuccess(toAuthUser(credential.user));
-      } catch (popupError) {
-        const code = popupError instanceof Error ? Reflect.get(popupError, 'code') : undefined;
-        if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
-          await signInWithRedirect(firebaseAuth, googleProvider);
-          return;
-        }
-        throw popupError;
-      }
+      setPersistence(firebaseAuth, rememberMe ? browserLocalPersistence : browserSessionPersistence).catch(() => {});
+      const credential = await signInWithPopup(firebaseAuth, googleProvider);
+      onAuthSuccess(toAuthUser(credential.user));
     } catch (err) {
       setError(readableError(err, language));
     } finally {
@@ -424,6 +366,76 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <button type="button" onClick={() => setActiveTab(activeTab === 'login' ? 'signup' : 'login')} className="text-[#f3c4db] underline hover:text-white font-medium bg-transparent border-none cursor-pointer">
             {activeTab === 'login' ? t.createAccount : t.tabLogin}
           </button>
+        </p>
+        <div className="flex items-center justify-center gap-3 pt-2 text-[10.5px] text-[#8e84af]">
+          <a
+            href="/privacy"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate?.('privacy');
+            }}
+            className="text-[#8e84af] hover:text-[#f3c4db] transition-colors underline"
+          >
+            {t.privacyPolicy}
+          </a>
+          <span>•</span>
+          <a
+            href="/terms"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate?.('terms');
+            }}
+            className="text-[#8e84af] hover:text-[#f3c4db] transition-colors underline"
+          >
+            {t.termsOfService}
+          </a>
+        </div>
+        <p className="text-[9.5px] text-[#8e84af] pt-2 leading-relaxed max-w-xs mx-auto">
+          {language === 'ar' ? (
+            <>
+              هذا الموقع محمي بواسطة reCAPTCHA وتُطبق{' '}
+              <a
+                href="https://policies.google.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#8e84af] underline hover:text-[#f3c4db] transition-colors"
+              >
+                سياسة الخصوصية
+              </a>{' '}
+              و{' '}
+              <a
+                href="https://policies.google.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#8e84af] underline hover:text-[#f3c4db] transition-colors"
+              >
+                بنود الخدمة
+              </a>{' '}
+              من Google.
+            </>
+          ) : (
+            <>
+              This site is protected by reCAPTCHA and the Google{' '}
+              <a
+                href="https://policies.google.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#8e84af] underline hover:text-[#f3c4db] transition-colors"
+              >
+                Privacy Policy
+              </a>{' '}
+              and{' '}
+              <a
+                href="https://policies.google.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#8e84af] underline hover:text-[#f3c4db] transition-colors"
+              >
+                Terms of Service
+              </a>{' '}
+              apply.
+            </>
+          )}
         </p>
       </div>
 

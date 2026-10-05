@@ -133,6 +133,8 @@ export const translations = {
     shareableInviteLinkLabel: 'رابط الدعوة القابل للمشاركة:',
 
     // P2 Landing Screen
+    invitationFrom: 'دعوة من:',
+    requestedRelationshipStage: 'مرحلة العلاقة المطلوبة:',
     p2LandingBadge: 'دعوة لتوثيق العلاقة',
     p2LandingTitle: 'دعوة للانضمام إلى Relationship ID',
     p2InvitedYouText: 'دعاك {inviter} لتأكيد وتوثيق سجل العلاقة',
@@ -164,6 +166,8 @@ export const translations = {
     toggleSocialDesc: 'عرض المعرّفات الاجتماعية الموثقة داخل الشهادة',
     toggleContactTitle: 'إظهار أرقام التواصل والتفاصيل الإضافية',
     toggleContactDesc: 'إظهار قنوات الاتصال لكلا الطرفين',
+    toggleContactSearchTitle: 'السماح بالبحث العام بجهة الاتصال',
+    toggleContactSearchDesc: 'يلزم موافقة صريحة من كلا الشريكين لإتاحة الاستعلام برقم الجوال أو البريد الإلكتروني',
     toggleQrTitle: 'عرض رمز التحقق السريع QR Code',
     toggleQrDesc: 'مصفوفة التوثيق الرقمي الآمنة',
     editCertDetailsBtn: 'تعديل تفاصيل الشهادة',
@@ -194,14 +198,24 @@ export const translations = {
     verifyRelationshipMenu: 'التحقق من صحة العلاقة',
     signOutMenu: 'تسجيل الخروج',
     endRelationshipMenu: 'إنهاء العلاقة',
-    endRelationshipAndDeleteAccountMenu: 'إنهاء العلاقة وحذف الحساب',
+    endRelationshipAndDeleteAccountMenu: 'حذف حسابي',
+    declineAndBlock: 'رفض وحظر',
+    declineAndBlockConfirm: 'لن تصلك دعوات من هذا الشخص مرة أخرى ما لم تلغِ الحظر.',
+    blockedPeopleMenu: 'الأشخاص المحظورون',
+    downloadMyDataMenu: 'تنزيل بياناتي (JSON)',
+    blockedPeopleTitle: 'الأشخاص المحظورون',
+    noBlockedPeople: 'لم تحظر أي شخص.',
+    unblock: 'إلغاء الحظر',
+    unblockSuccess: 'تم إلغاء الحظر بنجاح',
+    blockedAtLabel: 'تاريخ الحظر',
     exitRelationshipTitle: 'هل تريد إنهاء هذه العلاقة؟',
-    exitRelationshipDesc: 'سيؤدي إنهاء العلاقة إلى إنهاء السجل النشط وتعطيل التحقق العام من الشهادة. لن يتم حذف حسابك.',
+    exitRelationshipDesc: 'سيؤدي هذا إلى حذف سجل العلاقة المشتركة والشهادة والتحقق العام وطلبات التعديل نهائياً لكلا الطرفين. سيبقى الحساب الشخصي لكل منكما.',
     cancelBtn: 'إلغاء',
     confirmExitRelationshipBtn: 'إنهاء العلاقة',
-    deleteAccountTitle: 'إنهاء العلاقة وحذف الحساب؟',
-    deleteAccountDesc: 'سيؤدي ذلك إلى إنهاء العلاقة النشطة وتعطيل الشهادة والتحقق العام وإشعار الشريك بأنه تم إنهاء العلاقة، ثم حذف حساب Relationship ID الخاص بك نهائياً وفق سياسة الحذف الحالية. لن يتم حذف حساب الشريك الآخر أو معلوماته الشخصية. لا يمكن التراجع عن هذا الإجراء.',
-    confirmDeleteAccountBtn: 'إنهاء العلاقة وحذف الحساب',
+    deleteAccountTitle: 'حذف حسابي؟',
+    deleteAccountDesc: 'سيؤدي هذا إلى حذف حسابك وملفك الشخصي نهائياً. سيتم أيضاً حذف سجل العلاقة والشهادة والتحقق العام نهائياً. سيبقى حساب شريكك. لا يمكن التراجع عن هذا الإجراء.',
+    deleteAccountDescNoRelationship: 'سيؤدي هذا إلى حذف حسابك وملفك الشخصي نهائياً. لا يمكن التراجع عن هذا الإجراء.',
+    confirmDeleteAccountBtn: 'حذف حسابي',
     actionLoadingText: 'جاري التنفيذ...',
 
     // Official Certificate View & Parchment
@@ -241,16 +255,34 @@ export const translations = {
 
     // Verification portal
     verifyPortalTitle: 'التحقق من سجل العلاقة',
-    verifyPortalDesc: 'أدخل رقم التحقق الخاص بالسجل.',
+    verifyPortalDesc: 'استعلم باستخدام رقم التحقق أو عبر جهة الاتصال المباشرة.',
     verifyInputPlaceholder: 'رقم التحقق',
+    verifyContactInputPlaceholder: 'البريد الإلكتروني، رقم الجوال، أو الواتساب',
+    searchByRefTab: 'رقم التحقق',
+    searchByContactTab: 'جهة الاتصال',
     verifyBtn: 'تحقق الآن',
     validRecordFound: 'تم العثور على سجل علاقة صالح',
     recordNotFound: 'لم يتم العثور على سجل علاقة صالح.',
+    noPublicSearchableRecord: 'لا يوجد سجل نشط متاح للبحث العام.',
     recordInactive: 'سجل العلاقة هذا غير نشط.',
     
     // Footer
     footerCopyright: '© 2026 Relationship ID • Relationship Registry for Web, iOS & Android',
-    sslSecureText: 'بياناتك محمية ومشفرة بمعيار SSL-256 bit'
+    sslSecureText: 'بياناتك محمية ومشفرة بمعيار SSL-256 bit',
+    privacyPolicy: 'سياسة الخصوصية',
+    termsOfService: 'شروط الاستخدام',
+    legalConsentText: 'أؤكد أن عمري 18 سنة أو أكثر، وأوافق على شروط الاستخدام وسياسة الخصوصية.',
+    legalConsentRequired: 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.',
+    backBtn: 'رجوع',
+
+    // WhatsApp verification
+    sendWhatsappCodeBtn: 'إرسال الرمز',
+    resendWhatsappCodeBtn: 'إعادة إرسال الرمز',
+    verifyWhatsappCodeBtn: 'تحقق',
+    whatsappCodePlaceholder: 'رمز التحقق (6 أرقام)',
+    whatsappVerifiedBadge: 'موثوق ✓',
+    whatsappSendingCode: 'جارٍ الإرسال...',
+    whatsappVerifyingCode: 'جارٍ التحقق...'
   },
   en: {
     appName: 'Relationship ID',
@@ -386,6 +418,8 @@ export const translations = {
     shareableInviteLinkLabel: 'Shareable Invitation Link:',
 
     // P2 Landing Screen
+    invitationFrom: 'Invitation from:',
+    requestedRelationshipStage: 'Requested relationship stage:',
     p2LandingBadge: 'Relationship Verification Invitation',
     p2LandingTitle: 'Invitation to Join Relationship ID',
     p2InvitedYouText: '{inviter} has invited you to confirm and verify your relationship record',
@@ -417,6 +451,8 @@ export const translations = {
     toggleSocialDesc: 'Display verified social handles on the certificate face',
     toggleContactTitle: 'Show Contact Numbers & Additional Details',
     toggleContactDesc: 'Highlight verified contact channels for both partners',
+    toggleContactSearchTitle: 'Allow Public Contact Search',
+    toggleContactSearchDesc: 'Requires explicit consent from both partners to allow lookup by email, mobile, or WhatsApp',
     toggleQrTitle: 'Show Verification QR Matrix Code',
     toggleQrDesc: 'High-security digital verification matrix',
     editCertDetailsBtn: 'Edit Certificate Details',
@@ -445,16 +481,26 @@ export const translations = {
     accountMenuLabel: 'Account menu',
     adjustMyInfoMenu: 'Adjust My Information',
     verifyRelationshipMenu: 'Verify Relationship',
-    signOutMenu: 'Sign Out',
-    endRelationshipMenu: 'End Relationship',
-    endRelationshipAndDeleteAccountMenu: 'End Relationship & Delete Account',
+    signOutMenu: 'Sign out',
+    endRelationshipMenu: 'End relationship',
+    endRelationshipAndDeleteAccountMenu: 'Delete my account',
+    declineAndBlock: 'Decline and block',
+    declineAndBlockConfirm: "You won't receive invitations from this person again unless you unblock them.",
+    blockedPeopleMenu: 'Blocked people',
+    downloadMyDataMenu: 'Download My Data (JSON)',
+    blockedPeopleTitle: 'Blocked people',
+    noBlockedPeople: "You haven't blocked anyone.",
+    unblock: 'Unblock',
+    unblockSuccess: 'Unblocked successfully',
+    blockedAtLabel: 'Blocked on',
     exitRelationshipTitle: 'End this relationship?',
-    exitRelationshipDesc: 'Ending the relationship will deactivate the active relationship and public certificate verification. This action does not delete your account.',
+    exitRelationshipDesc: 'This permanently deletes your shared relationship, certificate, public verification and related requests for both of you. Both of your personal accounts stay.',
     cancelBtn: 'Cancel',
-    confirmExitRelationshipBtn: 'End Relationship',
-    deleteAccountTitle: 'End Relationship & Delete Account?',
-    deleteAccountDesc: "This will end your active relationship, deactivate the certificate and public verification, notify your partner that the relationship has ended, and then permanently delete your Relationship ID account according to the current deletion policy.\n\nYour partner's account and personal information will NOT be deleted.\n\nThis cannot be undone.",
-    confirmDeleteAccountBtn: 'End Relationship & Delete Account',
+    confirmExitRelationshipBtn: 'End relationship',
+    deleteAccountTitle: 'Delete my account?',
+    deleteAccountDesc: "This permanently deletes your account and profile. Your relationship, certificate and public verification are also permanently deleted. Your partner's account stays. This cannot be undone.",
+    deleteAccountDescNoRelationship: 'This permanently deletes your account and profile. This cannot be undone.',
+    confirmDeleteAccountBtn: 'Delete my account',
     actionLoadingText: 'Processing...',
 
     // Official Certificate View & Parchment
@@ -494,15 +540,33 @@ export const translations = {
 
     // Verification portal
     verifyPortalTitle: 'Verify Relationship Record',
-    verifyPortalDesc: 'Enter the private verification/reference number.',
+    verifyPortalDesc: 'Verify using reference code or exact contact detail.',
     verifyInputPlaceholder: 'Verification Number',
+    verifyContactInputPlaceholder: 'Email, mobile, or WhatsApp number',
+    searchByRefTab: 'Verification Ref',
+    searchByContactTab: 'Contact Search',
     verifyBtn: 'Verify Now',
     validRecordFound: 'Valid Relationship Record',
     recordNotFound: 'No valid relationship record was found.',
+    noPublicSearchableRecord: 'No publicly searchable active record.',
     recordInactive: 'This relationship record is not active.',
 
     // Footer
     footerCopyright: '© 2026 Relationship ID • Relationship Registry for Web, iOS & Android',
-    sslSecureText: 'Your data is secured with SSL-256 bit encryption'
+    sslSecureText: 'Your data is secured with SSL-256 bit encryption',
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
+    legalConsentText: 'I confirm I am 18 or older, and I agree to the Terms of Service and Privacy Policy.',
+    legalConsentRequired: 'Please accept the Terms of Service and Privacy Policy to continue.',
+    backBtn: 'Back',
+
+    // WhatsApp verification
+    sendWhatsappCodeBtn: 'Send code',
+    resendWhatsappCodeBtn: 'Resend code',
+    verifyWhatsappCodeBtn: 'Verify',
+    whatsappCodePlaceholder: '6-digit code',
+    whatsappVerifiedBadge: 'Verified ✓',
+    whatsappSendingCode: 'Sending...',
+    whatsappVerifyingCode: 'Verifying...'
   }
 };

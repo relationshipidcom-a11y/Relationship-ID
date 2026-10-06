@@ -13,7 +13,7 @@ import {
 } from './types';
 import { auth, db } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { authFetch, parseApiError, getLocalizedErrorMessage, ALLOWED_ERROR_CODES, withAppCheckHeaders } from './utils/api';
+import { authFetch, fetchWithTimeout, parseApiError, getLocalizedErrorMessage, ALLOWED_ERROR_CODES, withAppCheckHeaders } from './utils/api';
 import {
   getAccountMenuItems,
   classifyRelationshipSnapshot,
@@ -150,6 +150,7 @@ export default function App() {
   const privateRecordRequestIdRef = useRef(0);
   const invitationRequestIdRef = useRef(0);
   const changeRequestsRequestIdRef = useRef(0);
+  const isSubmittingRef = useRef(false);
 
   const allowScreenExplorer = useMemo(
     () => import.meta.env.DEV && import.meta.env.VITE_ENABLE_SCREEN_EXPLORER === 'true',
@@ -294,7 +295,7 @@ export default function App() {
       const headers = await withAppCheckHeaders();
       const response = auth?.currentUser
         ? await authFetch(`/api/invitations/${inviteId}`)
-        : await fetch(`/api/invitations/${inviteId}`, { headers });
+        : await fetchWithTimeout(`/api/invitations/${inviteId}`, { headers });
       const data = await parseApiError(response);
 
       // Guard against stale asynchronous responses after sign-out, account switch, or superseded requests
@@ -338,9 +339,7 @@ export default function App() {
       }
       return null;
     } finally {
-      if (invitationRequestIdRef.current === requestId) {
-        setInvitationLoading(false);
-      }
+      setInvitationLoading(false);
     }
   };
 

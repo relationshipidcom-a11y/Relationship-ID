@@ -1,0 +1,93 @@
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RotateCcw, Home } from 'lucide-react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  errorMessage?: string;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'UNEXPECTED_RENDER_ERROR'
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error('Unhandled React render error caught by ErrorBoundary:', error, errorInfo);
+  }
+
+  handleReload = (): void => {
+    window.location.reload();
+  };
+
+  handleGoHome = (): void => {
+    window.location.href = '/';
+  };
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
+      const isRtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
+
+      return (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="min-h-screen w-full flex items-center justify-center p-4 bg-rid-gradient text-white select-none"
+          style={{ fontFamily: "'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+        >
+          <div className="w-full max-w-md bg-[#202B52] border border-white/20 rounded-[24px] p-6 sm:p-8 shadow-2xl text-center">
+            <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300">
+              <AlertTriangle className="w-8 h-8" aria-hidden="true" />
+            </div>
+
+            <h1 className="text-xl sm:text-2xl font-bold text-[#F6F5FF] mb-2 leading-tight">
+              {isRtl ? 'حدث خطأ غير متوقع' : 'An Unexpected Error Occurred'}
+            </h1>
+            <p className="text-xs sm:text-sm text-[#C9CCE4] mb-6 leading-relaxed">
+              {isRtl
+                ? 'تعذر عرض هذه الصفحة بشكل صحيح. يمكنك إعادة تحميل الصفحة بأمان أو العودة إلى الصفحة الرئيسية.'
+                : 'This page could not be displayed properly. You can safely reload the page or return to the home screen.'}
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#C1C3E6] text-[#242C55] font-semibold text-sm hover:bg-[#D0D2ED] transition-colors shadow-md active:scale-95"
+              >
+                <RotateCcw className="w-4 h-4" aria-hidden="true" />
+                <span>{isRtl ? 'إعادة تحميل الصفحة' : 'Reload Page'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={this.handleGoHome}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#283564] border border-white/20 text-[#F6F5FF] font-semibold text-sm hover:bg-[#334175] transition-colors shadow-sm active:scale-95"
+              >
+                <Home className="w-4 h-4" aria-hidden="true" />
+                <span>{isRtl ? 'الصفحة الرئيسية' : 'Homepage'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}

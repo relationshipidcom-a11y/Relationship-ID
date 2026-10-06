@@ -1308,6 +1308,12 @@ export function createApp(): express.Express {
   app.set('trust proxy', parseTrustProxyHops(process.env.TRUST_PROXY_HOPS));
   app.use(securityHeadersMiddleware);
   app.use(express.json({ limit: '256kb' }));
+  app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof SyntaxError && (err as any).status === 400 && 'body' in err) {
+      return res.status(400).json({ error: 'INVALID_REQUEST' });
+    }
+    next(err);
+  });
 
   // SECURITY: The server must NEVER accept whatsappTrusted or whatsappVerifiedAt from any client request body, on any endpoint. Strip/ignore them.
   app.use((req, _res, next) => {
@@ -3840,6 +3846,14 @@ export function createApp(): express.Express {
     } catch (error) {
       console.error('Error in internal reconcile:', error);
       return res.status(500).json({ error: 'DATABASE_ERROR' });
+    }
+  });
+
+  // Global safe error handler: never leak stack traces, private data, or internal credentials
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('Unhandled server error:', err?.message || err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'SERVER_ERROR' });
     }
   });
 

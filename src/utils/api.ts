@@ -73,7 +73,9 @@ export const ALLOWED_ERROR_CODES = new Set([
   'NOT_FOUND',
   'CONFLICT',
   'SERVER_ERROR',
-  'API_ERROR'
+  'API_ERROR',
+  'NETWORK_TIMEOUT',
+  'NETWORK_ERROR'
 ]);
 
 export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
@@ -264,6 +266,14 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   API_ERROR: {
     en: 'An error occurred. Please try again.',
     ar: 'حدث خطأ. يرجى المحاولة لاحقاً.'
+  },
+  NETWORK_TIMEOUT: {
+    en: 'The request timed out. Please check your connection and try again.',
+    ar: 'انتهت مهلة الطلب. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.'
+  },
+  NETWORK_ERROR: {
+    en: 'Network error. Please check your connection and try again.',
+    ar: 'خطأ في الاتصال. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.'
   }
 };
 
@@ -360,7 +370,42 @@ export function getLocalizedErrorMessage(codeOrError: unknown, language: Languag
   return ERROR_MESSAGES.API_ERROR[language] || ERROR_MESSAGES.API_ERROR.en;
 }
 
-export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 25000
+): Promise<Response> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let signal = init.signal;
+  if (!signal) {
+    const controller = new AbortController();
+    signal = controller.signal;
+    timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+  }
+
+  try {
+    const res = await fetch(input, { ...init, signal });
+    return res;
+  } catch (err: any) {
+    if (err?.name === 'AbortError' || err?.message === 'TIMEOUT') {
+      throw new Error('NETWORK_TIMEOUT');
+    }
+    if (err instanceof TypeError && err.message?.toLowerCase().includes('fetch')) {
+      throw new Error('NETWORK_ERROR');
+    }
+    throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+export async function authFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 25000
+): Promise<Response> {
   if (!auth?.currentUser) {
     throw new Error('AUTH_REQUIRED');
   }
@@ -369,7 +414,7 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   const headers = await withAppCheckHeaders(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
 
-  return fetch(input, { ...init, headers });
+  return fetchWithTimeout(input, { ...init, headers }, timeoutMs);
 }
 
 /**

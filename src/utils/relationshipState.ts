@@ -198,3 +198,92 @@ export function evaluateP2AuthNavigation({
   return { canNavigateToDetails: true, redirectScreen: 'p2_details' };
 }
 
+export interface InvitationLoadingContext<T = any> {
+  inviteId: string;
+  skipRecordOverwrite?: boolean;
+  requestUid: string | null;
+  requestId: number;
+  getCurrentRequestId: () => number;
+  getActiveAuthUid: () => string | null;
+  getCurrentAuthUid: () => string | null;
+  fetchInvitation: () => Promise<T>;
+  setInvitation: (invitation: any) => void;
+  setInvitationAuth: (auth: any) => void;
+  setRecord: (updater: (prev: any) => any) => void;
+  setAppError: (errorMsg: string) => void;
+  setInvitationLoading: (loading: boolean) => void;
+  formatErrorMessage?: (err: any) => string;
+}
+
+export async function executeInvitationLoad<T extends { invitation?: any; authorization?: any; record?: any } = any>(
+  ctx: InvitationLoadingContext<T>
+): Promise<T | null> {
+  const {
+    inviteId,
+    skipRecordOverwrite = false,
+    requestUid,
+    requestId,
+    getCurrentRequestId,
+    getActiveAuthUid,
+    getCurrentAuthUid,
+    fetchInvitation,
+    setInvitation,
+    setInvitationAuth,
+    setRecord,
+    setAppError,
+    setInvitationLoading,
+    formatErrorMessage = (err) => (err instanceof Error ? err.message : String(err))
+  } = ctx;
+
+  if (!inviteId || inviteId === 'current') return null;
+
+  const isCurrent = () =>
+    getCurrentRequestId() === requestId &&
+    getActiveAuthUid() === requestUid &&
+    getCurrentAuthUid() === requestUid;
+
+  setInvitationLoading(true);
+
+  try {
+    const data = await fetchInvitation();
+
+    // Guard against stale asynchronous responses after sign-out, account switch, or superseded requests
+    if (!isCurrent()) {
+      return null;
+    }
+
+    if (data.invitation) setInvitation(data.invitation);
+    if (data.authorization) {
+      setInvitationAuth({
+        ...data.authorization,
+        inviteId: data.authorization.inviteId || inviteId,
+        authorizedUid: data.authorization.authorizedUid || requestUid || undefined
+      });
+    } else {
+      setInvitationAuth(null);
+    }
+
+    // A public invitation preview must never replace an authorized private active record
+    if (!skipRecordOverwrite && data.record) {
+      setRecord((prev: any) => {
+        if (prev?.status === 'active' && prev?.p1Uid && (prev.p1Uid === requestUid || prev.p2Uid === requestUid)) {
+          return prev;
+        }
+        return data.record;
+      });
+    }
+
+    return data;
+  } catch (error) {
+    if (isCurrent()) {
+      setInvitationAuth(null);
+      setAppError(formatErrorMessage(error));
+    }
+    return null;
+  } finally {
+    if (isCurrent()) {
+      setInvitationLoading(false);
+    }
+  }
+}
+

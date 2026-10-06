@@ -9,7 +9,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAppCheck } from 'firebase-admin/app-check';
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import twilio from 'twilio';
-import { checkHealth, type HealthStatus } from './src/utils/health';
+import { checkHealth, defaultHealthCheckManager, type HealthStatus } from './src/utils/health';
 import {
   normalizeCanonicalEmail,
   normalizeCanonicalPhone,
@@ -1334,12 +1334,47 @@ export function createApp(): express.Express {
   });
 
   app.get('/api/health', async (_req, res) => {
-    const health = await checkHealth(adminDb, projectId, 5000);
+    const health = await defaultHealthCheckManager.getHealth(adminDb, projectId, 5000);
     return res.status(health.statusCode).json(health.body);
   });
 
   // Enforce Firebase App Check on every /api/* route before requireAuth
   app.use('/api', requireAppCheck);
+
+  // Client-side error reporting endpoint (App Check protected, rate limited)
+  app.post('/api/error-report', async (req, res) => {
+    try {
+      const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+      if (!limiter(`error_report_${clientIp}`, 10, 60000)) {
+        return res.status(429).json({ error: 'RATE_LIMITED' });
+      }
+
+      const body = (req.body || {}) as Record<string, unknown>;
+      const errorCategory = typeof body.errorCategory === 'string' ? body.errorCategory.trim().slice(0, 32) : 'unknown';
+      const pageCategory = typeof body.pageCategory === 'string' ? body.pageCategory.trim().slice(0, 32) : 'unknown';
+      const eventId = typeof body.eventId === 'string' ? body.eventId.trim().slice(0, 64) : 'unknown';
+      const appVersion = typeof body.appVersion === 'string' ? body.appVersion.trim().slice(0, 32) : undefined;
+
+      if (errorCategory !== 'render_error') {
+        return res.status(400).json({ error: 'INVALID_INPUT' });
+      }
+
+      // Structured logging for Google Cloud Logging alert
+      console.log(JSON.stringify({
+        severity: 'ERROR',
+        event: 'CLIENT_RENDER_ERROR',
+        errorCategory,
+        pageCategory,
+        eventId,
+        appVersion,
+        timestamp: new Date().toISOString()
+      }));
+
+      return res.json({ success: true });
+    } catch {
+      return res.status(500).json({ error: 'SERVER_ERROR' });
+    }
+  });
 
   // ----------------------------------------------------
   // WhatsApp Verification via Twilio Verify (SMS)

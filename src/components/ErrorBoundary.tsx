@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, Home } from 'lucide-react';
+import { withAppCheckHeaders } from '../lib/firebase';
 
 interface Props {
   children: ReactNode;
@@ -12,20 +13,52 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private hasReported = false;
+
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(_error: Error): State {
     return {
       hasError: true,
-      errorMessage: error?.message || 'UNEXPECTED_RENDER_ERROR'
+      errorMessage: 'UNEXPECTED_RENDER_ERROR'
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('Unhandled React render error caught by ErrorBoundary:', error, errorInfo);
+  componentDidCatch(_error: Error, _errorInfo: ErrorInfo): void {
+    console.error('[ErrorBoundary] Sanitized render error caught');
+
+    if (this.hasReported) {
+      return;
+    }
+    this.hasReported = true;
+
+    try {
+      const payload = {
+        errorCategory: 'render_error',
+        pageCategory: typeof window !== 'undefined' ? 'client' : 'ssr',
+        eventId: Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10),
+        appVersion: '2026-10-01'
+      };
+
+      withAppCheckHeaders().then(async (headers) => {
+        if (!headers.has('X-Firebase-AppCheck') && !headers.has('x-firebase-appcheck')) {
+          return;
+        }
+        headers.set('Content-Type', 'application/json');
+        await fetch('/api/error-report', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      }).catch(() => {
+        // Quietly skip if obtaining App Check token fails; never send unverified fallback
+      });
+    } catch {
+      // Best effort reporting failure must never prevent recovery screen or throw
+    }
   }
 
   handleReload = (): void => {

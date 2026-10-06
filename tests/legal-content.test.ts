@@ -147,4 +147,32 @@ test('Legal Content Compliance Suite', async (t) => {
     // Version remains 2026-10-01
     assert.equal(LEGAL_VERSION, '2026-10-01');
   });
+
+  // 10. Storage and Public Contact Search disclosures
+  await t.test('10. Storage persistence and public contact search disclosures', () => {
+    const stringified = JSON.stringify(legalContent);
+
+    // Old inaccurate claims must be absent
+    assert.equal(stringified.includes('uses no localStorage or sessionStorage in this application'), false,
+      'Old inaccurate claim "uses no localStorage or sessionStorage" must be absent');
+    assert.equal(stringified.includes('ولا يستخدم التخزين المحلي (localStorage) أو تخزين الجلسة (sessionStorage) في هذا التطبيق'), false,
+      'Old inaccurate Arabic storage claim must be absent');
+
+    // New accurate storage persistence disclosures must be present
+    assert.ok(stringified.includes('Firebase Authentication utilizes browser local storage'),
+      'English storage persistence disclosure must be present');
+    assert.ok(stringified.includes('تستخدم خدمة Firebase Authentication التخزين المحلي للمتصفح'),
+      'Arabic storage persistence disclosure must be present');
+
+    // New accurate public contact search disclosures must be present
+    assert.ok(stringified.includes('optional public contact search feature (disabled by default and requiring explicit consent from both partners)'),
+      'English public contact search disclosure must be present');
+    assert.ok(stringified.includes('تتيح خاصية البحث عن جهة الاتصال الاختيارية (المعطلة افتراضياً والتي تتطلب موافقة صريحة من كِلا الشريكين)'),
+      'Arabic public contact search disclosure must be present');
+
+    // Preserved disclosures
+    assert.ok(stringified.includes('sets no cookies of its own'), 'Must preserve "sets no cookies of its own"');
+    assert.ok(stringified.includes('no third-party analytics, behavioral tracking, or advertising networks'), 'Must preserve analytics disclaimer');
+    assert.ok(stringified.includes('Google reCAPTCHA Enterprise'), 'Must preserve reCAPTCHA disclosure');
+  });
 });

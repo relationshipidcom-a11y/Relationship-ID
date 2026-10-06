@@ -19,7 +19,8 @@ import {
   classifyRelationshipSnapshot,
   evaluateP2Authorization,
   shouldRenderP2RegistrationScreen,
-  evaluateP2AuthNavigation
+  evaluateP2AuthNavigation,
+  executeInvitationLoad
 } from './utils/relationshipState';
 import { TopBar } from './components/TopBar';
 import { AuthScreen } from './components/AuthScreen';
@@ -290,57 +291,28 @@ export default function App() {
     if (!inviteId || inviteId === 'current') return null;
     const requestUid = auth?.currentUser?.uid || null;
     const requestId = ++invitationRequestIdRef.current;
-    setInvitationLoading(true);
-    try {
-      const headers = await withAppCheckHeaders();
-      const response = auth?.currentUser
-        ? await authFetch(`/api/invitations/${inviteId}`)
-        : await fetchWithTimeout(`/api/invitations/${inviteId}`, { headers });
-      const data = await parseApiError(response);
-
-      // Guard against stale asynchronous responses after sign-out, account switch, or superseded requests
-      if (
-        invitationRequestIdRef.current !== requestId ||
-        activeAuthUidRef.current !== requestUid ||
-        (auth?.currentUser?.uid || null) !== requestUid
-      ) {
-        return null;
-      }
-
-      if (data.invitation) setInvitation(data.invitation);
-      if (data.authorization) {
-        setInvitationAuth({
-          ...data.authorization,
-          inviteId: data.authorization.inviteId || inviteId,
-          authorizedUid: data.authorization.authorizedUid || requestUid || undefined
-        });
-      } else {
-        setInvitationAuth(null);
-      }
-
-      // A public invitation preview must never replace an authorized private active record
-      if (!skipRecordOverwrite && data.record) {
-        setRecord((prev) => {
-          if (prev.status === 'active' && prev.p1Uid && (prev.p1Uid === requestUid || prev.p2Uid === requestUid)) {
-            return prev;
-          }
-          return data.record;
-        });
-      }
-      return data;
-    } catch (error) {
-      if (
-        invitationRequestIdRef.current === requestId &&
-        activeAuthUidRef.current === requestUid &&
-        (auth?.currentUser?.uid || null) === requestUid
-      ) {
-        setInvitationAuth(null);
-        setAppError(getLocalizedErrorMessage(error, language));
-      }
-      return null;
-    } finally {
-      setInvitationLoading(false);
-    }
+    return executeInvitationLoad({
+      inviteId,
+      skipRecordOverwrite,
+      requestUid,
+      requestId,
+      getCurrentRequestId: () => invitationRequestIdRef.current,
+      getActiveAuthUid: () => activeAuthUidRef.current,
+      getCurrentAuthUid: () => auth?.currentUser?.uid || null,
+      fetchInvitation: async () => {
+        const headers = await withAppCheckHeaders();
+        const response = auth?.currentUser
+          ? await authFetch(`/api/invitations/${inviteId}`)
+          : await fetchWithTimeout(`/api/invitations/${inviteId}`, { headers });
+        return parseApiError(response);
+      },
+      setInvitation,
+      setInvitationAuth,
+      setRecord,
+      setAppError: (msg) => setAppError(msg),
+      setInvitationLoading,
+      formatErrorMessage: (err) => getLocalizedErrorMessage(err, language)
+    });
   };
 
   useEffect(() => {
@@ -927,15 +899,12 @@ export default function App() {
       return;
     }
 
-    setInvitationLoading(true);
     let loadedData: any = null;
     try {
       loadedData = await loadInvitation(targetInviteId);
     } catch (err) {
       console.error('Failed to load private invitation details after login', err);
       loadedData = null;
-    } finally {
-      setInvitationLoading(false);
     }
 
     if (p2PendingAction === 'decline') {

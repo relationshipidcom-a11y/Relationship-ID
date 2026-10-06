@@ -94,3 +94,43 @@ export async function checkHealth(
     }
   };
 }
+
+export interface HealthCacheEntry {
+  result: HealthCheckResult;
+  cachedAt: number;
+}
+
+export class HealthCheckManager {
+  private cache: HealthCacheEntry | null = null;
+  private readonly ttlMs: number;
+
+  constructor(ttlMs = 30000) {
+    this.ttlMs = ttlMs;
+  }
+
+  async getHealth(
+    db: FirestoreProbeTarget | null | undefined,
+    configuredProjectId: string | null | undefined,
+    timeoutMs = 5000,
+    now: number = Date.now()
+  ): Promise<HealthCheckResult> {
+    if (this.cache && (now - this.cache.cachedAt < this.ttlMs)) {
+      return this.cache.result;
+    }
+
+    const fresh = await checkHealth(db, configuredProjectId, timeoutMs);
+    if (fresh.statusCode === 200) {
+      this.cache = { result: fresh, cachedAt: now };
+    } else {
+      this.cache = null;
+    }
+    return fresh;
+  }
+
+  clearCache(): void {
+    this.cache = null;
+  }
+}
+
+export const defaultHealthCheckManager = new HealthCheckManager(30000);
+

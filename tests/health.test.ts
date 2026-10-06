@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { checkHealth, type FirestoreProbeTarget } from '../src/utils/health';
+import { checkHealth, HealthCheckManager, type FirestoreProbeTarget } from '../src/utils/health';
 
 test('checkHealth: returns HTTP 200 and status "ok" on successful Firestore probe', async () => {
   const mockDb: FirestoreProbeTarget = {
@@ -139,3 +139,125 @@ test('checkHealth: response payload contains zero sensitive tokens, keys, or sta
     assert.equal(keys.includes(fk), false, `Sensitive key "${fk}" must not be in health response`);
   }
 });
+
+test('HealthCheckManager: caches successful health check for 30 seconds and avoids redundant probes', async () => {
+  let probeCount = 0;
+  const mockDb: FirestoreProbeTarget = {
+    collection: () => ({
+      limit: () => ({
+        get: async () => {
+          probeCount++;
+          return { docs: [] };
+        }
+      })
+    })
+  };
+
+  const manager = new HealthCheckManager(30000);
+  const t0 = 1000000;
+
+  // First call at t0 -> executes probe
+  const res1 = await manager.getHealth(mockDb, 'relationship-id', 1000, t0);
+  assert.equal(res1.statusCode, 200);
+  assert.equal(probeCount, 1);
+
+  // Second call at t0 + 15000 (15s later) -> returns cached result without re-probing
+  const res2 = await manager.getHealth(mockDb, 'relationship-id', 1000, t0 + 15000);
+  assert.equal(res2.statusCode, 200);
+  assert.equal(probeCount, 1, 'Probe count must remain 1 within TTL');
+  assert.equal(res2.body.timestamp, res1.body.timestamp);
+});
+
+test('HealthCheckManager: expires cache after 30 seconds and re-probes Firestore', async () => {
+  let probeCount = 0;
+  const mockDb: FirestoreProbeTarget = {
+    collection: () => ({
+      limit: () => ({
+        get: async () => {
+          probeCount++;
+          return { docs: [] };
+        }
+      })
+    })
+  };
+
+  const manager = new HealthCheckManager(30000);
+  const t0 = 1000000;
+
+  await manager.getHealth(mockDb, 'relationship-id', 1000, t0);
+  assert.equal(probeCount, 1);
+
+  // Call after 30,001ms (expired) -> executes fresh probe
+  const resExpired = await manager.getHealth(mockDb, 'relationship-id', 1000, t0 + 30001);
+  assert.equal(resExpired.statusCode, 200);
+  assert.equal(probeCount, 2, 'Probe count must increment to 2 after TTL expires');
+});
+
+test('HealthCheckManager: returns HTTP 503 upon cache expiry if database becomes unavailable (never fabricates success)', async () => {
+  let isDbAlive = true;
+  const mockDb: FirestoreProbeTarget = {
+    collection: () => ({
+      limit: () => ({
+        get: async () => {
+          if (!isDbAlive) {
+            throw new Error('DATABASE_CONNECTION_LOST');
+          }
+          return { docs: [] };
+        }
+      })
+    })
+  };
+
+  const manager = new HealthCheckManager(30000);
+  const t0 = 1000000;
+
+  // t0: DB alive -> 200
+  const resInitial = await manager.getHealth(mockDb, 'relationship-id', 1000, t0);
+  assert.equal(resInitial.statusCode, 200);
+
+  // DB goes down during the cache window
+  isDbAlive = false;
+
+  // Within TTL: cached 200
+  const resCached = await manager.getHealth(mockDb, 'relationship-id', 1000, t0 + 10000);
+  assert.equal(resCached.statusCode, 200);
+
+  // After TTL: must NOT fabricate success -> fresh probe detects outage and returns 503
+  const resPostExpiry = await manager.getHealth(mockDb, 'relationship-id', 1000, t0 + 30001);
+  assert.equal(resPostExpiry.statusCode, 503);
+  assert.equal(resPostExpiry.body.status, 'unavailable');
+  assert.equal(resPostExpiry.body.firestoreReachable, false);
+});
+
+test('HealthCheckManager: does not cache 503 failures so recovery is detected promptly', async () => {
+  let isDbAlive = false;
+  let probeCount = 0;
+  const mockDb: FirestoreProbeTarget = {
+    collection: () => ({
+      limit: () => ({
+        get: async () => {
+          probeCount++;
+          if (!isDbAlive) {
+            throw new Error('OUTAGE');
+          }
+          return { docs: [] };
+        }
+      })
+    })
+  };
+
+  const manager = new HealthCheckManager(30000);
+  const t0 = 1000000;
+
+  // Initial failure -> 503
+  const resFail = await manager.getHealth(mockDb, 'relationship-id', 1000, t0);
+  assert.equal(resFail.statusCode, 503);
+  assert.equal(probeCount, 1);
+
+  // DB recovers immediately 5 seconds later
+  isDbAlive = true;
+  const resRecovered = await manager.getHealth(mockDb, 'relationship-id', 1000, t0 + 5000);
+  assert.equal(resRecovered.statusCode, 200);
+  assert.equal(probeCount, 2, 'Must not serve cached 503 when DB recovers');
+});
+

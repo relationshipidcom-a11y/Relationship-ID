@@ -22,7 +22,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '2. What We Collect',
-        body: 'We collect account and authentication data (email address and phone number), profile information (full legal names in Arabic and English, and up to six optional social media accounts), verification status, partner invitations, mutual relationship records, certificate identifiers, notifications, and technical server logs (such as request and error logs kept by our hosting provider). Date of birth is self-declared by users solely to verify that both participants are consenting adults aged 18 or older; date of birth is strictly confidential and is never shown on public certificates or shared with third parties.'
+        body: 'We collect account and authentication data (email address and phone number), profile information (full legal names in Arabic and English, and up to six optional social media accounts), verification status, partner invitations, mutual relationship records, certificate identifiers, notifications, technical server logs (such as request and error logs kept by our hosting provider), and anonymous client-side error event reports. Date of birth is self-declared by users solely to verify that both participants are consenting adults aged 18 or older; date of birth is strictly confidential and is never shown on public certificates or shared with third parties.'
       },
       {
         heading: '3. How Long We Keep Data',
@@ -30,7 +30,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '4. What Is Public',
-        body: 'When a relationship certificate is issued upon mutual confirmation, the public verification page and QR code display only the following information to anyone possessing the certificate link or verification reference: the verified legal names of both partners, the relationship stage (Dating, Engaged, or Married), and the relationship start date. Contact details (email and phone number), date of birth, user identifiers, invitation records, and private security logs are never made public.'
+        body: 'When a relationship certificate is issued upon mutual confirmation, the public verification page and QR code display only the following information to anyone possessing the certificate link or verification reference: the verified legal names of both partners, the relationship stage (Dating, Engaged, or Married), and the relationship start date. Additionally, an optional public contact search feature (disabled by default and requiring explicit consent from both partners) allows third parties who already know an exact verified phone number or email address to verify only the existence and stage of an active relationship, without revealing names, dates, or other private data. Contact details (email and phone number), date of birth, user identifiers, invitation records, and private security logs are otherwise never made public.'
       },
       {
         heading: '5. Lawful Basis for Processing',
@@ -46,7 +46,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '8. Cookies and Device Storage',
-        body: 'Relationship ID sets no cookies of its own and uses no localStorage or sessionStorage in this application. We run no third-party analytics, behavioral tracking, or advertising networks. The only cookies utilized are those set directly by Google reCAPTCHA Enterprise for security and automated abuse detection, which are strictly necessary for service operation.'
+        body: 'Relationship ID sets no cookies of its own. To maintain user login sessions, Firebase Authentication utilizes browser local storage when "Keep me signed in" is selected, or session storage when unselected (falling back to temporary in-memory session if browser storage is unavailable). We run no third-party analytics, behavioral tracking, or advertising networks. The only cookies utilized are those set directly by Google reCAPTCHA Enterprise for security and automated abuse detection, which are strictly necessary for service operation.'
       },
       {
         heading: '9. Your Rights as a Data Subject',
@@ -122,7 +122,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '2. ما نجمعه من بيانات',
-        body: 'نقوم بجمع بيانات الحساب والمصادقة (عنوان البريد الإلكتروني ورقم الهاتف)، وبيانات الملف التعريفي (الأسماء القانونية الكاملة باللغتين العربية والإنجليزية، وما يصل إلى ستة حسابات اختيارية على شبكات التواصل الاجتماعي)، وحالة التحقق، والدعوات، وسجلات العلاقات المشتركة، ومعرفات الشهادات، والإشعارات، والسجلات التقنية للخادم (مثل سجلات الطلبات والأخطاء التي يحتفظ بها مزود الاستضافة). يُصرّح المستخدمون بتاريخ الميلاد ذاتياً فقط للتحقق من الأهلية النظامية بأن كِلا الطرفين بالغين (18 عاماً فأكثر)؛ ويُعد تاريخ الميلاد سرياً تماماً ولا يُعرض على الإطلاق في الشهادات العامة ولا يُشارك مع أي أطراف ثالثة.'
+        body: 'نقوم بجمع بيانات الحساب والمصادقة (عنوان البريد الإلكتروني ورقم الهاتف)، وبيانات الملف التعريفي (الأسماء القانونية الكاملة باللغتين العربية والإنجليزية، وما يصل إلى ستة حسابات اختيارية على شبكات التواصل الاجتماعي)، وحالة التحقق، والدعوات، وسجلات العلاقات المشتركة، ومعرفات الشهادات، والإشعارات، والسجلات التقنية للخادم (مثل سجلات الطلبات والأخطاء التي يحتفظ بها مزود الاستضافة)، وتقارير أخطاء واجهة المستخدم المجهولة. يُصرّح المستخدمون بتاريخ الميلاد ذاتياً فقط للتحقق من الأهلية النظامية بأن كِلا الطرفين بالغين (18 عاماً فأكثر)؛ ويُعد تاريخ الميلاد سرياً تماماً ولا يُعرض على الإطلاق في الشهادات العامة ولا يُشارك مع أي أطراف ثالثة.'
       },
       {
         heading: '3. مدة الاحتفاظ بالبيانات',
@@ -130,7 +130,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '4. ما يُعرض علناً للعموم',
-        body: 'عند إصدار شهادة العلاقة بناءً على التأكيد المتبادل بين الطرفين، فإن بوابة التحقق العامة ورمز الاستجابة السريعة (QR) يعرضان فقط البيانات التالية لأي شخص لديه رابط الشهادة أو مرجع التحقق: الاسمان القانونيان المعتمدان لكِلا الشريكين، ومرحلة العلاقة (تعارف، خطوبة، أو زواج)، وتاريخ بدء العلاقة. أما بيانات الاتصال (البريد الإلكتروني ورقم الهاتف)، وتاريخ الميلاد، والمعرفات الداخلية للحسابات، وسجلات الدعوات، وسجلات الأمان الخاصة، فلا يتم إظهارها علناً على الإطلاق.'
+        body: 'عند إصدار شهادة العلاقة بناءً على التأكيد المتبادل بين الطرفين، فإن بوابة التحقق العامة ورمز الاستجابة السريعة (QR) يعرضان فقط البيانات التالية لأي شخص لديه رابط الشهادة أو مرجع التحقق: الاسمان القانونيان المعتمدان لكِلا الشريكين، ومرحلة العلاقة (تعارف، خطوبة، أو زواج)، وتاريخ بدء العلاقة. بالإضافة إلى ذلك، تتيح خاصية البحث عن جهة الاتصال الاختيارية (المعطلة افتراضياً والتي تتطلب موافقة صريحة من كِلا الشريكين) لمن يمتلك بالفعل رقم هاتف أو بريداً إلكترونياً مطابقاً التحقق فقط من وجود علاقة نشطة ومرحلتها الحالية، دون كشف الأسماء أو التواريخ أو أي بيانات شخصية أخرى. ولا يتم إظهار بيانات الاتصال (البريد الإلكتروني ورقم الهاتف)، وتاريخ الميلاد، والمعرفات الداخلية للحسابات، وسجلات الدعوات، وسجلات الأمان الخاصة علناً على الإطلاق.'
       },
       {
         heading: '5. المسوغ النظامي للمعالجة',
@@ -146,7 +146,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '8. ملفات تعريف الارتباط والتخزين المحلي',
-        body: 'لا يُنشئ تطبيق Relationship ID أي ملفات تعريف ارتباط (Cookies) خاصة به، ولا يستخدم التخزين المحلي (localStorage) أو تخزين الجلسة (sessionStorage) في هذا التطبيق. كما أننا لا نستخدم أي أدوات للتحليلات الإعلانية أو تتبع سلوك المستخدمين. ملفات تعريف الارتباط الوحيدة المستخدمة هي تلك الصادرة مباشرة عن خدمة Google reCAPTCHA Enterprise لأغراض الأمان ومكافحة إساءة الاستخدام الآلية، وتُعد ضرورية تماماً لتشغيل الخدمة.'
+        body: 'لا يُنشئ تطبيق Relationship ID أي ملفات تعريف ارتباط (Cookies) خاصة به. وللحفاظ على جلسة تسجيل الدخول، تستخدم خدمة Firebase Authentication التخزين المحلي للمتصفح عند تفعيل خيار "تذكر تسجيل دخولي"، أو تخزين الجلسة المؤقت عند إلغائه (مع الرجوع تلقائياً إلى الذاكرة المؤقتة في حال تعذر التخزين بالمتصفح). كما أننا لا نستخدم أي أدوات للتحليلات الإعلانية أو تتبع سلوك المستخدمين. ملفات تعريف الارتباط الوحيدة المستخدمة هي تلك الصادرة مباشرة عن خدمة Google reCAPTCHA Enterprise لأغراض الأمان ومكافحة إساءة الاستخدام الآلية، وتُعد ضرورية تماماً لتشغيل الخدمة.'
       },
       {
         heading: '9. حقوقك بصفتك صاحب بيانات',

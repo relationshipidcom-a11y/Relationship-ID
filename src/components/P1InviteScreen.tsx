@@ -80,11 +80,11 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
   return (
     <div className="flex-1 px-4 py-3 flex flex-col justify-between">
       <section className="mb-4 flex items-center justify-end">
-        <div className="inline-flex items-center gap-1 bg-[#1a1530] border border-white/10 rounded-full px-3 py-1 text-xs text-[#b6afd4]">
-          <span className="w-4 h-4 rounded-full bg-[#2a2447] text-[11px] flex items-center justify-center font-bold">1</span>
+        <div className="inline-flex items-center gap-1 bg-[#202B52] border border-white/10 rounded-full px-3 py-1 text-xs text-[#C9CCE4]">
+          <span className="w-4 h-4 rounded-full bg-[#172244] text-[11px] flex items-center justify-center font-bold">1</span>
           <span className="text-[11px]">{t.step1Tab}</span>
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#9b6682] text-white rounded-full shadow-md font-semibold ml-1">
-            <span className="w-4 h-4 rounded-full bg-white text-[#9b6682] text-[11px] flex items-center justify-center font-bold">2</span>
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#C1C3E6] text-[#242C55] rounded-full shadow-md font-semibold ml-1">
+            <span className="w-4 h-4 rounded-full bg-[#242C55] text-[#C1C3E6] text-[11px] flex items-center justify-center font-bold">2</span>
             <span className="text-[11px]">{t.step2Tab}</span>
           </div>
         </div>
@@ -92,25 +92,25 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
 
       <div className="text-center mb-4 px-1">
         <h2 className="text-lg font-bold text-white mb-1">{t.p1InviteTitle}</h2>
-        <p className="text-xs text-[#b6afd4] leading-relaxed max-w-[320px] mx-auto">{t.p1InviteDesc}</p>
+        <p className="text-xs text-[#C9CCE4] leading-relaxed max-w-[320px] mx-auto">{t.p1InviteDesc}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-[#211c38] border border-white/20 rounded-2xl p-4 shadow-xl space-y-4">
+        <div className="bg-[#202B52] border border-white/20 rounded-2xl p-4 shadow-xl space-y-4">
           <div>
-            <label className="flex items-center gap-1.5 text-xs text-[#b6afd4] font-medium mb-1" htmlFor="partner-name"><User className="w-3.5 h-3.5 text-[#f3c4db]" /> {t.partnerFullNameLabel}</label>
+            <label className="flex items-center gap-1.5 text-xs text-[#C9CCE4] font-medium mb-1" htmlFor="partner-name"><User className="w-3.5 h-3.5 text-[#C1C3E6]" /> {t.partnerFullNameLabel}</label>
             <input id="partner-name" type="text" required value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder={t.partnerNamePlaceholder} className={styles.inputControl} />
           </div>
 
           <div>
-            <label className="flex items-center gap-1.5 text-xs text-[#b6afd4] font-medium mb-1" htmlFor="partner-email"><Mail className="w-3.5 h-3.5 text-[#f3c4db]" /> {t.partnerEmailLabel}</label>
+            <label className="flex items-center gap-1.5 text-xs text-[#C9CCE4] font-medium mb-1" htmlFor="partner-email"><Mail className="w-3.5 h-3.5 text-[#C1C3E6]" /> {t.partnerEmailLabel}</label>
             <input id="partner-email" type="email" value={partnerEmail} onChange={(e) => setPartnerEmail(e.target.value)} placeholder="example@mail.com" className={styles.inputControl} dir="ltr" />
           </div>
 
           <div>
-            <label className="flex items-center gap-1.5 text-xs text-[#b6afd4] font-medium mb-1" htmlFor="partner-phone"><Phone className="w-3.5 h-3.5 text-[#f3c4db]" /> {t.partnerPhoneLabel}</label>
+            <label className="flex items-center gap-1.5 text-xs text-[#C9CCE4] font-medium mb-1" htmlFor="partner-phone"><Phone className="w-3.5 h-3.5 text-[#C1C3E6]" /> {t.partnerPhoneLabel}</label>
             <div className="grid grid-cols-12 gap-2" dir="ltr">
-              <select value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value as CountryCode)} className="col-span-5 bg-[#141124] border border-white/20 text-white rounded-xl px-2 py-3 text-[11px]">
+              <select value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value as CountryCode)} className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-3 text-[11px]">
                 {supportedCountries.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.dialCode} {language === 'ar' ? item.nameAr : item.nameEn}</option>)}
               </select>
               <input id="partner-phone" type="tel" value={partnerPhone} onChange={(e) => setPartnerPhone(e.target.value)} placeholder="55 123 4567" className={`${styles.inputControl} col-span-7`} />
@@ -118,21 +118,21 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
           </div>
 
           <div>
-            <label className="flex items-center gap-1.5 text-xs text-[#b6afd4] font-medium mb-1" htmlFor="partner-whatsapp"><Phone className="w-3.5 h-3.5 text-[#f3c4db]" /> {language === 'ar' ? 'واتساب الشريك (اختياري)' : 'Partner WhatsApp (optional)'}</label>
+            <label className="flex items-center gap-1.5 text-xs text-[#C9CCE4] font-medium mb-1" htmlFor="partner-whatsapp"><Phone className="w-3.5 h-3.5 text-[#C1C3E6]" /> {language === 'ar' ? 'واتساب الشريك (اختياري)' : 'Partner WhatsApp (optional)'}</label>
             <div className="grid grid-cols-12 gap-2" dir="ltr">
-              <select value={whatsappCountry} onChange={(e) => setWhatsappCountry(e.target.value as CountryCode)} className="col-span-5 bg-[#141124] border border-white/20 text-white rounded-xl px-2 py-3 text-[11px]">
+              <select value={whatsappCountry} onChange={(e) => setWhatsappCountry(e.target.value as CountryCode)} className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-3 text-[11px]">
                 {supportedCountries.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.dialCode} {language === 'ar' ? item.nameAr : item.nameEn}</option>)}
               </select>
               <input id="partner-whatsapp" type="tel" value={partnerWhatsapp} onChange={(e) => setPartnerWhatsapp(e.target.value)} placeholder="55 123 4567" className={`${styles.inputControl} col-span-7`} />
             </div>
-            <p className="text-[9px] text-[#8e84af] mt-1">{language === 'ar' ? 'هذا رقم دعوة فقط ولا يعتبر إثبات ملكية واتساب.' : 'This is an invitation contact only; it is not WhatsApp ownership proof.'}</p>
+            <p className="text-[9px] text-[#C9CCE4]/60 mt-1">{language === 'ar' ? 'هذا رقم دعوة فقط ولا يعتبر إثبات ملكية واتساب.' : 'This is an invitation contact only; it is not WhatsApp ownership proof.'}</p>
           </div>
         </div>
 
         {error && <p className="text-[10.5px] text-rose-300 leading-relaxed">{error}</p>}
 
         <div className="mt-4 flex flex-col gap-2.5">
-          <button type="submit" disabled={submitting} className="w-full py-3.5 px-4 rounded-xl bg-[#9b6682] hover:bg-[#a9718f] active:scale-[0.99] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#9b6682]/35 border border-white/20 transition-all cursor-pointer disabled:opacity-50">
+          <button type="submit" disabled={submitting} className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] active:scale-[0.99] text-[#242C55] font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-black/20 border border-white/20 transition-all cursor-pointer disabled:opacity-50">
             <Sparkles className="w-4 h-4" />
             <span>{submitting ? '...' : t.createInviteBtn}</span>
           </button>

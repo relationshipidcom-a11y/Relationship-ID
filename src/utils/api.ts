@@ -58,6 +58,10 @@ export const ALLOWED_ERROR_CODES = new Set([
   'CANNOT_ACCEPT_OWN_INVITATION',
   'INVITER_CANNOT_DECLINE_AS_P2',
   'NOT_INVITATION_RECIPIENT',
+  'SELF_INVITATION_NOT_ALLOWED',
+  'SAME_PARTNER_CONTACT_NOT_ALLOWED',
+  'CURRENTLY_SIGNED_IN_AS_INVITER',
+  'P2_AUTH_REQUIRED',
   'AUTH_DELETION_FAILED',
   'WHATSAPP_VERIFY_UNAVAILABLE',
   'WHATSAPP_VERIFY_RATE_LIMITED',
@@ -196,6 +200,22 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   NOT_INVITATION_RECIPIENT: {
     en: 'You are not authorized to respond to this invitation.',
     ar: 'غير مصرح لك بالرد على هذه الدعوة.'
+  },
+  SELF_INVITATION_NOT_ALLOWED: {
+    en: 'You cannot send an invitation to yourself using your own contact info.',
+    ar: 'لا يمكنك إرسال دعوة لنفسك باستخدام نفس بيانات الاتصال.'
+  },
+  SAME_PARTNER_CONTACT_NOT_ALLOWED: {
+    en: 'Partner 2 contact details must be distinct from Partner 1.',
+    ar: 'يجب أن تكون بيانات الاتصال الخاصة بالطرف الثاني مختلفة عن بيانات الطرف الأول.'
+  },
+  CURRENTLY_SIGNED_IN_AS_INVITER: {
+    en: 'You are signed in as the inviter. Please switch accounts to accept as Partner 2.',
+    ar: 'أنت مسجل الدخول كمرسل الدعوة. يرجى تبديل الحساب لقبولها كشريك ثانٍ.'
+  },
+  P2_AUTH_REQUIRED: {
+    en: 'Sign-in is required before accessing invitation details.',
+    ar: 'تسجيل الدخول مطلوب للوصول إلى تفاصيل الدعوة والموافقة عليها.'
   },
   AUTH_DELETION_FAILED: {
     en: 'Account authentication deletion failed. Please retry.',

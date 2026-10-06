@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Shield, Clock, Heart, Lock, LogIn, X, UserX, AlertTriangle } from 'lucide-react';
-import { Language, Invitation, ScreenId } from '../types';
+import { Shield, Clock, Heart, Lock, LogIn, X, UserX, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Language, Invitation, ScreenId, AuthUser, InvitationAuthorization } from '../types';
 import { translations } from '../i18n/translations';
 
 interface P2LandingScreenProps {
   language: Language;
   invitation: Invitation;
+  authUser?: AuthUser | null;
+  invitationAuthorization?: InvitationAuthorization | null;
   onAccept: () => void;
   onDecline: (block?: boolean) => void;
+  onSwitchAccount?: () => void;
   onViewCertificate?: () => void;
   onNavigate?: (screen: ScreenId) => void;
 }
@@ -15,32 +18,51 @@ interface P2LandingScreenProps {
 export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   language,
   invitation,
+  authUser,
+  invitationAuthorization,
   onAccept,
   onDecline,
+  onSwitchAccount,
   onViewCertificate,
   onNavigate
 }) => {
   const t = translations[language];
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
 
+  const isP1 = Boolean(
+    invitationAuthorization?.isP1 ||
+    (authUser && invitation.p1Uid && authUser.id === invitation.p1Uid)
+  );
+  const isMismatch = Boolean(
+    !isP1 &&
+    authUser &&
+    invitationAuthorization &&
+    !invitationAuthorization.authorized
+  );
+  const isAuthorizedP2 = Boolean(
+    !isP1 &&
+    authUser &&
+    (!invitationAuthorization || invitationAuthorization.authorized)
+  );
+
   // If already declined
   if (invitation.status === 'declined') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#1a1530] border border-white/20 rounded-[20px] p-6 shadow-2xl relative text-center">
+        <div className="w-full bg-[#202B52] border border-white/20 rounded-[20px] p-6 shadow-2xl relative text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300">
             <X className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تم رفض الدعوة' : 'Invitation Declined'}
           </h1>
-          <p className="text-xs text-[#b6afd4] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-xs text-[#C9CCE4] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'لقد تم رفض هذه الدعوة. لن يتم إنشاء أو مشاركة أي سجل ارتباط أو شهادة رقمية.'
               : 'You have declined this invitation. No relationship record or digital certificate was created.'}
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#8e84af]">
-            <Shield className="w-3.5 h-3.5 text-[#f3c4db]" />
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#C9CCE4]/60">
+            <Shield className="w-3.5 h-3.5 text-[#C1C3E6]" />
             <span>{t.dataPrivacyAssurance}</span>
           </div>
         </div>
@@ -52,8 +74,8 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     const expired = invitation.status === 'expired';
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#1a1530] border border-white/20 rounded-[20px] p-6 shadow-2xl relative text-center">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#2e264f] border border-white/20 flex items-center justify-center text-[#f3c4db]">
+        <div className="w-full bg-[#202B52] border border-white/20 rounded-[20px] p-6 shadow-2xl relative text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#2C345F] border border-white/20 flex items-center justify-center text-[#C1C3E6]">
             <Clock className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
@@ -61,7 +83,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               ? (language === 'ar' ? 'انتهت صلاحية الدعوة' : 'Invitation Expired')
               : (language === 'ar' ? 'تم إلغاء الدعوة' : 'Invitation Cancelled')}
           </h1>
-          <p className="text-xs text-[#b6afd4] leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-xs text-[#C9CCE4] leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'لا يمكن قبول هذه الدعوة. اطلب من الشريك إنشاء دعوة جديدة عند الحاجة.'
               : 'This invitation can no longer be accepted. Ask the partner to create a new invitation if needed.'}
@@ -75,14 +97,14 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   if (invitation.status === 'accepted') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#1a1530] border border-white/20 rounded-[20px] p-6 shadow-2xl relative text-center">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#9b6682]/25 border border-[#83769c] flex items-center justify-center text-[#f3c4db]">
+        <div className="w-full bg-[#202B52] border border-white/20 rounded-[20px] p-6 shadow-2xl relative text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#C1C3E6]/25 border border-[#C1C3E6]/40 flex items-center justify-center text-[#C1C3E6]">
             <Heart className="w-7 h-7 fill-current" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تم قبول الدعوة وتوثيق السجل' : 'Invitation Already Accepted'}
           </h1>
-          <p className="text-xs text-[#b6afd4] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-xs text-[#C9CCE4] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'تم ربط وتوثيق هذا السجل بنجاح لكلا الطرفين.'
               : 'This relationship record has already been accepted by both partners.'}
@@ -91,7 +113,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <button
               type="button"
               onClick={onViewCertificate}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#9b6682] to-[#814f6a] text-white font-semibold text-sm shadow-lg shadow-[#9b6682]/40 flex items-center justify-center gap-2 cursor-pointer border border-white/20"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 cursor-pointer border border-white/20"
             >
               <span>{language === 'ar' ? 'عرض شهادة العلاقة' : 'View Relationship Certificate'}</span>
             </button>
@@ -104,23 +126,23 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   return (
     <main className="flex-1 flex flex-col items-center justify-center py-4 px-4 w-full">
       {/* Special Invitation Status Badge */}
-      <div className="mb-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2a2447]/90 border border-[#83769c] text-[#f3c4db] text-xs font-semibold shadow-md">
-        <span className="w-2 h-2 rounded-full bg-[#f3c4db] animate-pulse" />
+      <div className="mb-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2C345F]/90 border border-[#C1C3E6]/30 text-[#C1C3E6] text-xs font-semibold shadow-md">
+        <span className="w-2 h-2 rounded-full bg-[#C1C3E6] animate-pulse" />
         <span>{t.p2LandingBadge}</span>
         <Lock className="w-3.5 h-3.5 opacity-80" />
       </div>
 
       {/* Invitation Primary Card */}
-      <div className="w-full bg-[#1a1530] border border-white/20 rounded-[20px] p-6 shadow-2xl relative overflow-hidden">
+      <div className="w-full bg-[#202B52] border border-white/20 rounded-[20px] p-6 shadow-2xl relative overflow-hidden">
         {/* Ambient Glow */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#9b6682]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#C1C3E6]/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Center Emblem: Fingerprint Heart */}
         <div className="flex items-center justify-center mb-5 relative">
           <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent to-white/20" />
-          <div className="mx-4 p-3 rounded-2xl bg-[#312952]/60 border border-[#f3c4db]/35 shadow-lg flex items-center justify-center">
+          <div className="mx-4 p-3 rounded-2xl bg-[#2C345F]/60 border border-[#C1C3E6]/35 shadow-lg flex items-center justify-center">
             <svg
-              className="w-12 h-12 text-[#f3c4db]"
+              className="w-12 h-12 text-[#C1C3E6]"
               fill="none"
               stroke="currentColor"
               strokeLinecap="round"
@@ -144,27 +166,27 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           <h1 className="text-xl font-bold tracking-tight text-white leading-snug">
             {t.p2LandingTitle}
           </h1>
-          <p className="text-[#b6afd4] text-xs font-medium">
+          <p className="text-[#C9CCE4] text-xs font-medium">
             {t.p2InvitedYouText.replace('{inviter}', invitation.inviterName)}
           </p>
         </div>
 
         {/* Details Box */}
-        <div className="bg-[#141124]/75 border border-white/15 rounded-xl p-4 space-y-3 mb-5">
+        <div className="bg-[#172244]/80 border border-white/15 rounded-xl p-4 space-y-3 mb-5">
           {/* Inviter Info */}
           <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
-            <div className="flex items-center gap-2 text-[#b6afd4] font-medium">
+            <div className="flex items-center gap-2 text-[#C9CCE4] font-medium">
               <span>{t.invitationFrom}</span>
               <span className="text-white font-semibold">{invitation.inviterName}</span>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#2e264f] flex items-center justify-center text-[#b6afd4]">
+            <div className="w-7 h-7 rounded-lg bg-[#2C345F] flex items-center justify-center text-[#C9CCE4]">
               <Shield className="w-3.5 h-3.5" />
             </div>
           </div>
 
           {/* Requested Stage */}
           <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
-            <div className="flex items-center gap-2 text-[#b6afd4] font-medium">
+            <div className="flex items-center gap-2 text-[#C9CCE4] font-medium">
               <span>{t.requestedRelationshipStage}</span>
               <span className="text-white font-semibold">
                 {invitation.relationshipType === 'marriage'
@@ -174,7 +196,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                   : t.dating}
               </span>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#2e264f] flex items-center justify-center text-[#b6afd4]">
+            <div className="w-7 h-7 rounded-lg bg-[#2C345F] flex items-center justify-center text-[#C9CCE4]">
               <Heart className="w-3.5 h-3.5 fill-current" />
             </div>
           </div>
@@ -190,36 +212,118 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           </div>
         </div>
 
+        {/* Account Mismatch / Recipient Status Alert */}
+        {isP1 && (
+          <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-start space-y-2">
+            <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{t.p1CannotAcceptOwnInviteTitle}</span>
+            </div>
+            <p className="text-[11px] text-amber-200/90 leading-relaxed">
+              {t.p1CannotAcceptOwnInviteDesc}
+            </p>
+            {onSwitchAccount && (
+              <button
+                type="button"
+                onClick={onSwitchAccount}
+                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 hover:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{t.switchAccountBtn}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {isMismatch && (
+          <div className="mb-5 p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-start space-y-2">
+            <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{t.recipientMismatchTitle}</span>
+            </div>
+            <p className="text-[11px] text-rose-200/90 leading-relaxed">
+              {t.recipientMismatchDesc.replace('{email}', authUser?.email || authUser?.id || '')}
+            </p>
+            {onSwitchAccount && (
+              <button
+                type="button"
+                onClick={onSwitchAccount}
+                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 hover:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{t.switchAccountBtn}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {isAuthorizedP2 && (
+          <div className="mb-4 p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-start flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-[11px] truncate">
+                <span className="text-[#C9CCE4]">{t.signedInAsP2} </span>
+                <span className="text-white font-semibold">{authUser?.name || authUser?.email}</span>
+              </div>
+            </div>
+            {onSwitchAccount && (
+              <button
+                type="button"
+                onClick={onSwitchAccount}
+                className="text-[10px] text-[#C1C3E6] hover:text-white underline shrink-0 cursor-pointer"
+              >
+                {t.switchAccountBtn}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex flex-col gap-2.5">
-          <button
-            type="button"
-            onClick={onAccept}
-            className="w-full h-12 rounded-xl bg-gradient-to-r from-[#9b6682] to-[#814f6a] hover:from-[#a9718f] hover:to-[#9b6682] text-white font-semibold text-sm shadow-lg shadow-[#9b6682]/40 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>{t.p2AcceptBtn}</span>
-          </button>
+          {!isP1 && !isMismatch ? (
+            <>
+              <button
+                type="button"
+                onClick={onAccept}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>{authUser ? t.reviewAndAcceptBtn : t.p2AcceptBtn}</span>
+              </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onDecline(false)}
-              className="w-full py-2.5 px-3 rounded-xl border border-[#9b6682]/45 bg-[#5e3c4f]/20 hover:bg-[#5e3c4f]/35 text-[#e8bad0] hover:text-white font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>{t.p2DeclineBtn}</span>
-            </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onDecline(false)}
+                  className="w-full py-2.5 px-3 rounded-xl border border-[#C1C3E6]/30 bg-[#C1C3E6]/10 hover:bg-[#C1C3E6]/20 text-[#C1C3E6] hover:text-white font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>{t.p2DeclineBtn}</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setShowBlockConfirm(true)}
-              className="w-full py-2.5 px-3 rounded-xl border border-rose-500/40 bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-            >
-              <UserX className="w-3.5 h-3.5" />
-              <span>{t.declineAndBlock}</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBlockConfirm(true)}
+                  className="w-full py-2.5 px-3 rounded-xl border border-rose-500/40 bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <UserX className="w-3.5 h-3.5" />
+                  <span>{t.declineAndBlock}</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            /* When user is P1 or Mismatch, provide safe switch-account primary button */
+            onSwitchAccount && (
+              <button
+                type="button"
+                onClick={onSwitchAccount}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>{t.switchAccountBtn}</span>
+              </button>
+            )
+          )}
         </div>
       </div>
 
@@ -235,7 +339,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             }
           }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-[#1a1530] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[#202B52] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
@@ -274,19 +378,19 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
       )}
 
       {/* Assurance footer */}
-      <div className="mt-4 flex flex-col items-center gap-2 text-[11px] text-[#b6afd4]">
+      <div className="mt-4 flex flex-col items-center gap-2 text-[11px] text-[#C9CCE4]">
         <div className="flex items-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-[#f3c4db]" />
+          <Shield className="w-3.5 h-3.5 text-[#C1C3E6]" />
           <span>{t.dataPrivacyAssurance}</span>
         </div>
-        <div className="flex items-center justify-center gap-3 text-[10.5px] text-[#8e84af]">
+        <div className="flex items-center justify-center gap-3 text-[10.5px] text-[#C9CCE4]/60">
           <a
             href="/privacy"
             onClick={(e) => {
               e.preventDefault();
               onNavigate?.('privacy');
             }}
-            className="text-[#8e84af] hover:text-[#f3c4db] transition-colors underline"
+            className="text-[#C9CCE4]/60 hover:text-[#C1C3E6] transition-colors underline"
           >
             {t.privacyPolicy}
           </a>
@@ -297,7 +401,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               e.preventDefault();
               onNavigate?.('terms');
             }}
-            className="text-[#8e84af] hover:text-[#f3c4db] transition-colors underline"
+            className="text-[#C9CCE4]/60 hover:text-[#C1C3E6] transition-colors underline"
           >
             {t.termsOfService}
           </a>

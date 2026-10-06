@@ -4,6 +4,13 @@ export type RelationshipType = 'marriage' | 'engagement' | 'dating';
 
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'expired';
 
+export type SocialPlatform = 'instagram' | 'tiktok' | 'x' | 'facebook' | 'snapchat' | 'youtube' | string;
+
+export interface SocialAccount {
+  platform: SocialPlatform;
+  handle: string;
+}
+
 export interface PartnerData {
   fullName: string;
   fullNameEn?: string;
@@ -21,6 +28,7 @@ export interface PartnerData {
   whatsappTrusted?: boolean;
   whatsappVerifiedAt?: string;
   socialHandle?: string;
+  socialAccounts?: SocialAccount[];
 }
 
 export interface CertificateSettings {
@@ -72,6 +80,15 @@ export interface Invitation {
   reminderCount: number;
   p1Uid?: string;
   p2Uid?: string | null;
+}
+
+export interface InvitationAuthorization {
+  authenticated: boolean;
+  isP1: boolean;
+  authorized: boolean;
+  reason?: string;
+  inviteId?: string;
+  authorizedUid?: string;
 }
 
 export interface AuthUser {

@@ -23,6 +23,8 @@ import {
   type PublicStage,
   type VerifyContactResponse
 } from './src/utils/contacts';
+import { validateSocialAccounts } from './src/utils/social';
+import type { SocialAccount } from './src/types';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });
@@ -48,6 +50,7 @@ interface PartnerData {
   whatsappTrusted?: boolean;
   whatsappVerifiedAt?: string;
   socialHandle?: string;
+  socialAccounts?: SocialAccount[];
 }
 
 interface CertificateSettings {
@@ -545,6 +548,38 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
     en: "This invitation can't be sent.",
     ar: 'لا يمكن إرسال هذه الدعوة.'
   },
+  SELF_INVITATION_NOT_ALLOWED: {
+    en: 'You cannot send an invitation to yourself using your own contact info.',
+    ar: 'لا يمكنك إرسال دعوة لنفسك باستخدام نفس بيانات الاتصال.'
+  },
+  SAME_PARTNER_CONTACT_NOT_ALLOWED: {
+    en: 'Partner 2 contact details must be distinct from Partner 1.',
+    ar: 'يجب أن تكون بيانات الاتصال الخاصة بالطرف الثاني مختلفة عن بيانات الطرف الأول.'
+  },
+  INVITATION_ACCEPTED: {
+    en: 'This invitation has already been accepted.',
+    ar: 'تم قبول هذه الدعوة بالفعل.'
+  },
+  INVITATION_ALREADY_ACCEPTED: {
+    en: 'This invitation has already been accepted.',
+    ar: 'تم قبول هذه الدعوة بالفعل.'
+  },
+  INVITATION_DECLINED: {
+    en: 'This invitation has been declined.',
+    ar: 'تم رفض هذه الدعوة.'
+  },
+  INVITATION_CANCELLED: {
+    en: 'This invitation has been cancelled.',
+    ar: 'تم إلغاء هذه الدعوة.'
+  },
+  INVITATION_EXPIRED: {
+    en: 'This invitation has expired.',
+    ar: 'انتهت صلاحية هذه الدعوة.'
+  },
+  CURRENTLY_SIGNED_IN_AS_INVITER: {
+    en: 'You are signed in as the inviter. Please switch accounts to accept as Partner 2.',
+    ar: 'أنت مسجل الدخول كمرسل الدعوة. يرجى تبديل الحساب لقبولها كشريك ثانٍ.'
+  },
   CANNOT_ACCEPT_OWN_INVITATION: {
     en: 'You cannot accept your own invitation.',
     ar: 'لا يمكنك قبول دعوتك الخاصة.'
@@ -588,6 +623,14 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
   INVALID_INPUT: {
     en: 'Please check the information you entered.',
     ar: 'يرجى التحقق من المعلومات المدخلة.'
+  },
+  UNSAFE_INPUT: {
+    en: 'Input contains unsafe or prohibited content.',
+    ar: 'البيانات المدخلة تحتوي على محتوى غير آمن أو غير مسموح.'
+  },
+  INVALID_PLATFORM: {
+    en: 'Selected social platform is not supported.',
+    ar: 'منصة التواصل الاجتماعي المحددة غير مدعومة.'
   },
   WHATSAPP_VERIFY_UNAVAILABLE: {
     en: 'WhatsApp verification is currently unavailable.',
@@ -1497,6 +1540,11 @@ export function createApp(): express.Express {
       if (!nameEnCheck.valid) return respondWithError(res, 400, nameEnCheck.error);
       const socialCheck = validateFieldLength(partner1.socialHandle, 'socialHandle', false);
       if (!socialCheck.valid) return respondWithError(res, 400, socialCheck.error);
+      if (partner1.socialAccounts !== undefined) {
+        const socialAccCheck = validateSocialAccounts(partner1.socialAccounts);
+        if (!socialAccCheck.valid) return respondWithError(res, 400, socialAccCheck.error);
+        partner1.socialAccounts = socialAccCheck.sanitized;
+      }
       const emailCheck = validateFieldLength(partner1.email, 'email', false);
       if (!emailCheck.valid) return respondWithError(res, 400, emailCheck.error);
       const phoneCheck = validateFieldLength(partner1.phoneNumber || partner1.phoneE164, 'phone', false);
@@ -1646,9 +1694,16 @@ export function createApp(): express.Express {
             updatedAt: nowIso
           }, { merge: true });
         } else {
+          const mergedPartner1 = { ...partner1 };
+          if (mergedPartner1.socialAccounts === undefined && existingRecord.partner1?.socialAccounts) {
+            mergedPartner1.socialAccounts = existingRecord.partner1.socialAccounts;
+          }
+          if (mergedPartner1.socialHandle === undefined && existingRecord.partner1?.socialHandle) {
+            mergedPartner1.socialHandle = existingRecord.partner1.socialHandle;
+          }
           targetRecord = {
             ...existingRecord,
-            partner1,
+            partner1: mergedPartner1,
             type: type as RelationshipType,
             startDate: formatDate(startDate, 'en'),
             startDateAr: formatDate(startDate, 'ar'),
@@ -1785,6 +1840,21 @@ export function createApp(): express.Express {
         if (!record || record.p1Uid !== user.uid) throw new Error('RELATIONSHIP_DRAFT_NOT_FOUND');
         if (record.status === 'active') throw new Error('ACTIVE_RELATIONSHIP_EXISTS');
 
+        // Enforce: P1 cannot invite themselves using their own contact info
+        const p1EmailNorm = normalizeCanonicalEmail(record.partner1.email);
+        const p1PhoneNorm = normalizeCanonicalPhone(record.partner1.phoneE164 || record.partner1.phoneNumber, record.partner1.phoneCountry);
+        const p1WaNorm = normalizeCanonicalPhone(record.partner1.whatsappE164 || record.partner1.whatsappNumber, record.partner1.whatsappCountry || record.partner1.phoneCountry);
+
+        if (p2EmailNorm.canonical && p1EmailNorm.canonical && p2EmailNorm.canonical === p1EmailNorm.canonical) {
+          throw new Error('SELF_INVITATION_NOT_ALLOWED');
+        }
+        if (p2PhoneNorm.canonical && p1PhoneNorm.canonical && p2PhoneNorm.canonical === p1PhoneNorm.canonical) {
+          throw new Error('SELF_INVITATION_NOT_ALLOWED');
+        }
+        if (p2WaNorm.canonical && p1WaNorm.canonical && p2WaNorm.canonical === p1WaNorm.canonical) {
+          throw new Error('SELF_INVITATION_NOT_ALLOWED');
+        }
+
         // Check if user already in active relationship
         const userConflict = await checkUserActiveRelationshipConflict(adminDb, user.uid, record.id, transaction);
         if (userConflict) throw new Error('ACTIVE_RELATIONSHIP_EXISTS');
@@ -1873,6 +1943,7 @@ export function createApp(): express.Express {
         PENDING_INVITATION_EXISTS: 409,
         PARTNER_NAME_REQUIRED: 400,
         PARTNER_CONTACT_REQUIRED: 400,
+        SELF_INVITATION_NOT_ALLOWED: 400,
         INVITATION_NOT_ALLOWED: 403
       };
       const statusCode = statusMap[msg] || 500;
@@ -1937,13 +2008,19 @@ export function createApp(): express.Express {
       }
 
       let isAuthorizedRecipient = false;
+      let isP1 = false;
+      let authReason: string | undefined = 'AUTH_REQUIRED';
+      const isAuthenticated = Boolean(authenticatedUser);
+
       if (authenticatedUser) {
         const recipientCheck = verifyRecipientIdentity({
           invitation,
           user: authenticatedUser,
           isAction: 'view'
         });
-        isAuthorizedRecipient = recipientCheck.authorized;
+        isP1 = recipientCheck.isP1;
+        isAuthorizedRecipient = !isP1 && recipientCheck.authorized;
+        authReason = isP1 ? 'CURRENTLY_SIGNED_IN_AS_INVITER' : (!recipientCheck.authorized ? recipientCheck.reason : undefined);
       }
 
       if (isAuthorizedRecipient) {
@@ -1973,7 +2050,14 @@ export function createApp(): express.Express {
             partner1Name: record.partner1.fullName,
             partner1En: record.partner1.fullNameEn || null,
             status: record.status
-          } : null
+          } : null,
+          authorization: {
+            authenticated: true,
+            isP1: false,
+            authorized: true,
+            inviteId: invitation.id,
+            authorizedUid: authenticatedUser?.uid
+          }
         });
       }
 
@@ -1986,7 +2070,15 @@ export function createApp(): express.Express {
           status: invitation.status,
           expiresAt: invitation.expiresAt
         },
-        record: null
+        record: null,
+        authorization: {
+          authenticated: isAuthenticated,
+          isP1,
+          authorized: false,
+          reason: authReason,
+          inviteId: invitation.id,
+          authorizedUid: authenticatedUser?.uid
+        }
       });
     } catch (error) {
       console.error('Error getting invitation preview:', error);
@@ -2013,6 +2105,11 @@ export function createApp(): express.Express {
       if (!nameEnCheck.valid) return respondWithError(res, 400, nameEnCheck.error);
       const socialCheck = validateFieldLength(partner2.socialHandle, 'socialHandle', false);
       if (!socialCheck.valid) return respondWithError(res, 400, socialCheck.error);
+      if (partner2.socialAccounts !== undefined) {
+        const socialAccCheck = validateSocialAccounts(partner2.socialAccounts);
+        if (!socialAccCheck.valid) return respondWithError(res, 400, socialAccCheck.error);
+        partner2.socialAccounts = socialAccCheck.sanitized;
+      }
       const emailCheck = validateFieldLength(partner2.email, 'email', false);
       if (!emailCheck.valid) return respondWithError(res, 400, emailCheck.error);
       const phoneCheck = validateFieldLength(partner2.phoneNumber || partner2.phoneE164, 'phone', false);
@@ -2108,6 +2205,14 @@ export function createApp(): express.Express {
 
         const p2WaNorm = normalizeCanonicalPhone(partner2.whatsappE164 || partner2.whatsappNumber, partner2.whatsappCountry || partner2.phoneCountry);
         if (!p2WaNorm.isValid) throw new Error('INVALID_PHONE_NUMBER');
+
+        // Enforce: Both partners must not share the same phone or email
+        if (p2PhoneNorm.canonical && record.partner1.phoneE164 && p2PhoneNorm.canonical === record.partner1.phoneE164) {
+          throw new Error('SAME_PARTNER_CONTACT_NOT_ALLOWED');
+        }
+        if (p2EmailNorm.canonical && record.partner1.email && p2EmailNorm.canonical === record.partner1.email) {
+          throw new Error('SAME_PARTNER_CONTACT_NOT_ALLOWED');
+        }
 
         delete (partner2 as any).whatsappTrusted;
         delete (partner2 as any).whatsappVerifiedAt;
@@ -2273,6 +2378,10 @@ export function createApp(): express.Express {
         CONTACT_IN_ACTIVE_RELATIONSHIP: 409,
         ACCOUNT_DELETION_PENDING: 409,
         RELATIONSHIP_DELETION_PENDING: 409,
+        SAME_PARTNER_CONTACT_NOT_ALLOWED: 400,
+        SELF_INVITATION_NOT_ALLOWED: 400,
+        CURRENTLY_SIGNED_IN_AS_INVITER: 403,
+        P2_AUTH_REQUIRED: 401,
         INVALID_PHONE_NUMBER: 400,
         INVALID_CONTACT_FORMAT: 400
       };
@@ -3009,7 +3118,7 @@ export function createApp(): express.Express {
     }
   });
 
-  app.patch('/api/profile/me', requireAuth, async (req, res) => {
+  app.patch(['/api/profile/me', '/api/account/personal-info'], requireAuth, async (req, res) => {
     try {
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
       const user = userFromResponse(res);
@@ -3038,8 +3147,9 @@ export function createApp(): express.Express {
         return res.status(403).json({ error: 'CANNOT_EDIT_PARTNER_INFO' });
       }
 
-      const { socialHandle, fullNameEn, whatsappNumber, whatsappCountry } = req.body as {
+      const { socialHandle, socialAccounts, fullNameEn, whatsappNumber, whatsappCountry } = req.body as {
         socialHandle?: string;
+        socialAccounts?: unknown;
         fullNameEn?: string;
         whatsappNumber?: string;
         whatsappCountry?: string;
@@ -3047,6 +3157,10 @@ export function createApp(): express.Express {
 
       if (socialHandle !== undefined) {
         const check = validateFieldLength(socialHandle, 'socialHandle', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+      if (socialAccounts !== undefined) {
+        const check = validateSocialAccounts(socialAccounts);
         if (!check.valid) return respondWithError(res, 400, check.error);
       }
       if (fullNameEn !== undefined) {
@@ -3131,7 +3245,15 @@ export function createApp(): express.Express {
         const updatedRecord: RelationshipRecord = { ...record };
         const updatedPartner = isP1 ? { ...updatedRecord.partner1 } : { ...updatedRecord.partner2 };
 
-        if (socialHandle !== undefined) {
+        if (socialAccounts !== undefined) {
+          const check = validateSocialAccounts(socialAccounts);
+          updatedPartner.socialAccounts = check.sanitized;
+          if (check.sanitized && check.sanitized.length > 0) {
+            updatedPartner.socialHandle = check.sanitized[0].handle.replace(/^@/, '');
+          } else if (Array.isArray(socialAccounts) && socialAccounts.length === 0) {
+            updatedPartner.socialHandle = undefined;
+          }
+        } else if (socialHandle !== undefined) {
           updatedPartner.socialHandle = socialHandle ? socialHandle.trim().replace(/^@/, '') : undefined;
         }
         if (fullNameEn !== undefined) {

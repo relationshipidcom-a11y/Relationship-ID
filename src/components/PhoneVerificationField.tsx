@@ -154,16 +154,16 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`${id}-number`} className="block text-[11px] font-medium text-[#b6afd4]">
+        <label htmlFor={`${id}-number`} className="block text-[11px] font-medium text-[#C9CCE4]">
           {label || (language === 'ar' ? 'رقم الجوال' : 'Mobile Number')}
         </label>
         {isVerified ? (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#9b6682]/25 border border-[#9b6682]/50 text-[#f3c4db] inline-flex items-center gap-1">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#C1C3E6]/25 border border-[#C1C3E6]/50 text-[#C1C3E6] inline-flex items-center gap-1">
             <CheckCircle className="w-3 h-3" />
             {language === 'ar' ? 'تم التحقق' : 'Verified'}
           </span>
         ) : (
-          <span className="text-[10px] text-[#8e84af]">{language === 'ar' ? 'غير متحقق' : 'Not verified'}</span>
+          <span className="text-[10px] text-[#C9CCE4]/60">{language === 'ar' ? 'غير متحقق' : 'Not verified'}</span>
         )}
       </div>
 
@@ -172,7 +172,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           aria-label={language === 'ar' ? 'رمز الدولة' : 'Country code'}
           value={country}
           onChange={(event) => changeCountry(event.target.value)}
-          className="col-span-5 bg-[#141124] border border-white/20 text-white rounded-xl px-2 py-2.5 text-[11px] outline-none focus:border-[#f3c4db]"
+          className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-2.5 text-[11px] outline-none focus:border-[#C1C3E6]"
         >
           {supportedCountries.map((item) => (
             <option key={item.iso} value={item.iso}>
@@ -199,7 +199,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           type="button"
           disabled={sending || confirming || isVerified}
           onClick={sendCode}
-          className="flex-1 py-2 rounded-lg bg-[#2e264f] border border-[#9b6682]/50 text-[#f3c4db] text-[11px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
+          className="flex-1 py-2 rounded-lg bg-[#202B52] border border-[#C1C3E6]/40 text-[#C1C3E6] text-[11px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
           {isVerified
@@ -207,7 +207,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
             : (language === 'ar' ? 'تحقق من الجوال' : 'Verify Mobile')}
         </button>
         {canonical && (
-          <span className="text-[9px] text-[#8e84af] font-mono" dir="ltr">
+          <span className="text-[9px] text-[#C9CCE4]/60 font-mono" dir="ltr">
             {legacyCountryValue(country).split(' ')[1]}…{canonical.slice(-4)}
           </span>
         )}
@@ -229,7 +229,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
             type="button"
             onClick={confirmCode}
             disabled={confirming || otp.length < 6}
-            className="px-3 rounded-xl bg-[#9b6682] text-white text-[11px] font-semibold disabled:opacity-50"
+            className="px-3 rounded-xl bg-[#C1C3E6] hover:bg-[#A9AFD7] text-[#242C55] text-[11px] font-semibold disabled:opacity-50 cursor-pointer"
           >
             {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'تأكيد' : 'Confirm')}
           </button>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Language } from '../types';
+import { translations } from '../i18n/translations';
 
 interface LegalFooterProps {
   language: Language;
@@ -8,11 +9,12 @@ interface LegalFooterProps {
 
 export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }) => {
   const isAr = language === 'ar';
+  const t = translations[language];
 
   return (
     <footer
       dir={isAr ? 'rtl' : 'ltr'}
-      className="print:hidden w-full px-4 py-3 bg-[#141124] border-t border-white/10 text-center text-[10px] text-[#b6afd4] space-y-1.5 shrink-0 select-none"
+      className="print:hidden w-full px-4 py-3 bg-[#131F3B] border-t border-white/10 text-center text-[10px] text-[#C9CCE4] space-y-1.5 shrink-0 select-none"
     >
       <div className="flex items-center justify-center gap-3 font-medium">
         <a
@@ -21,9 +23,9 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
             e.preventDefault();
             onNavigate?.('privacy');
           }}
-          className="text-[#b6afd4] hover:text-white transition-colors underline cursor-pointer"
+          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer"
         >
-          {isAr ? 'سياسة الخصوصية' : 'Privacy Policy'}
+          {t.privacyPolicy}
         </a>
         <span className="text-white/20">•</span>
         <a
@@ -32,20 +34,20 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
             e.preventDefault();
             onNavigate?.('terms');
           }}
-          className="text-[#b6afd4] hover:text-white transition-colors underline cursor-pointer"
+          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer"
         >
-          {isAr ? 'شروط الاستخدام' : 'Terms of Service'}
+          {t.termsOfUse}
         </a>
         <span className="text-white/20">•</span>
         <a
           href="mailto:rami@relationshipid.org"
-          className="text-[#b6afd4] hover:text-white transition-colors underline cursor-pointer"
+          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer"
         >
           rami@relationshipid.org
         </a>
       </div>
 
-      <p className="text-[9.5px] text-[#b6afd4]/80 leading-relaxed max-w-sm mx-auto">
+      <p className="text-[9.5px] text-[#C9CCE4]/80 leading-relaxed max-w-sm mx-auto">
         {isAr ? (
           <>
             هذا الموقع محمي بواسطة reCAPTCHA وتُطبق{' '}
@@ -53,7 +55,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
               href="https://policies.google.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#b6afd4] underline hover:text-white transition-colors"
+              className="text-[#C9CCE4] underline hover:text-white transition-colors"
             >
               سياسة الخصوصية
             </a>{' '}
@@ -62,7 +64,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
               href="https://policies.google.com/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#b6afd4] underline hover:text-white transition-colors"
+              className="text-[#C9CCE4] underline hover:text-white transition-colors"
             >
               بنود الخدمة
             </a>{' '}
@@ -75,7 +77,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
               href="https://policies.google.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#b6afd4] underline hover:text-white transition-colors"
+              className="text-[#C9CCE4] underline hover:text-white transition-colors"
             >
               Privacy Policy
             </a>{' '}
@@ -84,7 +86,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
               href="https://policies.google.com/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#b6afd4] underline hover:text-white transition-colors"
+              className="text-[#C9CCE4] underline hover:text-white transition-colors"
             >
               Terms of Service
             </a>{' '}
@@ -93,7 +95,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
         )}
       </p>
 
-      <p className="text-[9px] text-[#b6afd4]/60">
+      <p className="text-[9px] text-[#C9CCE4]/60">
         {isAr
           ? 'Relationship ID — سجل رقمي خاص للعلاقات'
           : 'Relationship ID — Private Relationship Registry'}

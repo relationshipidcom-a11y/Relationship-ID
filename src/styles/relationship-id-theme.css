@@ -1,26 +1,30 @@
 :root {
-  --rid-gradient: linear-gradient(135deg, #262b51 0%, #363a69 52%, #495084 100%);
-  --rid-velvet-bg: #120f22;
-  --rid-canvas: #0e0b1e;
-  --rid-surface: #141124;
-  --rid-surface-low: #1c192c;
-  --rid-surface-container: #201d31;
-  --rid-surface-high: #2b273c;
-  --rid-surface-highest: #363247;
-  --rid-cert-surface: #211c38;
-  --rid-cert-elevated: #2a2447;
+  --rid-gradient: linear-gradient(135deg, #182849 0%, #2C345F 52%, #414A78 100%);
+  --rid-velvet-bg: #182849;
+  --rid-canvas: #131F3B;
+  --rid-surface: #1B264A;
+  --rid-surface-low: #1F2B52;
+  --rid-surface-container: #24305B;
+  --rid-surface-high: #2B3868;
+  --rid-surface-highest: #334175;
+  --rid-cert-surface: #202B52;
+  --rid-cert-elevated: #283564;
   --rid-cert-border: rgba(255, 255, 255, 0.18);
-  --rid-pill: #9b6682;
-  --rid-pill-hover: #a9718f;
-  --rid-pill-border: #83769c;
-  --rid-accent: #f3c4db;
-  --rid-text-bright: #f7f6fd;
-  --rid-text-muted: #b6afd4;
-  --rid-text-subtle: #8e84af;
-  --rid-action-secondary: #2e264f;
-  --rid-action-secondary-hover: #39305f;
+  --rid-pill: #C1C3E6;
+  --rid-pill-gradient: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
+  --rid-pill-hover: #D0D2ED;
+  --rid-pill-border: #9EA4CC;
+  --rid-pill-text: #242C55;
+  --rid-accent: #C1C3E6;
+  --rid-text-bright: #F6F5FF;
+  --rid-text-muted: #C9CCE4;
+  --rid-text-subtle: #9FA5C7;
+  --rid-action-secondary: #252F5A;
+  --rid-action-secondary-hover: #323D6E;
   --rid-border-subtle: rgba(255, 255, 255, 0.18);
   --rid-border-light: rgba(255, 255, 255, 0.10);
+  --rid-input-bg: rgba(193, 195, 230, 0.08);
+  --rid-input-border: rgba(255, 255, 255, 0.18);
   --rid-gold: #e2bd59;
   --rid-gold-muted: #9a7b2c;
   --rid-success: #10b981;
@@ -29,7 +33,7 @@
 body {
   background-color: var(--rid-velvet-bg);
   color: var(--rid-text-bright);
-  font-family: 'IBM Plex Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Tajawal', 'IBM Plex Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -62,7 +66,8 @@ body {
 }
 
 .bg-rid-pill {
-  background-color: var(--rid-pill);
+  background: var(--rid-pill-gradient);
+  color: var(--rid-pill-text);
 }
 
 .hover\:bg-rid-pill-hover:hover {
@@ -72,18 +77,18 @@ body {
 /* Custom Guilloche Radial Pattern */
 .bg-guilloche-velvet {
   background-image: 
-    radial-gradient(ellipse 90% 70% at 85% 15%, rgba(243, 196, 219, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 50% at 10% 85%, rgba(155, 102, 130, 0.16) 0%, transparent 70%),
-    linear-gradient(160deg, #211c38 0%, #19152b 100%);
+    radial-gradient(ellipse 90% 70% at 85% 15%, rgba(193, 195, 230, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 10% 85%, rgba(169, 175, 215, 0.14) 0%, transparent 70%),
+    linear-gradient(160deg, #202B52 0%, #182849 100%);
 }
 
 .security-concentric-velvet {
   box-shadow: 
-    0 0 0 1px rgba(247, 246, 253, 0.22),
+    0 0 0 1px rgba(246, 245, 255, 0.22),
     0 0 0 6px transparent,
-    0 0 0 7px rgba(247, 246, 253, 0.14),
+    0 0 0 7px rgba(246, 245, 255, 0.14),
     0 0 0 12px transparent,
-    0 0 0 13px rgba(247, 246, 253, 0.07);
+    0 0 0 13px rgba(246, 245, 255, 0.07);
 }
 
 /* Print Styles */
@@ -103,3 +108,20 @@ body {
     margin: 0 auto !important;
   }
 }
+
+/* Global Date Picker Input High Contrast Styling */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.9) brightness(1.1);
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LEGAL_VERSION, legalContent } from '../src/content/legal';
 import { CURRENT_LEGAL_VERSION } from '../server';
+import { translations } from '../src/i18n/translations';
 
 test('Legal Content Compliance Suite', async (t) => {
   // 1. LEGAL_VERSION === CURRENT_LEGAL_VERSION
@@ -116,5 +117,13 @@ test('Legal Content Compliance Suite', async (t) => {
     const allContent = JSON.stringify(legalContent);
     assert.equal(/@gmail\.com/i.test(allContent), false,
       'No personal gmail address may appear in legal content');
+  });
+
+  // 8. Privacy Policy and Terms of Use legal link pairs exist and are defined for both Arabic and English
+  await t.test('8. Privacy Policy and Terms of Use translations exist in en and ar', () => {
+    assert.equal(translations.en.privacyPolicy, 'Privacy Policy');
+    assert.equal(translations.en.termsOfUse, 'Terms of Use');
+    assert.equal(translations.ar.privacyPolicy, 'سياسة الخصوصية');
+    assert.equal(translations.ar.termsOfUse, 'شروط الاستخدام');
   });
 });

@@ -90,7 +90,7 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
         }
       }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-[#1a1530] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
+      <div className="w-full max-w-md rounded-2xl bg-[#202B52] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <UserX className="w-5 h-5 text-amber-400" />

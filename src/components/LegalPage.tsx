@@ -17,19 +17,19 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) 
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center py-4 px-4 w-full">
-      <div className="w-full bg-[#1a1530] border border-white/20 rounded-[20px] p-6 shadow-2xl relative overflow-hidden space-y-6">
+      <div className="w-full bg-[#202B52] border border-white/20 rounded-[20px] p-6 shadow-2xl relative overflow-hidden space-y-6">
         {/* Header with back button */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-medium text-[#b6afd4] hover:text-white transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-medium text-[#C9CCE4] hover:text-white transition cursor-pointer"
           >
             {isAr ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
             <span>{isAr ? 'رجوع' : 'Back'}</span>
           </button>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3b335c]/50 border border-[#83769c] text-[10px] font-semibold tracking-wider text-[#f3c4db] uppercase">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2C345F]/60 border border-[#C1C3E6]/30 text-[10px] font-semibold tracking-wider text-[#C1C3E6] uppercase">
             {page === 'privacy' ? <Shield className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
             <span>{title}</span>
           </div>
@@ -47,12 +47,12 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) 
           {sections.map((sec, idx) => (
             <div
               key={idx}
-              className="bg-[#141124]/75 border border-white/15 rounded-xl p-4 space-y-2 text-start"
+              className="bg-[#172244]/80 border border-white/15 rounded-xl p-4 space-y-2 text-start"
             >
               <h2 className="text-sm font-semibold text-white">
                 {sec.heading}
               </h2>
-              <p className="text-xs text-[#b6afd4] leading-relaxed">
+              <p className="text-xs text-[#C9CCE4] leading-relaxed">
                 {sec.body}
               </p>
             </div>
@@ -64,7 +64,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) 
           <button
             type="button"
             onClick={onBack}
-            className="w-full py-2.5 px-4 rounded-xl border border-white/20 bg-[#211c38] hover:bg-[#2e264f] text-[#b6afd4] hover:text-white font-medium text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+            className="w-full py-2.5 px-4 rounded-xl border border-white/20 bg-[#2C345F]/70 hover:bg-[#343E70] text-[#C9CCE4] hover:text-white font-medium text-xs flex items-center justify-center gap-2 transition cursor-pointer"
           >
             {isAr ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
             <span>{isAr ? 'العودة إلى الصفحة السابقة' : 'Return to previous page'}</span>

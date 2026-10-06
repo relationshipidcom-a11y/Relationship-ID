@@ -71,27 +71,27 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={onHome}
             aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
             title={language === 'ar' ? 'الرئيسية' : 'Home'}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#211c38] text-xs text-[#b6afd4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#202B52] text-xs text-[#C9CCE4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
             type="button"
           >
-            <Home className="w-3.5 h-3.5 text-[#f3c4db]" />
+            <Home className="w-3.5 h-3.5 text-[#C1C3E6]" />
             <span className="font-medium hidden sm:inline">{t.homeBtn}</span>
           </button>
         )}
         <button
           onClick={onToggleLanguage}
           aria-label={language === 'ar' ? 'Switch to English' : 'التحويل إلى اللغة العربية'}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#211c38] text-xs text-[#b6afd4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/20 bg-[#202B52] text-xs text-[#C9CCE4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
           type="button"
         >
-          <Globe className="w-3.5 h-3.5 text-[#f3c4db]" />
+          <Globe className="w-3.5 h-3.5 text-[#C1C3E6]" />
           <span className="font-medium">{targetLanguageLabel}</span>
         </button>
       </div>
 
       <div className="text-center flex-1 select-none">
         <h1 className="text-sm font-bold tracking-tight text-white leading-none">{t.appName}</h1>
-        <p className="text-[9.5px] text-[#b6afd4] mt-0.5 tracking-tight font-normal">{t.tagline}</p>
+        <p className="text-[9.5px] text-[#C9CCE4] mt-0.5 tracking-tight font-normal">{t.tagline}</p>
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -103,7 +103,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               aria-haspopup="menu"
               aria-label={t.accountMenuLabel}
               title={t.accountMenuLabel}
-              className="w-9 h-9 rounded-full bg-[#211c38] border border-white/20 flex items-center justify-center text-[#b6afd4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9b6682]"
+              className="w-9 h-9 rounded-full bg-[#202B52] border border-white/20 flex items-center justify-center text-[#C9CCE4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
               type="button"
             >
               <MoreVertical className="w-4 h-4" />
@@ -113,7 +113,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div
                 role="menu"
                 aria-label={t.accountMenuLabel}
-                className="absolute top-full mt-2 ltr:right-0 rtl:left-0 w-52 sm:w-56 py-1.5 rounded-2xl bg-[#1f1938] border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col text-start animate-in fade-in zoom-in-95 duration-100"
+                className="absolute top-full mt-2 ltr:right-0 rtl:left-0 w-52 sm:w-56 py-1.5 rounded-2xl bg-[#202B52] border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col text-start animate-in fade-in zoom-in-95 duration-100"
               >
                 {/* 1. Adjust My Information */}
                 {onAdjustInfo && (
@@ -126,7 +126,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     }}
                     className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <Edit3 className="w-4 h-4 text-[#f3c4db] shrink-0" />
+                    <Edit3 className="w-4 h-4 text-[#C1C3E6] shrink-0" />
                     <span className="font-medium">{t.adjustMyInfoMenu}</span>
                   </button>
                 )}
@@ -142,7 +142,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     }}
                     className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <ShieldCheck className="w-4 h-4 text-[#f3c4db] shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-[#C1C3E6] shrink-0" />
                     <span className="font-medium">{t.verifyRelationshipMenu}</span>
                   </button>
                 )}
@@ -156,9 +156,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       setMenuOpen(false);
                       onOpenBlockedModal();
                     }}
-                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#b6afd4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <UserX className="w-4 h-4 text-[#8e84af] shrink-0" />
+                    <UserX className="w-4 h-4 text-[#9FA5C7] shrink-0" />
                     <span className="font-medium">{t.blockedPeopleMenu}</span>
                   </button>
                 )}
@@ -172,9 +172,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       setMenuOpen(false);
                       onDownloadMyData();
                     }}
-                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#b6afd4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <Download className="w-4 h-4 text-[#8e84af] shrink-0" />
+                    <Download className="w-4 h-4 text-[#9FA5C7] shrink-0" />
                     <span className="font-medium">{t.downloadMyDataMenu}</span>
                   </button>
                 )}
@@ -188,9 +188,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       setMenuOpen(false);
                       onSignOut();
                     }}
-                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#b6afd4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                    className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <LogOut className="w-4 h-4 text-[#8e84af] shrink-0" />
+                    <LogOut className="w-4 h-4 text-[#9FA5C7] shrink-0" />
                     <span className="font-medium">{t.signOutMenu}</span>
                   </button>
                 )}

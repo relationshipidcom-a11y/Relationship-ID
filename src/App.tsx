@@ -7,13 +7,20 @@ import {
   RelationshipType,
   RelationshipRecord,
   Invitation,
+  InvitationAuthorization,
   CertificateSettings,
   ScreenId
 } from './types';
 import { auth, db } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { authFetch, parseApiError, getLocalizedErrorMessage, ALLOWED_ERROR_CODES, withAppCheckHeaders } from './utils/api';
-import { getAccountMenuItems, classifyRelationshipSnapshot } from './utils/relationshipState';
+import {
+  getAccountMenuItems,
+  classifyRelationshipSnapshot,
+  evaluateP2Authorization,
+  shouldRenderP2RegistrationScreen,
+  evaluateP2AuthNavigation
+} from './utils/relationshipState';
 import { TopBar } from './components/TopBar';
 import { AuthScreen } from './components/AuthScreen';
 import { P1RegistrationScreen } from './components/P1RegistrationScreen';
@@ -31,8 +38,8 @@ import { BlockedPeopleModal } from './components/BlockedPeopleModal';
 import { LegalPage } from './components/LegalPage';
 import { LegalFooter } from './components/LegalFooter';
 import { LEGAL_VERSION } from './content/legal';
-import { ChangeRequest, AppNotification } from './types';
-import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X } from 'lucide-react';
+import { ChangeRequest, AppNotification, SocialAccount } from './types';
+import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X, Loader2 } from 'lucide-react';
 
 const emptyPartner = (): PartnerData => ({
   fullName: '',
@@ -120,8 +127,11 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('ar');
   const [currentScreen, setCurrentScreen] = useState<ScreenId>(() => getRouteState().screen);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const [invitationLoading, setInvitationLoading] = useState(false);
   const [record, setRecord] = useState<RelationshipRecord>(initialRecord);
   const [invitation, setInvitation] = useState<Invitation>(initialInvitation);
+  const [invitationAuth, setInvitationAuth] = useState<InvitationAuthorization | null>(null);
   const [showScreenSwitcher, setShowScreenSwitcher] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [appError, setAppError] = useState('');
@@ -259,10 +269,27 @@ export default function App() {
     }
   };
 
+  const renderLoadingScreen = (title: string, subtitle: string) => (
+    <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+      <div className="w-12 h-12 rounded-2xl bg-[#2C345F]/60 border border-[#C1C3E6]/30 flex items-center justify-center shadow-lg">
+        <Loader2 className="w-6 h-6 animate-spin text-[#C1C3E6]" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-white">
+          {title}
+        </p>
+        <p className="text-xs text-[#C9CCE4]">
+          {subtitle}
+        </p>
+      </div>
+    </main>
+  );
+
   const loadInvitation = async (inviteId: string, skipRecordOverwrite = false) => {
-    if (!inviteId || inviteId === 'current') return;
+    if (!inviteId || inviteId === 'current') return null;
     const requestUid = auth?.currentUser?.uid || null;
     const requestId = ++invitationRequestIdRef.current;
+    setInvitationLoading(true);
     try {
       const headers = await withAppCheckHeaders();
       const response = auth?.currentUser
@@ -276,10 +303,19 @@ export default function App() {
         activeAuthUidRef.current !== requestUid ||
         (auth?.currentUser?.uid || null) !== requestUid
       ) {
-        return;
+        return null;
       }
 
       if (data.invitation) setInvitation(data.invitation);
+      if (data.authorization) {
+        setInvitationAuth({
+          ...data.authorization,
+          inviteId: data.authorization.inviteId || inviteId,
+          authorizedUid: data.authorization.authorizedUid || requestUid || undefined
+        });
+      } else {
+        setInvitationAuth(null);
+      }
 
       // A public invitation preview must never replace an authorized private active record
       if (!skipRecordOverwrite && data.record) {
@@ -290,13 +326,20 @@ export default function App() {
           return data.record;
         });
       }
+      return data;
     } catch (error) {
       if (
         invitationRequestIdRef.current === requestId &&
         activeAuthUidRef.current === requestUid &&
         (auth?.currentUser?.uid || null) === requestUid
       ) {
+        setInvitationAuth(null);
         setAppError(getLocalizedErrorMessage(error, language));
+      }
+      return null;
+    } finally {
+      if (invitationRequestIdRef.current === requestId) {
+        setInvitationLoading(false);
       }
     }
   };
@@ -310,6 +353,7 @@ export default function App() {
   // Single coordinated authority for initial startup, login, and logout lifecycle
   useEffect(() => {
     if (!auth) {
+      setAuthInitialized(true);
       const route = getRouteState();
       if (route.inviteId && route.inviteId !== 'current') {
         void loadInvitation(route.inviteId);
@@ -317,9 +361,11 @@ export default function App() {
       return;
     }
     return onAuthStateChanged(auth, async (user) => {
+      setAuthInitialized(true);
       if (user) {
         activeAuthUidRef.current = user.uid;
         setAuthUser(toAuthUser(user.uid, user.email, user.displayName));
+        setInvitationAuth(null);
         const route = getRouteState();
 
         // Always load private record for authenticated users regardless of route
@@ -347,6 +393,7 @@ export default function App() {
         setAuthUser(null);
         setRecord(initialRecord);
         setInvitation(initialInvitation);
+        setInvitationAuth(null);
         hasAutoNavigatedRef.current = false;
         const route = getRouteState();
         if (route.inviteId && route.inviteId !== 'current') {
@@ -696,7 +743,13 @@ export default function App() {
     }
   };
 
-  const handleSavePersonalInfo = async (personalData: { socialHandle?: string; fullNameEn?: string; whatsappNumber?: string; whatsappCountry?: string }) => {
+  const handleSavePersonalInfo = async (personalData: {
+    socialHandle?: string;
+    socialAccounts?: SocialAccount[];
+    fullNameEn?: string;
+    whatsappNumber?: string;
+    whatsappCountry?: string;
+  }) => {
     const res = await authFetch('/api/profile/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -804,13 +857,28 @@ export default function App() {
 
   const handleP2Authenticated = async (user: AuthUser) => {
     setAuthUser(user);
-    if (invitation.id && invitation.id !== 'current') {
-      try {
-        await loadInvitation(invitation.id);
-      } catch (err) {
-        console.error('Failed to load private invitation details after login', err);
-      }
+    const routeInviteId = getRouteState().inviteId;
+    const targetInviteId = (invitation.id && invitation.id !== 'current')
+      ? invitation.id
+      : (routeInviteId && routeInviteId !== 'current' ? routeInviteId : '');
+
+    if (!targetInviteId) {
+      setAppError(getLocalizedErrorMessage(new Error('INVITATION_NOT_FOUND'), language));
+      navigateTo('p2_landing', '/');
+      return;
     }
+
+    setInvitationLoading(true);
+    let loadedData: any = null;
+    try {
+      loadedData = await loadInvitation(targetInviteId);
+    } catch (err) {
+      console.error('Failed to load private invitation details after login', err);
+      loadedData = null;
+    } finally {
+      setInvitationLoading(false);
+    }
+
     if (p2PendingAction === 'decline') {
       try {
         await handleDeclineInvitation();
@@ -819,7 +887,21 @@ export default function App() {
       }
       return;
     }
-    navigateTo('p2_details', `/invite/${invitation.id}/complete`);
+
+    const navDecision = evaluateP2AuthNavigation({
+      currentUserId: user.id,
+      targetInviteId,
+      loadedData,
+      existingInvitation: invitation
+    });
+
+    if (!navDecision.canNavigateToDetails) {
+      setAppError(getLocalizedErrorMessage(new Error(navDecision.error || 'INVITATION_IDENTITY_MISMATCH'), language));
+      navigateTo('p2_landing', `/invite/${targetInviteId}`);
+      return;
+    }
+
+    navigateTo('p2_details', `/invite/${targetInviteId}/complete`);
   };
 
   const handleAcceptRelationship = async (p2Data: PartnerData) => {
@@ -920,8 +1002,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#110d21] text-slate-100 flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#9b6682] selection:text-white">
-      <div className="w-full max-w-[430px] min-h-[844px] bg-[#1a1530] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-white/15">
+    <div className="min-h-screen bg-gradient-to-br from-[#182849] via-[#2C345F] to-[#414A78] text-[#F6F5FF] flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#C1C3E6] selection:text-[#242C55]">
+      <div className="w-full max-w-[430px] min-h-[844px] bg-[#202B52] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-white/15">
         <TopBar
           language={language}
           onToggleLanguage={handleToggleLanguage}
@@ -1011,10 +1093,30 @@ export default function App() {
             <P2LandingScreen
               language={language}
               invitation={invitation}
+              authUser={authUser}
+              invitationAuthorization={invitationAuth}
               onAccept={() => {
                 setP2PendingAction('accept');
-                if (auth?.currentUser) navigateTo('p2_details', `/invite/${invitation.id}/complete`);
-                else navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
+                if (!auth?.currentUser) {
+                  navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
+                } else if (invitationAuth?.isP1 || authUser?.id === invitation.p1Uid) {
+                  setAppError(getLocalizedErrorMessage(new Error('CANNOT_ACCEPT_OWN_INVITATION'), language));
+                } else if (!invitationAuth) {
+                  setAppError(getLocalizedErrorMessage(new Error('INVITATION_NOT_LOADED'), language));
+                } else if (!invitationAuth.authorized) {
+                  setAppError(getLocalizedErrorMessage(new Error(invitationAuth.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                } else {
+                  navigateTo('p2_details', `/invite/${invitation.id}/complete`);
+                }
+              }}
+              onSwitchAccount={async () => {
+                if (auth) {
+                  await signOut(auth);
+                  setAuthUser(null);
+                  setRecord(initialRecord);
+                  setInvitationAuth(null);
+                }
+                navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
               }}
               onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
               onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
@@ -1033,15 +1135,81 @@ export default function App() {
           )}
 
           {currentScreen === 'p2_details' && (
-            <P2RegistrationScreen
-              language={language}
-              record={{ ...record, partner2: { ...record.partner2, email: record.partner2.email || authUser?.email || '' } }}
-              onAcceptRelationship={handleAcceptRelationship}
-              onRequestChange={handleAdjustInfo}
-              onViewControls={() => navigateTo('review_controls', '/review')}
-              onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
-              onOpenTerms={() => navigateTo('terms', '/terms')}
-            />
+            (() => {
+              const currentRouteInviteId = getRouteState().inviteId;
+              const targetInviteId = (invitation.id && invitation.id !== 'current')
+                ? invitation.id
+                : (currentRouteInviteId && currentRouteInviteId !== 'current' ? currentRouteInviteId : '');
+
+              const decision = evaluateP2Authorization({
+                authInitialized,
+                currentUserId: auth?.currentUser?.uid || authUser?.id || null,
+                targetInviteId,
+                invitationAuth,
+                invitation,
+                record,
+                invitationLoading,
+                hasAppError: Boolean(appError)
+              });
+
+              if (decision.state === 'loading') {
+                return renderLoadingScreen(
+                  decision.messageKey === 'auth_verifying'
+                    ? (language === 'ar' ? 'جاري التحقق من هوية الشريك...' : 'Verifying partner authentication...')
+                    : (language === 'ar' ? 'جاري التحقق من صلاحية الدعوة...' : 'Verifying invitation authorization...'),
+                  language === 'ar'
+                    ? 'يرجى الانتظار بينما نتحقق من صلاحية الدعوة...'
+                    : 'Please wait while we verify invitation access...'
+                );
+              }
+
+              if (shouldRenderP2RegistrationScreen(decision)) {
+                return (
+                  <P2RegistrationScreen
+                    language={language}
+                    record={{ ...record, partner2: { ...record.partner2, email: record.partner2.email || authUser?.email || '' } }}
+                    onAcceptRelationship={handleAcceptRelationship}
+                    onRequestChange={handleAdjustInfo}
+                    onViewControls={() => navigateTo('review_controls', '/review')}
+                    onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
+                    onOpenTerms={() => navigateTo('terms', '/terms')}
+                  />
+                );
+              }
+
+              // Fail closed: show invitation landing screen with switch account / login
+              const fallbackInviteId = targetInviteId || invitation.id;
+              return (
+                <P2LandingScreen
+                  language={language}
+                  invitation={invitation}
+                  authUser={authUser}
+                  invitationAuthorization={invitationAuth}
+                  onAccept={() => {
+                    if (decision.state === 'p1_rejected') {
+                      setAppError(getLocalizedErrorMessage(new Error('CANNOT_ACCEPT_OWN_INVITATION'), language));
+                    } else if (decision.state === 'unauthorized') {
+                      setAppError(getLocalizedErrorMessage(new Error(decision.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                    } else if (!auth?.currentUser) {
+                      navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
+                    } else {
+                      navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
+                    }
+                  }}
+                  onSwitchAccount={async () => {
+                    if (auth) {
+                      await signOut(auth);
+                      setAuthUser(null);
+                      setRecord(initialRecord);
+                      setInvitationAuth(null);
+                    }
+                    navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
+                  }}
+                  onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
+                  onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
+                />
+              );
+            })()
           )}
 
           {currentScreen === 'review_controls' && (
@@ -1065,13 +1233,13 @@ export default function App() {
               <CertificateScreen language={language} record={record} onHome={handleGoHome} />
             ) : (
               <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                <p className="text-xs text-[#b6afd4]">
+                <p className="text-xs text-[#C9CCE4]">
                   {language === 'ar' ? 'لا توجد شهادة نشطة لعرضها.' : 'No active certificate to display.'}
                 </p>
                 <button
                   type="button"
                   onClick={handleGoHome}
-                  className="mt-4 px-4 py-2 rounded-xl bg-[#9b6682] text-white text-xs font-semibold cursor-pointer"
+                  className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] text-xs font-semibold cursor-pointer"
                 >
                   {language === 'ar' ? 'الرئيسية' : 'Home'}
                 </button>
@@ -1081,7 +1249,7 @@ export default function App() {
 
           {currentScreen === 'verify_portal' && (
             <div className="flex-1 p-4 flex flex-col items-center justify-center">
-              <button type="button" onClick={() => setShowVerifyModal(true)} className="w-full py-4 px-4 rounded-xl bg-[#9b6682] text-white font-bold text-sm shadow-lg border border-white/20">
+              <button type="button" onClick={() => setShowVerifyModal(true)} className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] font-bold text-sm shadow-lg border border-white/20 cursor-pointer">
                 {language === 'ar' ? 'فتح بوابة التحقق' : 'Open Verification Portal'}
               </button>
             </div>
@@ -1108,10 +1276,10 @@ export default function App() {
         />
 
         {allowScreenExplorer && showScreenSwitcher && (
-          <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#141124]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
+          <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#182849]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
             <div className="grid grid-cols-1 gap-1.5">
               {screensOrder.map((s, idx) => (
-                <button key={s.id} type="button" onClick={() => { navigateTo(s.id); setShowScreenSwitcher(false); }} className={`flex items-center justify-between p-2.5 rounded-xl text-xs border ${currentScreen === s.id ? 'bg-[#9b6682] text-white border-white/30' : 'bg-[#211c38] text-[#b6afd4] border-white/5'}`}>
+                <button key={s.id} type="button" onClick={() => { navigateTo(s.id); setShowScreenSwitcher(false); }} className={`flex items-center justify-between p-2.5 rounded-xl text-xs border ${currentScreen === s.id ? 'bg-[#C1C3E6] text-[#242C55] font-semibold border-white/30' : 'bg-[#202B52] text-[#C9CCE4] border-white/5'}`}>
                   <span>{language === 'ar' ? s.labelAr : s.labelEn}</span><span>#{idx + 1}</span>
                 </button>
               ))}
@@ -1120,8 +1288,8 @@ export default function App() {
         )}
 
         {allowScreenExplorer && (
-          <div className="px-4 py-2.5 bg-[#141124] border-t border-white/10 flex items-center justify-between text-[10px] text-[#b6afd4]">
-            <button type="button" onClick={() => setShowScreenSwitcher(!showScreenSwitcher)} className="flex items-center gap-1.5 text-[#f3c4db] bg-transparent border-none cursor-pointer"><LayoutGrid className="w-3.5 h-3.5" /> Screen Index</button>
+          <div className="px-4 py-2.5 bg-[#182849] border-t border-white/10 flex items-center justify-between text-[10px] text-[#C9CCE4]">
+            <button type="button" onClick={() => setShowScreenSwitcher(!showScreenSwitcher)} className="flex items-center gap-1.5 text-[#C1C3E6] bg-transparent border-none cursor-pointer"><LayoutGrid className="w-3.5 h-3.5" /> Screen Index</button>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => { setRecord(initialRecord); setInvitation(initialInvitation); navigateTo('auth', '/'); }} className="p-1 rounded text-white bg-transparent border-none"><RefreshCw className="w-3.5 h-3.5" /></button>
               <ChevronRight className="w-3.5 h-3.5" /><ChevronLeft className="w-3.5 h-3.5" />
@@ -1190,7 +1358,7 @@ export default function App() {
             aria-modal="true"
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           >
-            <div className="w-full max-w-sm rounded-2xl bg-[#1a1530] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
+            <div className="w-full max-w-sm rounded-2xl bg-[#202B52] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
@@ -1203,7 +1371,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="p-1 text-[#b6afd4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
+                  className="p-1 text-[#C9CCE4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1214,7 +1382,7 @@ export default function App() {
                   {language === 'ar' ? activeNotification.messageAr : activeNotification.messageEn}
                 </p>
                 {activeNotification.secondaryAr && (
-                  <p className="text-xs text-[#b6afd4]">
+                  <p className="text-xs text-[#C9CCE4]">
                     {language === 'ar' ? activeNotification.secondaryAr : activeNotification.secondaryEn}
                   </p>
                 )}
@@ -1224,7 +1392,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#9b6682] to-[#7d4865] text-xs font-semibold text-white transition shadow-sm cursor-pointer hover:opacity-95 active:scale-[0.98]"
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-xs font-semibold text-[#242C55] transition shadow-sm cursor-pointer hover:opacity-95 active:scale-[0.98]"
                 >
                   {language === 'ar' ? 'فهمت ذلك ومتابعة' : 'Understood'}
                 </button>

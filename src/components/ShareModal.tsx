@@ -88,7 +88,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Modal Top Bar */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#9b6682]/30 text-[#f3c4db] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#2C345F] text-[#C1C3E6] flex items-center justify-center">
               <Share2 className="w-4 h-4" />
             </div>
             <h3 className="text-sm sm:text-base font-bold text-white">
@@ -99,17 +99,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="w-8 h-8 rounded-full bg-[#211c38] hover:bg-[#2e264f] text-[#b6afd4] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10"
+            className="w-8 h-8 rounded-full bg-[#172244] hover:bg-[#202B52] text-[#C9CCE4] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Certificate Preview Badge Inside Modal */}
-        <div className="mt-4 p-3 rounded-2xl bg-[#211c38] border border-white/15 flex items-center justify-between gap-3 shadow-inner">
+        <div className="mt-4 p-3 rounded-2xl bg-[#172244] border border-white/15 flex items-center justify-between gap-3 shadow-inner">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#9a7b2c] via-[#e2bd59] to-[#bf953f] p-0.5 shrink-0 flex items-center justify-center">
-              <div className="w-full h-full rounded-[10px] bg-[#1a1530] flex items-center justify-center text-[#e2bd59] font-bold text-xs">
+              <div className="w-full h-full rounded-[10px] bg-[#131F3B] flex items-center justify-center text-[#e2bd59] font-bold text-xs">
                 RID
               </div>
             </div>
@@ -119,7 +119,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   {record.partner1.fullName} &amp; {record.partner2.fullName}
                 </p>
               </div>
-              <p className="font-mono text-[10px] text-[#f3c4db] mt-0.5 tracking-wider truncate">
+              <p className="font-mono text-[10px] text-[#C1C3E6] mt-0.5 tracking-wider truncate">
                 {record.verificationRef}
               </p>
             </div>
@@ -131,7 +131,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         {/* Direct Share Channels */}
         <div className="mt-4">
-          <p className="text-[11px] font-semibold text-[#b6afd4] mb-2">
+          <p className="text-[11px] font-semibold text-[#C9CCE4] mb-2">
             {t.shareChannelsTitle}
           </p>
           <div className={styles.channelGrid}>
@@ -199,10 +199,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         {/* Copy Link Section */}
         <div className="mt-4">
-          <label className="block text-[11px] font-semibold text-[#b6afd4] mb-1.5" htmlFor="certShareLink">
+          <label className="block text-[11px] font-semibold text-[#C9CCE4] mb-1.5" htmlFor="certShareLink">
             {t.secureCertLinkLabel}
           </label>
-          <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-[#141124] border border-white/15 focus-within:border-[#f3c4db]">
+          <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-[#172244] border border-white/15 focus-within:border-[#C1C3E6]">
             <input
               id="certShareLink"
               type="text"
@@ -214,7 +214,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-[#9b6682] hover:bg-[#a9718f] text-white font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? t.copiedBtn : t.copyCertLinkBtn}</span>
@@ -227,18 +227,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#211c38] hover:bg-[#2e264f] text-white text-xs font-medium border border-white/15 transition-all active:scale-95 cursor-pointer"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#172244] hover:bg-[#202B52] text-white text-xs font-medium border border-white/15 transition-all active:scale-95 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#f3c4db]" />
+            <Download className="w-4 h-4 text-[#C1C3E6]" />
             <span>{language === 'ar' ? 'طباعة / حفظ PDF' : 'Print / Save PDF'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopyLink}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#211c38] hover:bg-[#2e264f] text-white text-xs font-medium border border-white/15 transition-all active:scale-95 cursor-pointer"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#172244] hover:bg-[#202B52] text-white text-xs font-medium border border-white/15 transition-all active:scale-95 cursor-pointer"
           >
-            <QrCode className="w-4 h-4 text-[#f3c4db]" />
+            <QrCode className="w-4 h-4 text-[#C1C3E6]" />
             <span>{language === 'ar' ? 'نسخ رابط التحقق' : 'Copy Verify Link'}</span>
           </button>
         </div>

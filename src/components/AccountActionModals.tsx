@@ -57,7 +57,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
     >
       {/* EXIT RELATIONSHIP CONFIRMATION DIALOG */}
       {showExitModal && (
-        <div className="w-full max-w-sm rounded-2xl bg-[#1a1530] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
+        <div className="w-full max-w-sm rounded-2xl bg-[#202B52] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
@@ -71,13 +71,13 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseExitModal}
-              className="p-1 text-[#b6afd4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer disabled:opacity-50"
+              className="p-1 text-[#C9CCE4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer disabled:opacity-50"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-xs text-[#b6afd4] leading-relaxed whitespace-pre-line">
+          <p className="text-xs text-[#C9CCE4] leading-relaxed whitespace-pre-line">
             {t.exitRelationshipDesc}
           </p>
 
@@ -93,7 +93,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseExitModal}
-              className="flex-1 py-2 px-3 rounded-xl border border-white/20 bg-[#211c38] text-xs font-semibold text-[#b6afd4] hover:text-white transition cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2 px-3 rounded-xl border border-white/20 bg-[#172244] text-xs font-semibold text-[#C9CCE4] hover:text-white transition cursor-pointer disabled:opacity-50"
             >
               {t.cancelBtn}
             </button>
@@ -112,7 +112,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
 
       {/* DELETE MY ACCOUNT DESTRUCTIVE CONFIRMATION DIALOG */}
       {showDeleteModal && (
-        <div className="w-full max-w-sm rounded-2xl bg-[#1a1530] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
+        <div className="w-full max-w-sm rounded-2xl bg-[#202B52] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
@@ -126,13 +126,13 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseDeleteModal}
-              className="p-1 text-[#b6afd4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer disabled:opacity-50"
+              className="p-1 text-[#C9CCE4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer disabled:opacity-50"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-xs text-[#b6afd4] leading-relaxed whitespace-pre-line">
+          <p className="text-xs text-[#C9CCE4] leading-relaxed whitespace-pre-line">
             {hasActiveRelationship ? t.deleteAccountDesc : t.deleteAccountDescNoRelationship}
           </p>
 
@@ -153,7 +153,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseDeleteModal}
-              className="flex-1 py-2 px-3 rounded-xl border border-white/20 bg-[#211c38] text-xs font-semibold text-[#b6afd4] hover:text-white transition cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2 px-3 rounded-xl border border-white/20 bg-[#172244] text-xs font-semibold text-[#C9CCE4] hover:text-white transition cursor-pointer disabled:opacity-50"
             >
               {t.cancelBtn}
             </button>

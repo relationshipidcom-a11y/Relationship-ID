@@ -3,7 +3,7 @@
   max-width: 390px;
   min-height: 100vh;
   margin: 0 auto;
-  background: linear-gradient(180deg, #211c38 0%, #1a1530 50%, #120f22 100%);
+  background: linear-gradient(180deg, #202B52 0%, #1B264A 50%, #182849 100%);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
   display: flex;
@@ -11,7 +11,7 @@
   justify-content: space-between;
   overflow: hidden;
   position: relative;
-  color: #f7f6fd;
+  color: #F6F5FF;
 }
 
 @media (min-width: 640px) {
@@ -24,7 +24,7 @@
 .tabPillContainer {
   padding: 4px;
   border-radius: 12px;
-  background-color: #141124;
+  background-color: rgba(193, 195, 230, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.20);
   display: flex;
   align-items: center;
@@ -35,11 +35,11 @@
   width: 50%;
   padding: 8px;
   border-radius: 12px;
-  background-color: #9b6682;
-  color: #ffffff;
-  font-weight: 600;
+  background: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
+  color: #242C55;
+  font-weight: 700;
   font-size: 12px;
-  box-shadow: 0 4px 12px rgba(155, 102, 130, 0.35);
+  box-shadow: 0 4px 12px rgba(169, 175, 215, 0.35);
   text-align: center;
   letter-spacing: 0.02em;
   transition: all 0.2s ease;
@@ -49,7 +49,7 @@
   width: 50%;
   padding: 8px;
   border-radius: 12px;
-  color: #b6afd4;
+  color: #C9CCE4;
   font-weight: 500;
   font-size: 12px;
   text-align: center;
@@ -61,14 +61,14 @@
 }
 
 .inactiveTab:hover {
-  color: #ffffff;
+  color: #F6F5FF;
 }
 
 .inputField {
   width: 100%;
-  background-color: #141124;
+  background-color: rgba(193, 195, 230, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.20);
-  color: #ffffff;
+  color: #F6F5FF;
   border-radius: 12px;
   padding: 13px 16px;
   font-size: 12px;
@@ -77,21 +77,21 @@
 }
 
 .inputField:focus {
-  border-color: #f3c4db;
-  box-shadow: 0 0 0 2px rgba(155, 102, 130, 0.4);
+  border-color: #C1C3E6;
+  box-shadow: 0 0 0 2px rgba(193, 195, 230, 0.35);
 }
 
 .submitBtn {
   width: 100%;
   margin-top: 8px;
   padding: 12px 16px;
-  background-color: #9b6682;
-  color: #ffffff;
-  font-weight: 600;
+  background: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
+  color: #242C55;
+  font-weight: 700;
   font-size: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 8px 18px rgba(155, 102, 130, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 18px rgba(169, 175, 215, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,7 +101,7 @@
 }
 
 .submitBtn:hover {
-  background-color: #a9718f;
+  background: linear-gradient(135deg, #D0D2ED 0%, #B5BBE2 100%);
 }
 
 .submitBtn:active {

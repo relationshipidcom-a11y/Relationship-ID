@@ -2102,6 +2102,13 @@ export function createApp(): express.Express {
       if (!limiter(`invitation_action:${user.uid}`, 10, 60000)) {
         return respondWithError(res, 429, 'RATE_LIMITED');
       }
+
+      const preInviteSnap = await adminDb.collection(INVITATIONS_COL)
+        .doc(req.params.inviteId).get();
+      if (preInviteSnap.exists && preInviteSnap.data()?.p1Uid === user.uid) {
+        return respondWithError(res, 400, 'CANNOT_ACCEPT_OWN_INVITATION');
+      }
+
       const partner2 = (req.body as { partner2?: PartnerData }).partner2;
       if (!partner2) return res.status(400).json({ error: 'PARTNER2_PROFILE_REQUIRED' });
 

@@ -389,10 +389,14 @@ export default function App() {
         activeAuthUidRef.current = null;
         privateRecordRequestIdRef.current += 1;
         invitationRequestIdRef.current += 1;
+        changeRequestsRequestIdRef.current += 1;
         setAuthUser(null);
         setRecord(initialRecord);
         setInvitation(initialInvitation);
         setInvitationAuth(null);
+        setChangeRequests([]);
+        setActiveNotification(null);
+        setInvitationLoading(false);
         hasAutoNavigatedRef.current = false;
         const route = getRouteState();
         if (route.inviteId && route.inviteId !== 'current') {
@@ -615,12 +619,37 @@ export default function App() {
       setAuthUser(null);
       setRecord(initialRecord);
       setInvitation(initialInvitation);
+      setInvitationAuth(null);
       setChangeRequests([]);
       setActiveNotification(null);
+      setInvitationLoading(false);
       navigateTo('auth', '/');
     } catch (error) {
       setAppError(getLocalizedErrorMessage(error, language));
     }
+  };
+
+  const handleSwitchAccount = async (targetInviteId?: string) => {
+    activeAuthUidRef.current = null;
+    privateRecordRequestIdRef.current += 1;
+    invitationRequestIdRef.current += 1;
+    changeRequestsRequestIdRef.current += 1;
+    if (auth) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.debug('Error signing out on account switch:', e);
+      }
+    }
+    setAuthUser(null);
+    setRecord(initialRecord);
+    setInvitation(initialInvitation);
+    setInvitationAuth(null);
+    setChangeRequests([]);
+    setActiveNotification(null);
+    setInvitationLoading(false);
+    const invitePath = targetInviteId && targetInviteId !== 'current' ? `/invite/${targetInviteId}/auth` : '/';
+    navigateTo('p2_auth', invitePath);
   };
 
   const fetchChangeRequests = async () => {
@@ -645,6 +674,7 @@ export default function App() {
   };
 
   const handleConfirmExitRelationship = async () => {
+    if (accountActionLoading) return;
     setAccountActionLoading(true);
     setAccountActionError('');
     privateRecordRequestIdRef.current += 1;
@@ -678,6 +708,7 @@ export default function App() {
   };
 
   const handleConfirmDeleteAccount = async () => {
+    if (accountActionLoading) return;
     setAccountActionLoading(true);
     setAccountActionError('');
     privateRecordRequestIdRef.current += 1;
@@ -787,20 +818,28 @@ export default function App() {
   };
 
   const handleP1SaveAndNext = async (p1Data: PartnerData, relType: RelationshipType, startDateIso: string) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setAppError('');
-    const response = await authFetch('/api/record', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        partner1: p1Data,
-        type: relType,
-        startDate: startDateIso,
-        acceptedLegalVersion: LEGAL_VERSION
-      })
-    });
-    const data = await parseApiError(response);
-    applyServerRecord(data.record);
-    navigateTo('p1_invite_create');
+    try {
+      const response = await authFetch('/api/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partner1: p1Data,
+          type: relType,
+          startDate: startDateIso,
+          acceptedLegalVersion: LEGAL_VERSION
+        })
+      });
+      const data = await parseApiError(response);
+      applyServerRecord(data.record);
+      navigateTo('p1_invite_create');
+    } catch (err) {
+      setAppError(getLocalizedErrorMessage(err, language));
+    } finally {
+      isSubmittingRef.current = false;
+    }
   };
 
   const handleCreateInvite = async (p2Data: {
@@ -811,20 +850,31 @@ export default function App() {
     partner2Whatsapp?: string;
     partner2WhatsappCountry?: string;
   }) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setAppError('');
-    const response = await authFetch('/api/invite/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(p2Data)
-    });
-    const data = await parseApiError(response);
-    setInvitation(data.invitation);
-    if (data.record) applyServerRecord(data.record);
-    navigateTo('invite_success');
+    try {
+      const response = await authFetch('/api/invite/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p2Data)
+      });
+      const data = await parseApiError(response);
+      setInvitation(data.invitation);
+      if (data.record) applyServerRecord(data.record);
+      navigateTo('invite_success');
+    } catch (err) {
+      setAppError(getLocalizedErrorMessage(err, language));
+      throw err;
+    } finally {
+      isSubmittingRef.current = false;
+    }
   };
 
   const handleCancelInvitation = async () => {
     if (!invitation.id) return;
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setAppError('');
     try {
       const response = await authFetch(`/api/invitations/${invitation.id}/cancel`, { method: 'POST' });
@@ -834,24 +884,34 @@ export default function App() {
       navigateTo('p1_invite_create');
     } catch (error) {
       setAppError(getLocalizedErrorMessage(error, language));
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
   const handleDeclineInvitation = async (block = false) => {
     if (!invitation.id) return;
+    if (isSubmittingRef.current) return;
     if (!auth?.currentUser) {
       setP2PendingAction('decline');
       navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
       return;
     }
-    const response = await authFetch(`/api/invitations/${invitation.id}/decline`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ block })
-    });
-    const data = await parseApiError(response);
-    setInvitation(data.invitation);
-    navigateTo('p2_landing', `/invite/${invitation.id}`);
+    isSubmittingRef.current = true;
+    try {
+      const response = await authFetch(`/api/invitations/${invitation.id}/decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ block })
+      });
+      const data = await parseApiError(response);
+      setInvitation(data.invitation);
+      navigateTo('p2_landing', `/invite/${invitation.id}`);
+    } catch (err) {
+      setAppError(getLocalizedErrorMessage(err, language));
+    } finally {
+      isSubmittingRef.current = false;
+    }
   };
 
   const handleP2Authenticated = async (user: AuthUser) => {
@@ -906,41 +966,47 @@ export default function App() {
   const handleAcceptRelationship = async (p2Data: PartnerData) => {
     if (!auth?.currentUser) throw new Error('AUTH_REQUIRED');
     if (!invitation.id) throw new Error('INVITATION_NOT_LOADED');
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
     const requestUid = auth.currentUser.uid;
     const targetInviteId = invitation.id;
     setAppError('');
 
-    const response = await authFetch(`/api/invitations/${targetInviteId}/accept`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ partner2: p2Data, acceptedLegalVersion: LEGAL_VERSION })
-    });
-    const data = await parseApiError(response);
+    try {
+      const response = await authFetch(`/api/invitations/${targetInviteId}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partner2: p2Data, acceptedLegalVersion: LEGAL_VERSION })
+      });
+      const data = await parseApiError(response);
 
-    // Stale response guard: check UID and invitation identity before applying state changes
-    if (
-      !auth?.currentUser ||
-      auth.currentUser.uid !== requestUid ||
-      activeAuthUidRef.current !== requestUid ||
-      invitation.id !== targetInviteId
-    ) {
-      return;
+      // Stale response guard: check UID and invitation identity before applying state changes
+      if (
+        !auth?.currentUser ||
+        auth.currentUser.uid !== requestUid ||
+        activeAuthUidRef.current !== requestUid ||
+        invitation.id !== targetInviteId
+      ) {
+        return;
+      }
+
+      const confirmedRecord = data.record as RelationshipRecord | null;
+      const confirmedInvitation = data.invitation as Invitation | null;
+
+      if (!data.success || !confirmedRecord || confirmedRecord.status !== 'active') {
+        const fallbackCode = typeof data.error === 'string' && ALLOWED_ERROR_CODES.has(data.error)
+          ? data.error
+          : 'ACCEPTANCE_FAILED_OR_INACTIVE';
+        throw new Error(fallbackCode);
+      }
+
+      if (confirmedInvitation) setInvitation(confirmedInvitation);
+      setRecord(confirmedRecord);
+      navigateTo('official_certificate', `/certificate/${confirmedRecord.verificationRef}`);
+    } finally {
+      isSubmittingRef.current = false;
     }
-
-    const confirmedRecord = data.record as RelationshipRecord | null;
-    const confirmedInvitation = data.invitation as Invitation | null;
-
-    if (!data.success || !confirmedRecord || confirmedRecord.status !== 'active') {
-      const fallbackCode = typeof data.error === 'string' && ALLOWED_ERROR_CODES.has(data.error)
-        ? data.error
-        : 'ACCEPTANCE_FAILED_OR_INACTIVE';
-      throw new Error(fallbackCode);
-    }
-
-    if (confirmedInvitation) setInvitation(confirmedInvitation);
-    setRecord(confirmedRecord);
-    navigateTo('official_certificate', `/certificate/${confirmedRecord.verificationRef}`);
   };
 
   const handleUpdateSettings = async (newSettings: Partial<CertificateSettings>) => {
@@ -1108,15 +1174,7 @@ export default function App() {
                   navigateTo('p2_details', `/invite/${invitation.id}/complete`);
                 }
               }}
-              onSwitchAccount={async () => {
-                if (auth) {
-                  await signOut(auth);
-                  setAuthUser(null);
-                  setRecord(initialRecord);
-                  setInvitationAuth(null);
-                }
-                navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
-              }}
+              onSwitchAccount={() => void handleSwitchAccount(invitation.id)}
               onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
               onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
               onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
@@ -1195,15 +1253,7 @@ export default function App() {
                       navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
                     }
                   }}
-                  onSwitchAccount={async () => {
-                    if (auth) {
-                      await signOut(auth);
-                      setAuthUser(null);
-                      setRecord(initialRecord);
-                      setInvitationAuth(null);
-                    }
-                    navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
-                  }}
+                  onSwitchAccount={() => void handleSwitchAccount(fallbackInviteId)}
                   onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
                   onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
                 />

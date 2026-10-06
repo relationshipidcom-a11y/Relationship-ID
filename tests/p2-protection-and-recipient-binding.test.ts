@@ -9,6 +9,7 @@ import {
   verifyRecipientIdentity
 } from '../server';
 import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
+import { evaluateP2Authorization, evaluateP2AuthNavigation } from '../src/utils/relationshipState';
 
 const P1_PHONE = '+966500000001';
 const P2_PHONE = '+966500000002';
@@ -382,5 +383,128 @@ test('P2 Protection & Recipient Binding Suite', async (t) => {
     assert.equal(replayRes.status, 409);
     const data = await replayRes.json();
     assert.equal(data.error, 'INVITATION_ACCEPTED');
+  });
+
+  // 11. Fail-closed P2 authorization evaluation (Step 5)
+  await t.test('11. P2 details remains denied when invitation authorization is pending or missing (Step 5)', () => {
+    // Missing invitationAuth after load failure (hasAppError: true)
+    const decisionFailed = evaluateP2Authorization({
+      authInitialized: true,
+      currentUserId: 'uid_p2_candidate',
+      targetInviteId: 'inv_abc',
+      invitationAuth: null,
+      invitation: { id: 'inv_abc' },
+      record: null,
+      invitationLoading: false,
+      hasAppError: true
+    });
+    assert.equal(decisionFailed.state, 'unauthorized');
+    assert.equal(decisionFailed.reason, 'INVITATION_NOT_LOADED');
+
+    // While awaiting authorization or loading
+    const decisionLoading = evaluateP2Authorization({
+      authInitialized: true,
+      currentUserId: 'uid_p2_candidate',
+      targetInviteId: 'inv_abc',
+      invitationAuth: null,
+      invitation: null,
+      record: null,
+      invitationLoading: false,
+      hasAppError: false
+    });
+    assert.equal(decisionLoading.state, 'loading');
+
+    // Mismatched authorized UID
+    const decisionMismatched = evaluateP2Authorization({
+      authInitialized: true,
+      currentUserId: 'uid_p2_candidate',
+      targetInviteId: 'inv_abc',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: true,
+        inviteId: 'inv_abc',
+        authorizedUid: 'uid_different_p2'
+      },
+      invitation: { id: 'inv_abc' },
+      record: null,
+      invitationLoading: false
+    });
+    assert.equal(decisionMismatched.state, 'unauthorized');
+    assert.equal(decisionMismatched.reason, 'INVITATION_IDENTITY_MISMATCH');
+  });
+
+  // 12. Fail-closed P2 auth navigation (Step 5)
+  await t.test('12. evaluateP2AuthNavigation denies navigation on network or authorization failure (Step 5)', () => {
+    const navFailed = evaluateP2AuthNavigation({
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      loadedData: null,
+      existingInvitation: null
+    });
+    assert.equal(navFailed.canNavigateToDetails, false);
+    assert.equal(navFailed.error, 'INVITATION_NOT_LOADED');
+    assert.equal(navFailed.redirectScreen, 'p2_landing');
+
+    const navMismatch = evaluateP2AuthNavigation({
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      loadedData: {
+        authorization: {
+          authenticated: true,
+          isP1: false,
+          authorized: false,
+          reason: 'INVITATION_IDENTITY_MISMATCH',
+          inviteId: 'inv_123',
+          authorizedUid: 'uid_p2'
+        }
+      },
+      existingInvitation: null
+    });
+    assert.equal(navMismatch.canNavigateToDetails, false);
+    assert.equal(navMismatch.error, 'INVITATION_IDENTITY_MISMATCH');
+    assert.equal(navMismatch.redirectScreen, 'p2_landing');
+  });
+
+  // 13. P1 cannot accept own invitation even with P2 details; invitation remains pending for P2
+  await t.test('13. P1 attempting to accept own invitation with P2 details returns 400 CANNOT_ACCEPT_OWN_INVITATION and remains pending for P2', async () => {
+    const { inviteId } = await seedRelationshipAndInvite();
+
+    // P1 calls accept on their own invitation while sending PARTNER 2's details (P2's phone, not P1's)
+    const p1Res = await fetch(`${baseUrl}/api/invitations/${inviteId}/accept`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer token_p1',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        partner2: samplePartner2(),
+        acceptedLegalVersion: CURRENT_LEGAL_VERSION
+      })
+    });
+    assert.equal(p1Res.status, 400);
+    const p1Data = await p1Res.json();
+    assert.equal(p1Data.error, 'CANNOT_ACCEPT_OWN_INVITATION');
+
+    // Invitation is still 'pending' afterwards
+    const inviteDoc = await mockDb.collection('invitations').doc(inviteId).get();
+    assert.equal(inviteDoc.data()?.status, 'pending');
+
+    // P2 can then accept the same invitation successfully (status 200)
+    const p2Res = await fetch(`${baseUrl}/api/invitations/${inviteId}/accept`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer token_p2',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        partner2: samplePartner2(),
+        acceptedLegalVersion: CURRENT_LEGAL_VERSION
+      })
+    });
+    assert.equal(p2Res.status, 200);
+    const p2Data = await p2Res.json();
+    assert.equal(p2Data.success, true);
+    assert.equal(p2Data.record.status, 'active');
   });
 });

@@ -3,15 +3,16 @@ import { Language } from '../types';
 export const readableError = (error: unknown, language: Language = 'ar'): string => {
   if (error instanceof Error) {
     const code = String(Reflect.get(error, 'code') || '');
-    if (code.startsWith('auth/api-key-not-valid') || code === 'auth/invalid-api-key') {
+    if (
+      code.startsWith('auth/api-key-not-valid') ||
+      code === 'auth/invalid-api-key' ||
+      code === 'auth/operation-not-allowed' ||
+      code === 'auth/unauthorized-domain'
+    ) {
+      console.error('[auth]', code);
       return language === 'ar'
-        ? 'مفتاح Firebase API غير صالح (auth/api-key-not-valid). مفتاح API الحالي غير معتمد لدى خدمة Google Identity Toolkit. لحل المشكلة: افتح Firebase Console لمشروعك (relationship-id)، وتأكد من تفعيل Authentication، ثم انسخ الـ apiKey من إعدادات المشروع (Project Settings -> General -> Your apps -> Web app) وضعه في ملف .env.'
-        : 'Firebase API key is invalid (auth/api-key-not-valid). The current key is not recognized by Google Identity Toolkit. To fix this: open your project in Firebase Console, ensure Authentication is enabled, copy the Web apiKey from Project Settings -> General -> Your apps -> Web app into your .env file.';
-    }
-    if (code === 'auth/operation-not-allowed') {
-      return language === 'ar'
-        ? 'تسجيل الدخول بالبريد الإلكتروني غير مفعّل. افتح Firebase Console -> Build -> Authentication -> Sign-in method وقم بتفعيل Email/Password.'
-        : 'Email/Password sign-in is not enabled. Go to Firebase Console -> Build -> Authentication -> Sign-in method and enable Email/Password.';
+        ? 'تسجيل الدخول غير متاح مؤقتاً. يرجى المحاولة لاحقاً.'
+        : 'Sign-in is temporarily unavailable. Please try again later.';
     }
     if (code === 'auth/email-already-in-use') {
       return language === 'ar'
@@ -48,11 +49,6 @@ export const readableError = (error: unknown, language: Language = 'ar'): string
         ? 'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف على الأقل.'
         : 'Password is too weak. It must be at least 6 characters.';
     }
-    if (code === 'auth/unauthorized-domain') {
-      return language === 'ar'
-        ? 'نطاق التطبيق غير مصرّح به في Firebase. أضف نطاق المعاينة في Firebase Console -> Authentication -> Settings -> Authorized domains.'
-        : 'Domain not authorized. Add this preview domain in Firebase Console -> Authentication -> Settings -> Authorized domains.';
-    }
     if (code === 'auth/popup-blocked') {
       return language === 'ar'
         ? 'تم حظر النافذة المنبثقة من قِبل المتصفح. يرجى السماح بالنوافذ المنبثقة لهذا الموقع لإتمام تسجيل الدخول عبر Google.'
@@ -78,7 +74,38 @@ export const readableError = (error: unknown, language: Language = 'ar'): string
         ? 'يوجد حساب مسجل مسبقاً بنفس البريد الإلكتروني بطريقة تسجيل دخول مختلفة.'
         : 'An account already exists with the same email using a different sign-in method.';
     }
-    return typeof code === 'string' && code ? `${code}: ${error.message}` : error.message;
+    if (code === 'auth/invalid-verification-code') {
+      return language === 'ar'
+        ? 'رمز التحقق غير صحيح. يرجى التأكد منه والمحاولة مجدداً.'
+        : 'The code is incorrect. Please check it and try again.';
+    }
+    if (code === 'auth/code-expired') {
+      return language === 'ar'
+        ? 'انتهت صلاحية الرمز. يرجى طلب رمز جديد.'
+        : 'This code has expired. Please request a new one.';
+    }
+    if (code === 'auth/invalid-phone-number' || code === 'auth/missing-phone-number') {
+      return language === 'ar'
+        ? 'يرجى إدخال رقم جوال صحيح.'
+        : 'Please enter a valid mobile number.';
+    }
+    if (code === 'auth/quota-exceeded') {
+      return language === 'ar'
+        ? 'لا يمكن إرسال رموز التحقق حالياً. يرجى المحاولة لاحقاً.'
+        : "We can't send codes right now. Please try again later.";
+    }
+    if (code === 'auth/captcha-check-failed') {
+      return language === 'ar'
+        ? 'فشل التحقق الأمني. يرجى إعادة تحميل الصفحة والمحاولة مجدداً.'
+        : 'Security check failed. Please reload the page and try again.';
+    }
+    if (typeof code === 'string' && code) {
+      console.error('[auth]', code, error.message);
+      return language === 'ar'
+        ? 'حدث خطأ. يرجى المحاولة مرة أخرى.'
+        : 'Something went wrong. Please try again.';
+    }
+    return error.message;
   }
   return 'Unknown authentication error';
 };

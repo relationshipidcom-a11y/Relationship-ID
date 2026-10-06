@@ -22,7 +22,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '2. What We Collect',
-        body: 'We collect account and authentication data (email address and phone number), profile information (full legal names in Arabic and English, and optional social media handle), verification status, partner invitations, mutual relationship records, certificate identifiers, notifications, and security and audit logs. Date of birth is self-declared by users solely to verify that both participants are consenting adults aged 18 or older; date of birth is strictly confidential and is never shown on public certificates or shared with third parties.'
+        body: 'We collect account and authentication data (email address and phone number), profile information (full legal names in Arabic and English, and up to six optional social media accounts), verification status, partner invitations, mutual relationship records, certificate identifiers, notifications, and technical server logs (such as request and error logs kept by our hosting provider). Date of birth is self-declared by users solely to verify that both participants are consenting adults aged 18 or older; date of birth is strictly confidential and is never shown on public certificates or shared with third parties.'
       },
       {
         heading: '3. How Long We Keep Data',
@@ -42,7 +42,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '7. Processors and Third Parties',
-        body: 'We engage trusted processors to support our service: (a) Google LLC provides Firebase Authentication, Cloud Firestore, and Firebase App Check infrastructure; (b) Google reCAPTCHA Enterprise is utilized for App Check token verification to safeguard API endpoints against automated abuse and bots, which sets Google cookies strictly for abuse prevention; and (c) Twilio Inc. receives user phone numbers solely to transmit one-time verification passcodes for WhatsApp phone verification.'
+        body: 'We engage trusted processors to support our service: (a) Google LLC provides Firebase Authentication, Cloud Firestore, and Firebase App Check infrastructure; (b) Google reCAPTCHA Enterprise is utilized for App Check token verification to safeguard API endpoints against automated abuse and bots, which sets Google cookies strictly for abuse prevention; and (c) Twilio Inc. receives user phone numbers solely to send one-time verification passcodes by SMS to verify the user\'s WhatsApp number.'
       },
       {
         heading: '8. Cookies and Device Storage',
@@ -122,7 +122,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '2. ما نجمعه من بيانات',
-        body: 'نقوم بجمع بيانات الحساب والمصادقة (عنوان البريد الإلكتروني ورقم الهاتف)، وبيانات الملف التعريفي (الأسماء القانونية الكاملة باللغتين العربية والإنجليزية، واسم المستخدم الاختياري لشبكات التواصل)، وحالة التحقق، والدعوات، وسجلات العلاقات المشتركة، ومعرفات الشهادات، والإشعارات، وسجلات الأمان والتدقيق. يُصرّح المستخدمون بتاريخ الميلاد ذاتياً فقط للتحقق من الأهلية النظامية بأن كِلا الطرفين بالغين (18 عاماً فأكثر)؛ ويُعد تاريخ الميلاد سرياً تماماً ولا يُعرض على الإطلاق في الشهادات العامة ولا يُشارك مع أي أطراف ثالثة.'
+        body: 'نقوم بجمع بيانات الحساب والمصادقة (عنوان البريد الإلكتروني ورقم الهاتف)، وبيانات الملف التعريفي (الأسماء القانونية الكاملة باللغتين العربية والإنجليزية، وما يصل إلى ستة حسابات اختيارية على شبكات التواصل الاجتماعي)، وحالة التحقق، والدعوات، وسجلات العلاقات المشتركة، ومعرفات الشهادات، والإشعارات، والسجلات التقنية للخادم (مثل سجلات الطلبات والأخطاء التي يحتفظ بها مزود الاستضافة). يُصرّح المستخدمون بتاريخ الميلاد ذاتياً فقط للتحقق من الأهلية النظامية بأن كِلا الطرفين بالغين (18 عاماً فأكثر)؛ ويُعد تاريخ الميلاد سرياً تماماً ولا يُعرض على الإطلاق في الشهادات العامة ولا يُشارك مع أي أطراف ثالثة.'
       },
       {
         heading: '3. مدة الاحتفاظ بالبيانات',
@@ -142,7 +142,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '7. معالجو البيانات والأطراف الثالثة',
-        body: 'نستعين بجهات معالجة موثوقة لتقديم خدماتنا: (أ) شركة Google LLC التي تقدم البنية التحتية لكل من Firebase Authentication وCloud Firestore وFirebase App Check؛ (ب) خدمة Google reCAPTCHA Enterprise المستخدمة للتحقق من أمان App Check لحماية واجهات البرمجة من البرمجيات الخبيثة والروبوتات، وتقوم بتعيين ملفات تعريف ارتباط (Cookies) خاصة بشركة Google للأغراض الأمنية فقط؛ و(ج) شركة Twilio Inc. التي تستلم رقم هاتف المستخدم حصرياً لإرسال رمز التحقق لمرة واحدة عبر تطبيق WhatsApp.'
+        body: 'نستعين بجهات معالجة موثوقة لتقديم خدماتنا: (أ) شركة Google LLC التي تقدم البنية التحتية لكل من Firebase Authentication وCloud Firestore وFirebase App Check؛ (ب) خدمة Google reCAPTCHA Enterprise المستخدمة للتحقق من أمان App Check لحماية واجهات البرمجة من البرمجيات الخبيثة والروبوتات، وتقوم بتعيين ملفات تعريف ارتباط (Cookies) خاصة بشركة Google للأغراض الأمنية فقط؛ و(ج) شركة Twilio Inc. التي تستلم رقم هاتف المستخدم حصرياً لإرسال رمز التحقق لمرة واحدة عبر رسالة نصية قصيرة (SMS) للتحقق من رقم WhatsApp الخاص بالمستخدم.'
       },
       {
         heading: '8. ملفات تعريف الارتباط والتخزين المحلي',

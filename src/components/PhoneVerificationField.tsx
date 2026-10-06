@@ -10,6 +10,7 @@ import { auth } from '../lib/firebase';
 import type { CountryCode } from 'libphonenumber-js';
 import { legacyCountryValue, normalizePhoneNumber, supportedCountries } from '../utils/phone';
 import { Language } from '../types';
+import { readableError } from '../utils/authErrors';
 import styles from '../styles/RegistryForm.module.css';
 
 interface PhoneVerificationFieldProps {
@@ -24,14 +25,6 @@ interface PhoneVerificationFieldProps {
   required?: boolean;
   label?: string;
 }
-
-const readableError = (error: unknown): string => {
-  if (error instanceof Error) {
-    const code = Reflect.get(error, 'code');
-    return typeof code === 'string' ? `${code}: ${error.message}` : error.message;
-  }
-  return 'Unknown verification error';
-};
 
 export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   id,
@@ -112,7 +105,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       const idFromFirebase = await provider.verifyPhoneNumber(canonical, verifier);
       setVerificationId(idFromFirebase);
     } catch (err) {
-      setError(readableError(err));
+      setError(readableError(err, language));
       clearVerifier();
     } finally {
       setSending(false);
@@ -145,7 +138,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       setOtp('');
       clearVerifier();
     } catch (err) {
-      setError(readableError(err));
+      setError(readableError(err, language));
     } finally {
       setConfirming(false);
     }

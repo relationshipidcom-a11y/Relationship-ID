@@ -75,7 +75,11 @@ export const ALLOWED_ERROR_CODES = new Set([
   'SERVER_ERROR',
   'API_ERROR',
   'NETWORK_TIMEOUT',
-  'NETWORK_ERROR'
+  'NETWORK_ERROR',
+  'UNSAFE_INPUT',
+  'INVALID_PLATFORM',
+  'FIELD_TOO_LONG',
+  'INVALID_INPUT'
 ]);
 
 export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
@@ -99,6 +103,10 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'A verified phone number is required.',
     ar: 'رقم هاتف موثّق مطلوب للمتابعة.'
   },
+  INVALID_RELATIONSHIP_DRAFT: {
+    en: 'Invalid relationship draft data.',
+    ar: 'بيانات مسودة العلاقة غير صالحة.'
+  },
   ACTIVE_RELATIONSHIP_LOCKED: {
     en: 'Active relationship is locked from direct edits.',
     ar: 'سجل العلاقة النشط مقفل ولا يمكن تعديله مباشرة.'
@@ -111,6 +119,10 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'Draft relationship not found.',
     ar: 'لم يتم العثور على مسودة العلاقة.'
   },
+  PENDING_INVITATION_EXISTS: {
+    en: 'A pending invitation already exists.',
+    ar: 'توجد دعوة قيد الانتظار بالفعل.'
+  },
   INVITATION_NOT_FOUND: {
     en: 'Invitation not found or no longer valid.',
     ar: 'الدعوة غير موجودة أو لم تعد صالحة.'
@@ -119,9 +131,25 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'This invitation has expired.',
     ar: 'انتهت صلاحية هذه الدعوة.'
   },
+  INVITATION_ALREADY_ACCEPTED: {
+    en: 'This invitation has already been accepted.',
+    ar: 'تم قبول هذه الدعوة بالفعل.'
+  },
+  INVITATION_CANCELLED: {
+    en: 'This invitation has been cancelled.',
+    ar: 'تم إلغاء هذه الدعوة.'
+  },
+  INVITATION_DECLINED: {
+    en: 'This invitation has been declined.',
+    ar: 'تم رفض هذه الدعوة.'
+  },
   INVITATION_NOT_LOADED: {
     en: 'Invitation not loaded.',
     ar: 'لم يتم تحميل بيانات الدعوة.'
+  },
+  PARTNER2_PROFILE_REQUIRED: {
+    en: 'Partner 2 profile information is required.',
+    ar: 'معلومات الشريك الثاني مطلوبة.'
   },
   CANNOT_ACCEPT_OWN_INVITE: {
     en: 'You cannot accept your own invitation.',
@@ -138,6 +166,10 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   CONTACT_IN_ACTIVE_RELATIONSHIP: {
     en: 'This contact is already associated with an active relationship.',
     ar: 'جهة الاتصال هذه مرتبطة بسجل علاقة نشط بالفعل.'
+  },
+  RELATIONSHIP_NOT_FOUND: {
+    en: 'Relationship record not found.',
+    ar: 'سجل العلاقة غير موجود.'
   },
   PARTNER_NAME_REQUIRED: {
     en: 'Partner name is required.',
@@ -159,6 +191,34 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'Active relationship not found.',
     ar: 'لم يتم العثور على سجل علاقة نشط.'
   },
+  NO_PARTNER_TO_APPROVE: {
+    en: 'No partner available to approve.',
+    ar: 'لا يوجد شريك للموافقة.'
+  },
+  INVALID_REQUEST_PARAMETERS: {
+    en: 'Invalid request parameters.',
+    ar: 'معلمات الطلب غير صالحة.'
+  },
+  INVALID_RELATIONSHIP_TYPE: {
+    en: 'Invalid relationship type.',
+    ar: 'نوع العلاقة غير صالح.'
+  },
+  VALUE_UNCHANGED: {
+    en: 'No changes detected.',
+    ar: 'لم يتم رصد أي تغييرات.'
+  },
+  CANNOT_EDIT_PARTNER_INFO: {
+    en: 'You cannot edit partner information directly.',
+    ar: 'لا يمكنك تعديل معلومات الشريك مباشرة.'
+  },
+  NAME_REQUIRED: {
+    en: 'Name is required.',
+    ar: 'الاسم مطلوب.'
+  },
+  INVALID_CHANGE_FIELD: {
+    en: 'Invalid change field specified.',
+    ar: 'حقل التعديل المحدد غير صالح.'
+  },
   PENDING_CHANGE_REQUEST_EXISTS: {
     en: 'A pending change request is already awaiting review.',
     ar: 'يوجد طلب تعديل قيد الانتظار بالفعل.'
@@ -174,6 +234,18 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   CANNOT_DECLINE_OWN_REQUEST: {
     en: 'You cannot decline your own change request.',
     ar: 'لا يمكنك رفض طلب التعديل الذي أنشأته.'
+  },
+  CHANGE_REQUEST_ALREADY_RESOLVED: {
+    en: 'This change request has already been resolved.',
+    ar: 'تمت معالجة طلب التعديل هذا بالفعل.'
+  },
+  RELATIONSHIP_MISMATCH: {
+    en: 'Relationship record mismatch.',
+    ar: 'عدم تطابق في سجل العلاقة.'
+  },
+  NOTIFICATION_NOT_FOUND: {
+    en: 'Notification not found.',
+    ar: 'الإشعار غير موجود.'
   },
   ACCEPTANCE_FAILED_OR_INACTIVE: {
     en: 'Relationship acceptance could not be completed.',
@@ -274,6 +346,22 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   NETWORK_ERROR: {
     en: 'Network error. Please check your connection and try again.',
     ar: 'خطأ في الاتصال. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.'
+  },
+  UNSAFE_INPUT: {
+    en: "This entry contains characters or links that aren't allowed.",
+    ar: 'يحتوي هذا الإدخال على رموز أو روابط غير مسموح بها.'
+  },
+  INVALID_PLATFORM: {
+    en: 'Please choose a supported social platform.',
+    ar: 'يرجى اختيار منصة تواصل اجتماعي مدعومة.'
+  },
+  FIELD_TOO_LONG: {
+    en: 'One of the entries is too long. Please shorten it.',
+    ar: 'أحد الحقول أطول من المسموح. يرجى اختصاره.'
+  },
+  INVALID_INPUT: {
+    en: 'Please check the information you entered.',
+    ar: 'يرجى التحقق من المعلومات المدخلة.'
   }
 };
 

@@ -7,7 +7,7 @@ import { PhoneVerificationField } from './PhoneVerificationField';
 import { SocialAccountsEditor } from './SocialAccountsEditor';
 import { getDisplaySocialAccounts } from '../utils/social';
 import { auth } from '../lib/firebase';
-import { authFetch } from '../utils/api';
+import { authFetch, getLocalizedErrorMessage } from '../utils/api';
 import {
   countryFromLegacyValue,
   legacyCountryValue,
@@ -308,6 +308,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const [startDate, setStartDate] = useState(initialStartDate.match(/^\d{4}-\d{2}-\d{2}$/) ? initialStartDate : '');
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const canonicalPhone = useMemo(() => normalizePhoneNumber(phoneCountry, phoneNumber), [phoneCountry, phoneNumber]);
   const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
@@ -399,7 +400,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!acceptedLegal) {
@@ -431,28 +432,35 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
       .map((a) => ({ platform: a.platform, handle: a.handle.trim() }))
       .filter((a) => a.handle.length > 0);
 
-    onSaveAndNext(
-      {
-        fullName: fullName.trim(),
-        birthDay,
-        birthMonth,
-        birthYear,
-        email: email.trim(),
-        phoneCountry: legacyCountryValue(phoneCountry),
-        phoneNumber,
-        phoneE164: canonicalPhone,
-        phoneVerified: true,
-        whatsappCountry: legacyCountryValue(sameWhatsapp ? phoneCountry : whatsappCountry),
-        whatsappNumber: sameWhatsapp ? phoneNumber : whatsappNumber,
-        whatsappE164,
-        whatsappTrusted: sameWhatsapp || Boolean(whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa),
-        whatsappVerifiedAt: (!sameWhatsapp && whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa) ? new Date().toISOString() : undefined,
-        socialAccounts: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts : undefined,
-        socialHandle: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts[0].handle.replace(/^@/, '') : undefined
-      },
-      relType,
-      startDate
-    );
+    setSubmitting(true);
+    try {
+      await onSaveAndNext(
+        {
+          fullName: fullName.trim(),
+          birthDay,
+          birthMonth,
+          birthYear,
+          email: email.trim(),
+          phoneCountry: legacyCountryValue(phoneCountry),
+          phoneNumber,
+          phoneE164: canonicalPhone,
+          phoneVerified: true,
+          whatsappCountry: legacyCountryValue(sameWhatsapp ? phoneCountry : whatsappCountry),
+          whatsappNumber: sameWhatsapp ? phoneNumber : whatsappNumber,
+          whatsappE164,
+          whatsappTrusted: sameWhatsapp || Boolean(whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa),
+          whatsappVerifiedAt: (!sameWhatsapp && whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa) ? new Date().toISOString() : undefined,
+          socialAccounts: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts : undefined,
+          socialHandle: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts[0].handle.replace(/^@/, '') : undefined
+        },
+        relType,
+        startDate
+      );
+    } catch (err) {
+      setError(getLocalizedErrorMessage(err, language));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -741,8 +749,8 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         {error && <p className="text-[10.5px] text-rose-300 leading-relaxed">{error}</p>}
 
         <div className="pt-2">
-          <button type="submit" disabled={!acceptedLegal} className={`${styles.primaryCta} disabled:opacity-50`}>
-            <span>{t.continueToPartnerBtn}</span>
+          <button type="submit" disabled={!acceptedLegal || submitting} className={`${styles.primaryCta} disabled:opacity-50`}>
+            <span>{submitting ? '...' : t.continueToPartnerBtn}</span>
           </button>
         </div>
       </form>

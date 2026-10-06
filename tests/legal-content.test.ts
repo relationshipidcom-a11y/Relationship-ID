@@ -126,4 +126,25 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.equal(translations.ar.privacyPolicy, 'سياسة الخصوصية');
     assert.equal(translations.ar.termsOfUse, 'شروط الاستخدام');
   });
+
+  // 9. Privacy Policy wording updates (§2 and §7)
+  await t.test('9. Privacy Policy wording updates (§2 and §7)', () => {
+    const stringified = JSON.stringify(legalContent);
+
+    // Old phrases must be absent
+    assert.equal(stringified.includes('security and audit logs'), false, 'Old phrase "security and audit logs" must be absent');
+    assert.equal(stringified.includes('وسجلات الأمان والتدقيق'), false, 'Old phrase "وسجلات الأمان والتدقيق" must be absent');
+    assert.equal(stringified.includes('optional social media handle'), false, 'Old phrase "optional social media handle" must be absent');
+    assert.equal(stringified.includes('عبر تطبيق WhatsApp'), false, 'Old phrase "عبر تطبيق WhatsApp" must be absent');
+
+    // New phrases must be present
+    assert.equal(stringified.includes('technical server logs'), true, 'New phrase "technical server logs" must be present');
+    assert.equal(stringified.includes('up to six optional social media accounts'), true, 'New phrase "up to six optional social media accounts" must be present');
+    assert.equal(stringified.includes('by SMS'), true, 'New phrase "by SMS" must be present');
+    assert.equal(stringified.includes('عبر رسالة نصية قصيرة (SMS)'), true, 'New phrase "عبر رسالة نصية قصيرة (SMS)" must be present');
+    assert.equal(stringified.includes('والسجلات التقنية للخادم'), true, 'New phrase "والسجلات التقنية للخادم" must be present');
+
+    // Version remains 2026-10-01
+    assert.equal(LEGAL_VERSION, '2026-10-01');
+  });
 });

@@ -24,6 +24,16 @@ export const translations = {
     scanRefDesc: 'استخدم المرجع التسلسلي عند مطابقة هذا السجل الخاص.',
     secureMatrix: 'مصفوفة آمنة',
     authenticated: 'موثقة ومؤكدة',
+    certDetailsTitle: 'تفاصيل الشهادة ورمز التحقق (QR)',
+    certDetailsToggleBtn: 'تفاصيل الرمز',
+    certDetailsCloseBtn: 'إغلاق التفاصيل',
+    certDetailsIntro: 'يوفر هذا الرمز رابط تحقق مباشر لسجل العلاقة الخاص بكما داخل المنصة.',
+    certDetailsUniqueTitle: 'مرجع تحقق فريد',
+    certDetailsUniqueDesc: 'يتم إنشاء مرجع تحقق فريد عند تفعيل السجل للتمييز بين السجلات المسجلة في المنصة.',
+    certDetailsStaticTitle: 'رمز ثابت طوال فترة تفعيل السجل',
+    certDetailsStaticDesc: 'يبقى رمز الـ QR ثابتاً طوال فترة تفعيل السجل؛ يتيح مسحه الوصول لصفحة التحقق المباشرة.',
+    certDetailsDynamicVerifyTitle: 'تحقق مباشر من حالة السجل',
+    certDetailsDynamicVerifyDesc: 'يتيح مسح الرمز الاستعلام المباشر عن حالة السجل الراهنة (نشط ومرحلة الارتباط) وفق إعدادات الخصوصية المعتمدة.',
     
     // Top Bar & Navigation
     languageLabel: 'العربية',
@@ -241,9 +251,6 @@ export const translations = {
     unionNature: 'طبيعة الارتباط',
     approvalDateLabel: 'تاريخ الاعتماد',
     sealOfTrust: 'SEAL OF TRUST',
-    cryptoSyncVerification: 'توثيق تشفيري متزامن',
-    immutableDigitalRecord: 'سجل رقمي غير قابل للتعديل',
-    sha256Validated: 'SHA-256 VALIDATED',
     jointDurationTitle: 'مدة التوثيق المشترك',
     activeAndValidBadge: 'نشط ومفعّل',
     certEncryptedFooterNote: 'تحتوي الشهادة على مرجع تحقق فريد داخل منصة Relationship ID. لا تمثل وثيقة حكومية أو قانونية.',
@@ -278,22 +285,23 @@ export const translations = {
     
     // Footer
     footerCopyright: '© 2026 Relationship ID • Relationship Registry for Web, iOS & Android',
-    sslSecureText: 'بياناتك محمية ومشفرة بمعيار SSL-256 bit',
     privacyPolicy: 'سياسة الخصوصية',
     termsOfService: 'شروط الاستخدام',
     termsOfUse: 'شروط الاستخدام',
+    addPreferredSource: 'أضفنا إلى المصادر المفضّلة على Google',
     legalConsentText: 'أؤكد أن عمري 18 سنة أو أكثر، وأوافق على شروط الاستخدام وسياسة الخصوصية.',
     legalConsentRequired: 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.',
     backBtn: 'رجوع',
 
     // WhatsApp verification
-    sendWhatsappCodeBtn: 'إرسال الرمز',
-    resendWhatsappCodeBtn: 'إعادة إرسال الرمز',
-    verifyWhatsappCodeBtn: 'تحقق',
-    whatsappCodePlaceholder: 'رمز التحقق (6 أرقام)',
-    whatsappVerifiedBadge: 'موثوق ✓',
-    whatsappSendingCode: 'جارٍ الإرسال...',
-    whatsappVerifyingCode: 'جارٍ التحقق...'
+    sendWhatsappCodeBtn: 'التحقق عبر واتساب',
+    resendWhatsappCodeBtn: 'إعادة إرسال رمز واتساب',
+    verifyWhatsappCodeBtn: 'تحقق من الرمز',
+    whatsappCodePlaceholder: 'رمز واتساب (6 أرقام)',
+    whatsappVerifiedBadge: 'موثوق عبر واتساب ✓',
+    whatsappSendingCode: 'جارٍ إرسال الرمز...',
+    whatsappVerifyingCode: 'جارٍ التحقق...',
+    whatsappCodeNote: 'يصلك رمز التحقق المكون من 6 أرقام في رسالة عبر تطبيق واتساب.',
   },
   en: {
     appName: 'Relationship ID',
@@ -320,6 +328,16 @@ export const translations = {
     scanRefDesc: 'Use the serial reference when matching this private record.',
     secureMatrix: 'SECURE MATRIX',
     authenticated: 'AUTHENTICATED',
+    certDetailsTitle: 'Certificate & QR Details',
+    certDetailsToggleBtn: 'QR Details',
+    certDetailsCloseBtn: 'Close Details',
+    certDetailsIntro: 'This QR code provides a direct verification link for your private relationship record.',
+    certDetailsUniqueTitle: 'Unique Verification Reference',
+    certDetailsUniqueDesc: 'A unique reference is generated upon record activation to distinguish your private record within the registry.',
+    certDetailsStaticTitle: 'Static for Active Record Lifespan',
+    certDetailsStaticDesc: 'The QR code remains static while your relationship record remains active, directing to the live verification portal.',
+    certDetailsDynamicVerifyTitle: 'Live Record Status Verification',
+    certDetailsDynamicVerifyDesc: 'Scanning the QR code performs a live lookup of your active relationship stage in accordance with your privacy settings.',
 
     // Top Bar & Navigation
     languageLabel: 'English',
@@ -537,12 +555,9 @@ export const translations = {
     unionNature: 'Union Nature',
     approvalDateLabel: 'Certified Date',
     sealOfTrust: 'SEAL OF TRUST',
-    cryptoSyncVerification: 'Cryptographic Verification',
-    immutableDigitalRecord: 'Immutable Digital Record',
-    sha256Validated: 'SHA-256 VALIDATED',
     jointDurationTitle: 'Certified Union Duration',
     activeAndValidBadge: 'Active & Verified',
-    certEncryptedFooterNote: 'This certificate is encrypted and protected with SSL-256 bit security, registered on Relationship ID with an immutable serial.',
+    certEncryptedFooterNote: 'This certificate contains a unique verification reference within Relationship ID. It does not constitute a government or legal document.',
     celebrateBtn: 'Celebrate',
     partnerRegistryBtn: 'Couple Registry',
 
@@ -574,21 +589,22 @@ export const translations = {
 
     // Footer
     footerCopyright: '© 2026 Relationship ID • Relationship Registry for Web, iOS & Android',
-    sslSecureText: 'Your data is secured with SSL-256 bit encryption',
     privacyPolicy: 'Privacy Policy',
     termsOfService: 'Terms of Service',
     termsOfUse: 'Terms of Use',
+    addPreferredSource: 'Add to Preferred Sources on Google',
     legalConsentText: 'I confirm I am 18 or older, and I agree to the Terms of Service and Privacy Policy.',
     legalConsentRequired: 'Please accept the Terms of Service and Privacy Policy to continue.',
     backBtn: 'Back',
 
     // WhatsApp verification
-    sendWhatsappCodeBtn: 'Send code',
-    resendWhatsappCodeBtn: 'Resend code',
+    sendWhatsappCodeBtn: 'Verify via WhatsApp',
+    resendWhatsappCodeBtn: 'Resend WhatsApp code',
     verifyWhatsappCodeBtn: 'Verify',
-    whatsappCodePlaceholder: '6-digit code',
-    whatsappVerifiedBadge: 'Verified ✓',
-    whatsappSendingCode: 'Sending...',
-    whatsappVerifyingCode: 'Verifying...'
+    whatsappCodePlaceholder: '6-digit WhatsApp code',
+    whatsappVerifiedBadge: 'Verified via WhatsApp ✓',
+    whatsappSendingCode: 'Sending code...',
+    whatsappVerifyingCode: 'Verifying...',
+    whatsappCodeNote: 'Your 6-digit verification code arrives in a message via WhatsApp.',
   }
 };

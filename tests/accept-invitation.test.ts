@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createApp, __setTestDeps, CURRENT_LEGAL_VERSION, verifyRecipientIdentity } from '../server';
+import type { PartnerData } from '../src/types';
 import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
 
 const SAUDI_P1_PHONE = '+966500000001';
@@ -125,6 +126,13 @@ test('Step 6 accept & decline suite', async (t) => {
     email: 'p2@example.com',
     email_verified: false,
     phone_number: '+966500000099'
+  });
+
+  mockAuth.addUser('token_p2_new', {
+    uid: 'uid_p2_new',
+    email: 'p2new@example.com',
+    email_verified: true,
+    phone_number: '+966500000088'
   });
 
   const app = createApp();
@@ -401,6 +409,195 @@ test('Step 6 accept & decline suite', async (t) => {
       });
       assert.equal(directResNoPhone.authorized, false);
       assert.equal(directResNoPhone.reason, 'INVITATION_IDENTITY_MISMATCH');
+    });
+
+    // 9. Cancel invitation: owner-only atomic transition, status check, deletion guards
+    await t.test('9. Cancel invitation: owner cancels pending invite to draft, non-owner rejected, non-pending rejected', async () => {
+      seedBaseline(mockDb);
+
+      // 9a. Non-owner (P2) attempting to cancel P1's invitation -> 403 NOT_INVITATION_OWNER
+      const resStranger = await fetch(`${baseUrl}/api/invitations/inv_1/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer token_p2'
+        }
+      });
+      assert.equal(resStranger.status, 403);
+      const dataStranger = (await resStranger.json()) as any;
+      assert.equal(dataStranger.error, 'NOT_INVITATION_OWNER');
+
+      // 9b. Owner (P1) cancels pending invitation -> 200 success
+      const resP1 = await fetch(`${baseUrl}/api/invitations/inv_1/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer token_p1'
+        }
+      });
+      assert.equal(resP1.status, 200);
+      const dataP1 = (await resP1.json()) as any;
+      assert.equal(dataP1.success, true);
+      assert.equal(dataP1.invitation.status, 'cancelled');
+      assert.equal(dataP1.record.status, 'draft');
+      assert.equal(dataP1.record.inviteId, undefined);
+
+      // Verify database state directly
+      const invDoc = mockDb.getDoc('invitations', 'inv_1');
+      assert.equal(invDoc.status, 'cancelled');
+      const relDoc = mockDb.getDoc('relationships', 'rel_1');
+      assert.equal(relDoc.status, 'draft');
+      assert.equal(relDoc.inviteId, undefined);
+
+      // 9c. Replay / already-cancelled invitation -> 409 INVITATION_CANCELLED
+      const resReplay = await fetch(`${baseUrl}/api/invitations/inv_1/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer token_p1'
+        }
+      });
+      assert.equal(resReplay.status, 409);
+      const dataReplay = (await resReplay.json()) as any;
+      assert.equal(dataReplay.error, 'INVITATION_CANCELLED');
+
+      // 9d. Deletion guard: user deletion pending -> 409
+      seedBaseline(mockDb);
+      mockDb.seed('account_deletions', 'uid_p1', {
+        uid: 'uid_p1',
+        status: 'pending',
+        requestedAt: new Date().toISOString()
+      });
+      const resUserDel = await fetch(`${baseUrl}/api/invitations/inv_1/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer token_p1'
+        }
+      });
+      assert.equal(resUserDel.status, 409);
+      const dataUserDel = (await resUserDel.json()) as any;
+      assert.equal(dataUserDel.error, 'ACCOUNT_DELETION_PENDING');
+    });
+
+    // 10. Complete P1 -> Cancel -> Re-invite -> P2 Acceptance -> Certificate verification journey
+    await t.test('10. Lifecycle: Cancel old invite -> Re-invite fresh P2 -> Old link rejected -> New P2 accepts -> Certificate and QR verification valid', async () => {
+      seedBaseline(mockDb);
+
+      // 10a. P1 cancels existing invitation inv_1
+      const resCancel = await fetch(`${baseUrl}/api/invitations/inv_1/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' }
+      });
+      assert.equal(resCancel.status, 200);
+      const cancelData = (await resCancel.json()) as any;
+      assert.equal(cancelData.success, true);
+      assert.equal(cancelData.invitation.status, 'cancelled');
+      assert.equal(cancelData.record.status, 'draft');
+
+      // 10b. Old invitation cannot be accepted by original P2 -> 409 INVITATION_CANCELLED
+      const resOldAccept = await fetch(`${baseUrl}/api/invitations/inv_1/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p2' },
+        body: JSON.stringify({
+          partner2: validPartner2(),
+          acceptedLegalVersion: CURRENT_LEGAL_VERSION
+        })
+      });
+      assert.equal(resOldAccept.status, 409);
+      const oldAcceptData = (await resOldAccept.json()) as any;
+      assert.equal(oldAcceptData.error, 'INVITATION_CANCELLED');
+
+      // 10c. P1 creates a fresh invitation for a new partner (p2new@example.com)
+      const resFreshInvite = await fetch(`${baseUrl}/api/invite/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' },
+        body: JSON.stringify({
+          partner2Name: 'Reem Al-Ghamdi',
+          partner2Email: 'p2new@example.com',
+          partner2Phone: '0500000088',
+          partner2PhoneCountry: 'SA +966'
+        })
+      });
+      assert.equal(resFreshInvite.status, 200);
+      const freshInviteData = (await resFreshInvite.json()) as any;
+      assert.ok(freshInviteData.invitation?.id);
+      const newInviteId = freshInviteData.invitation.id;
+      assert.notEqual(newInviteId, 'inv_1');
+
+      // 10d. P1 cannot accept their own fresh invitation -> 400 CANNOT_ACCEPT_OWN_INVITATION
+      const resSelfAccept = await fetch(`${baseUrl}/api/invitations/${newInviteId}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' },
+        body: JSON.stringify({
+          partner2: validPartner2(),
+          acceptedLegalVersion: CURRENT_LEGAL_VERSION
+        })
+      });
+      assert.equal(resSelfAccept.status, 400);
+      const selfAcceptData = (await resSelfAccept.json()) as any;
+      assert.equal(selfAcceptData.error, 'CANNOT_ACCEPT_OWN_INVITATION');
+
+      // 10e. Different authorized P2 accepts the fresh invitation
+      const freshP2Partner: PartnerData = {
+        fullName: 'Reem Al-Ghamdi',
+        birthDay: '15',
+        birthMonth: '05',
+        birthYear: '1996',
+        email: 'p2new@example.com',
+        phoneCountry: 'SA +966',
+        phoneNumber: '0500000088',
+        phoneE164: '+966500000088',
+        whatsappCountry: 'SA +966',
+        whatsappNumber: '0500000088',
+        whatsappE164: '+966500000088'
+      };
+
+      const resNewAccept = await fetch(`${baseUrl}/api/invitations/${newInviteId}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p2_new' },
+        body: JSON.stringify({
+          partner2: freshP2Partner,
+          acceptedLegalVersion: CURRENT_LEGAL_VERSION
+        })
+      });
+      assert.equal(resNewAccept.status, 200);
+      const newAcceptData = (await resNewAccept.json()) as any;
+      assert.equal(newAcceptData.success, true);
+      assert.equal(newAcceptData.record.status, 'active');
+      assert.ok(newAcceptData.record.verificationRef);
+      assert.ok(newAcceptData.record.recordNumber);
+      const verificationRef = newAcceptData.record.verificationRef;
+
+      // 10f. Duplicate acceptance rejected -> 409 INVITATION_ACCEPTED
+      const resDupAccept = await fetch(`${baseUrl}/api/invitations/${newInviteId}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p2_new' },
+        body: JSON.stringify({
+          partner2: freshP2Partner,
+          acceptedLegalVersion: CURRENT_LEGAL_VERSION
+        })
+      });
+      assert.equal(resDupAccept.status, 409);
+      const dupData = (await resDupAccept.json()) as any;
+      assert.equal(dupData.error, 'INVITATION_ACCEPTED');
+
+      // 10g. Public certificate endpoint (/api/verify/:refCode) returns safe projection without PII
+      const resVerify = await fetch(`${baseUrl}/api/verify/${encodeURIComponent(verificationRef)}`);
+      assert.equal(resVerify.status, 200);
+      const verifyData = (await resVerify.json()) as any;
+      assert.equal(verifyData.found, true);
+      assert.equal(verifyData.record.verificationRef, verificationRef);
+      assert.equal(verifyData.record.partner1Name, 'Fahad Al-Harbi');
+      assert.equal(verifyData.record.partner2Name, 'Reem Al-Ghamdi');
+      assert.equal(verifyData.record.type, 'marriage');
+      assert.equal(verifyData.record.status, 'active');
+      // Verify zero PII exposed
+      assert.equal(verifyData.record.p1Uid, undefined);
+      assert.equal(verifyData.record.p2Uid, undefined);
+      assert.equal(verifyData.record.id, undefined);
+      assert.equal(verifyData.record.email, undefined);
+      assert.equal(verifyData.record.phoneNumber, undefined);
     });
   } finally {
     await new Promise<void>((resolve, reject) => {

@@ -94,7 +94,7 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <UserX className="w-5 h-5 text-amber-400" />
-            <h3 className="text-base font-bold text-white tracking-wide">
+            <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
               {t.blockedPeopleTitle}
             </h3>
           </div>
@@ -103,14 +103,14 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
             onClick={onClose}
             disabled={Boolean(actionLoadingUid)}
             aria-label={t.cancelBtn}
-            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50 p-1"
+            className="w-10 h-10 rounded-full bg-[#172244] hover:bg-[#202B52] text-[#C9CCE4] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10 disabled:opacity-50 shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-xl text-xs text-red-200">
+          <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-xl text-sm text-red-200">
             {error}
           </div>
         )}
@@ -119,12 +119,12 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
           {loading ? (
             <div className="flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
-              <span className="text-xs">{t.actionLoadingText}</span>
+              <span className="text-sm">{t.actionLoadingText}</span>
             </div>
           ) : blocks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-gray-400 gap-2 text-center">
               <ShieldCheck className="w-7 h-7 text-emerald-400/60" />
-              <span className="text-xs text-gray-300">{t.noBlockedPeople}</span>
+              <span className="text-sm text-gray-300">{t.noBlockedPeople}</span>
             </div>
           ) : (
             blocks.map((person) => (
@@ -133,11 +133,11 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
                 className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-colors"
               >
                 <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-sm sm:text-base font-semibold text-white">
                     {person.p1DisplayName || 'Partner'}
                   </p>
                   {person.blockedAt && (
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-sm text-gray-400">
                       {t.blockedAtLabel}: {new Date(person.blockedAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
                     </p>
                   )}
@@ -146,7 +146,7 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
                   type="button"
                   onClick={() => handleUnblock(person.p1Uid)}
                   disabled={actionLoadingUid === person.p1Uid}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 min-h-[40px] cursor-pointer"
                 >
                   {actionLoadingUid === person.p1Uid && (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -163,7 +163,7 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={Boolean(actionLoadingUid)}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-semibold transition-colors"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 text-sm font-semibold transition-colors min-h-[44px] cursor-pointer"
           >
             {t.cancelBtn}
           </button>

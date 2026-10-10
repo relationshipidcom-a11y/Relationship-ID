@@ -18,7 +18,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     privacySections: [
       {
         heading: '1. Who We Are',
-        body: 'The data controller responsible for personal data processed through Relationship ID is Ramy Gabriel, located in Al Fayha District, Riyadh 14253, Saudi Arabia. For any questions, data subject requests, or privacy inquiries, contact rami@relationshipid.org. Data subjects may use this email address to exercise their legal rights under applicable law.'
+        body: 'The data controller responsible for personal data processed through Relationship ID is Ramy Gabriel, located in Al Fayha District, Riyadh 14253, Saudi Arabia. For any questions, data subject requests, or privacy inquiries, contact customerservices@relationshipid.org. Data subjects may use this email address to exercise their legal rights under applicable law.'
       },
       {
         heading: '2. What We Collect',
@@ -38,11 +38,11 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '6. Where Data Is Processed',
-        body: 'Application data stored in Cloud Firestore is hosted in europe-west2 (London). Application server operations in server.ts are hosted in europe-west2 (London).\n\nFirebase Authentication is a global Google service holding account email addresses and phone numbers, and cannot be restricted to a single region, so those authentication identifiers may be processed outside Saudi Arabia and outside the United Kingdom across Google infrastructure.'
+        body: 'Application data stored in Cloud Firestore is hosted in europe-west2 (London). Application server operations in server.ts are hosted in europe-west1 (Belgium).\n\nFirebase Authentication is a global Google service holding account email addresses and phone numbers, and cannot be restricted to a single region, so those authentication identifiers may be processed outside Saudi Arabia and outside the regions listed above across Google infrastructure.'
       },
       {
         heading: '7. Processors and Third Parties',
-        body: 'We engage trusted processors to support our service: (a) Google LLC provides Firebase Authentication, Cloud Firestore, and Firebase App Check infrastructure; (b) Google reCAPTCHA Enterprise is utilized for App Check token verification to safeguard API endpoints against automated abuse and bots, which sets Google cookies strictly for abuse prevention; and (c) Twilio Inc. receives user phone numbers solely to send one-time verification passcodes by SMS to verify the user\'s WhatsApp number.'
+        body: 'We engage trusted processors to support our service: (a) Google LLC provides Firebase Authentication, Cloud Firestore, and Firebase App Check infrastructure; (b) Google reCAPTCHA Enterprise is utilized for App Check token verification to safeguard API endpoints against automated abuse and bots, which sets Google cookies strictly for abuse prevention; and (c) Twilio Inc. processes user mobile numbers solely to deliver one-time verification passcodes through WhatsApp to verify the user\'s mobile number.'
       },
       {
         heading: '8. Cookies and Device Storage',
@@ -50,7 +50,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '9. Your Rights as a Data Subject',
-        body: 'Under the Saudi Personal Data Protection Law (PDPL), you have rights regarding your personal data: (a) Right to be informed about how your personal data is collected and processed; (b) Right of access and data portability — you can download a machine-readable JSON copy of your own data at any time from the account menu in the app, using "Download My Data (JSON)", and you may also request a copy by emailing rami@relationshipid.org; (c) Right to correction of protected profile fields, available directly in the application through mutual partner change requests; (d) Right to erasure (destruction of personal data), available directly in the application through the Delete Account feature; and (e) Right to withdraw consent at any time, including ending the relationship record through the application, which immediately revokes and removes public verification. For any requests not directly automated in the interface, contact rami@relationshipid.org. You also have the right to lodge a complaint with the Saudi Data & AI Authority (SDAIA) if you believe your personal data is being processed in violation of applicable laws.'
+        body: 'Under the Saudi Personal Data Protection Law (PDPL), you have rights regarding your personal data: (a) Right to be informed about how your personal data is collected and processed; (b) Right of access and data portability — you can download a machine-readable JSON copy of your own data at any time from the account menu in the app, using "Download My Data (JSON)", and you may also request a copy by emailing customerservices@relationshipid.org; (c) Right to correction of protected profile fields, available directly in the application through mutual partner change requests; (d) Right to erasure (destruction of personal data), available directly in the application through the Delete Account feature; and (e) Right to withdraw consent at any time, including ending the relationship record through the application, which immediately revokes and removes public verification. For any requests not directly automated in the interface, contact customerservices@relationshipid.org. You also have the right to lodge a complaint with the Saudi Data & AI Authority (SDAIA) if you believe your personal data is being processed in violation of applicable laws.'
       },
       {
         heading: '10. Security and Breach Notification',
@@ -109,7 +109,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '11. Contact Information',
-        body: 'For legal notices, terms questions, or inquiries regarding these Terms of Service, please contact rami@relationshipid.org.'
+        body: 'For legal notices, terms questions, or inquiries regarding these Terms of Service, please contact customerservices@relationshipid.org.'
       }
     ]
   },
@@ -118,7 +118,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     privacySections: [
       {
         heading: '1. من نحن',
-        body: 'الجهة المسؤولة والمتحكمة في معالجة البيانات الشخصية عبر منصة "Relationship ID" هو رامي جبرائيل (Ramy Gabriel)، المقيم في حي الفيحاء، الرياض 14253، المملكة العربية السعودية. لأي استفسارات أو ممارسة حقوق أصحاب البيانات الشخصية أو المسائل المتعلقة بالخصوصية، يمكنكم التواصل عبر البريد الإلكتروني: rami@relationshipid.org. يحق لأصحاب البيانات استخدام هذا العنوان لممارسة حقوقهم النظامية وفقاً للأنظمة المعمول بها.'
+        body: 'الجهة المسؤولة والمتحكمة في معالجة البيانات الشخصية عبر منصة "Relationship ID" هو رامي جبرائيل (Ramy Gabriel)، المقيم في حي الفيحاء، الرياض 14253، المملكة العربية السعودية. لأي استفسارات أو ممارسة حقوق أصحاب البيانات الشخصية أو المسائل المتعلقة بالخصوصية، يمكنكم التواصل عبر البريد الإلكتروني: customerservices@relationshipid.org. يحق لأصحاب البيانات استخدام هذا العنوان لممارسة حقوقهم النظامية وفقاً للأنظمة المعمول بها.'
       },
       {
         heading: '2. ما نجمعه من بيانات',
@@ -138,11 +138,11 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '6. أين تتم معالجة البيانات',
-        body: 'يتم استضافة بيانات التطبيق المخزنة في قاعدة Cloud Firestore في منطقة europe-west2 (لندن). وتتم استضافة عمليات خادم التطبيق (server.ts) في منطقة europe-west2 (لندن).\n\nتُعد خدمة Firebase Authentication خدمة عالمية تابعة لشركة Google وتتولى حفظ عناوين البريد الإلكتروني وأرقام الهواتف الخاصة بالحسابات، ولا يمكن تقييدها بمنطقة جغرافية واحدة، ولذا فقد تتم معالجة تلك المعرفات الخاصة بالمصادقة خارج المملكة العربية السعودية وخارج المملكة المتحدة عبر البنية التحتية لشركة Google.'
+        body: 'يتم استضافة بيانات التطبيق المخزنة في قاعدة Cloud Firestore في منطقة europe-west2 (لندن). وتتم استضافة عمليات خادم التطبيق (server.ts) في منطقة europe-west1 (بلجيكا).\n\nتُعد خدمة Firebase Authentication خدمة عالمية تابعة لشركة Google وتتولى حفظ عناوين البريد الإلكتروني وأرقام الهواتف الخاصة بالحسابات، ولا يمكن تقييدها بمنطقة جغرافية واحدة، ولذا فقد تتم معالجة تلك المعرفات الخاصة بالمصادقة خارج المملكة العربية السعودية وخارج المناطق المذكورة أعلاه عبر البنية التحتية لشركة Google.'
       },
       {
         heading: '7. معالجو البيانات والأطراف الثالثة',
-        body: 'نستعين بجهات معالجة موثوقة لتقديم خدماتنا: (أ) شركة Google LLC التي تقدم البنية التحتية لكل من Firebase Authentication وCloud Firestore وFirebase App Check؛ (ب) خدمة Google reCAPTCHA Enterprise المستخدمة للتحقق من أمان App Check لحماية واجهات البرمجة من البرمجيات الخبيثة والروبوتات، وتقوم بتعيين ملفات تعريف ارتباط (Cookies) خاصة بشركة Google للأغراض الأمنية فقط؛ و(ج) شركة Twilio Inc. التي تستلم رقم هاتف المستخدم حصرياً لإرسال رمز التحقق لمرة واحدة عبر رسالة نصية قصيرة (SMS) للتحقق من رقم WhatsApp الخاص بالمستخدم.'
+        body: 'نستعين بجهات معالجة موثوقة لتقديم خدماتنا: (أ) شركة Google LLC التي تقدم البنية التحتية لكل من Firebase Authentication وCloud Firestore وFirebase App Check؛ (ب) خدمة Google reCAPTCHA Enterprise المستخدمة للتحقق من أمان App Check لحماية واجهات البرمجة من البرمجيات الخبيثة والروبوتات، وتقوم بتعيين ملفات تعريف ارتباط (Cookies) خاصة بشركة Google للأغراض الأمنية فقط؛ و(ج) شركة Twilio Inc. التي تعالج رقم جوال المستخدم حصرياً لإرسال رمز التحقق لمرة واحدة عبر تطبيق WhatsApp للتحقق من رقم جوال المستخدم.'
       },
       {
         heading: '8. ملفات تعريف الارتباط والتخزين المحلي',
@@ -150,7 +150,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '9. حقوقك بصفتك صاحب بيانات',
-        body: 'بموجب نظام حماية البيانات الشخصية في المملكة العربية السعودية (PDPL)، يحق لك: (أ) الحق في العلم بكيفية جمع بياناتك ومعالجتها؛ (ب) الحق في الوصول إلى بياناتك الشخصية وفي نقلها — يمكنك تنزيل نسخة من بياناتك بصيغة JSON قابلة للقراءة آلياً في أي وقت من قائمة الحساب في التطبيق عبر خيار "تنزيل بياناتي (JSON)"، كما يمكنك طلب نسخة عبر البريد الإلكتروني rami@relationshipid.org؛ (ج) الحق في تصحيح وتعديل الحقول المحمية في الملف التعريفي، والمتوفر مباشرة داخل التطبيق عبر تقديم طلب تعديل يتطلب موافقة الشريك؛ (د) الحق في إتلاف ومحو البيانات، المتوفر مباشرة داخل التطبيق من خلال خيار "حذف الحساب"؛ (هـ) الحق في الرجوع عن الموافقة في أي وقت، بما في ذلك إنهاء سجل العلاقة عبر التطبيق مما يلغي التحقق العام فوراً. لأي طلبات غير مؤتمتة داخل الواجهة، يرجى مراسلتنا على rami@relationshipid.org. كما يحق لك تقديم شكوى لدى الهيئة السعودية للبيانات والذكاء الاصطناعي (SDAIA) في حال رأيت أن معالجة بياناتك تخالف الأنظمة المرعية.'
+        body: 'بموجب نظام حماية البيانات الشخصية في المملكة العربية السعودية (PDPL)، يحق لك: (أ) الحق في العلم بكيفية جمع بياناتك ومعالجتها؛ (ب) الحق في الوصول إلى بياناتك الشخصية وفي نقلها — يمكنك تنزيل نسخة من بياناتك بصيغة JSON قابلة للقراءة آلياً في أي وقت من قائمة الحساب في التطبيق عبر خيار "تنزيل بياناتي (JSON)"، كما يمكنك طلب نسخة عبر البريد الإلكتروني customerservices@relationshipid.org؛ (ج) الحق في تصحيح وتعديل الحقول المحمية في الملف التعريفي، والمتوفر مباشرة داخل التطبيق عبر تقديم طلب تعديل يتطلب موافقة الشريك؛ (د) الحق في إتلاف ومحو البيانات، المتوفر مباشرة داخل التطبيق من خلال خيار "حذف الحساب"؛ (هـ) الحق في الرجوع عن الموافقة في أي وقت، بما في ذلك إنهاء سجل العلاقة عبر التطبيق مما يلغي التحقق العام فوراً. لأي طلبات غير مؤتمتة داخل الواجهة، يرجى مراسلتنا على customerservices@relationshipid.org. كما يحق لك تقديم شكوى لدى الهيئة السعودية للبيانات والذكاء الاصطناعي (SDAIA) في حال رأيت أن معالجة بياناتك تخالف الأنظمة المرعية.'
       },
       {
         heading: '10. الأمان والإشعار بالانتهاكات',
@@ -209,7 +209,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '11. التواصل',
-        body: 'لأي إشعارات قانونية أو استفسارات تتعلق بشروط الاستخدام، يُرجى التواصل معنا عبر البريد الإلكتروني: rami@relationshipid.org.'
+        body: 'لأي إشعارات قانونية أو استفسارات تتعلق بشروط الاستخدام، يُرجى التواصل معنا عبر البريد الإلكتروني: customerservices@relationshipid.org.'
       }
     ]
   }

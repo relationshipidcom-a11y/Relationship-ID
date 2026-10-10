@@ -69,71 +69,67 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
       <div className="flex-1 flex flex-col justify-between px-4 py-3" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <section className="text-center mb-3 mt-2">
           <div className="flex items-center justify-between mb-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-semibold">
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
               <span>{language === 'ar' ? 'سجل علاقة نشط' : 'Active Relationship Record'}</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2C345F]/60 border border-[#C1C3E6]/30 text-[10px] font-semibold tracking-widest text-[#C1C3E6] uppercase">
-              <Shield className="w-3.5 h-3.5" /> #{record.recordNumber || record.verificationRef}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2C345F]/60 border border-[#C1C3E6]/30 text-sm font-semibold tracking-wider text-[#C1C3E6] uppercase">
+              <Shield className="w-4 h-4" /> #{record.recordNumber || record.verificationRef}
             </div>
           </div>
-          <h2 className="text-lg font-extrabold text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
             {language === 'ar' ? 'سجل العلاقة المعتمد (الطرف الأول والثاني)' : 'Verified Relationship Record (P1 & P2)'}
           </h2>
-          <p className="text-[11px] text-[#C9CCE4] mt-0.5">
+          <p className="text-base sm:text-sm text-[#C9CCE4] mt-1 leading-relaxed">
             {language === 'ar' ? 'بيانات السجل مقفلة للقراءة فقط لحماية موثوقية السجل' : 'Record details are locked as read-only to preserve record integrity'}
           </p>
         </section>
 
-        <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
+        <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto">
           {/* Partner 1 Read-only Card */}
-          <section className="p-3.5 rounded-2xl bg-[#202B52] border border-white/15 space-y-2.5">
+          <section className="p-4 rounded-2xl bg-[#202B52] border border-white/15 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2 text-[#C1C3E6]">
                 <User className="w-4 h-4" />
-                <h3 className="text-xs font-bold text-white">{language === 'ar' ? 'بيانات الشريك الأول (P1)' : 'Partner 1 Details (P1)'}</h3>
+                <h3 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الأول (P1)' : 'Partner 1 Details (P1)'}</h3>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#C1C3E6]/20 border border-[#C1C3E6]/30 text-[#C1C3E6] font-medium flex items-center gap-1">
-                <Lock className="w-2.5 h-2.5" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
+              <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#C1C3E6]/20 border border-[#C1C3E6]/30 text-[#C1C3E6] font-medium flex items-center gap-1">
+                <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-start">
+            <div className="grid grid-cols-2 gap-2.5 text-start">
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.fullNameLabel}</p>
-                <p className="text-xs font-semibold text-white">{record.partner1.fullName}</p>
-                {record.partner1.fullNameEn && <p className="text-[10px] text-[#C9CCE4]">{record.partner1.fullNameEn}</p>}
+                <p className="text-sm text-[#C9CCE4]">{t.fullNameLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white">{record.partner1.fullName}</p>
+                {record.partner1.fullNameEn && <p className="text-sm text-[#C9CCE4]">{record.partner1.fullNameEn}</p>}
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.birthdateLabel}</p>
-                <p className="text-xs font-semibold text-white">{p1BirthDate || '—'}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.birthdateLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white">{p1BirthDate || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.emailLabel}</p>
-                <p className="text-xs font-semibold text-white truncate" dir="ltr">{record.partner1.email || '—'}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.emailLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white truncate" dir="ltr">{record.partner1.email || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.phoneLabel}</p>
-                <p className="text-xs font-semibold text-white" dir="ltr">{record.partner1.phoneE164 || record.partner1.phoneNumber || '—'}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.phoneLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white" dir="ltr">{record.partner1.phoneE164 || record.partner1.phoneNumber || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.whatsappLabel}</p>
-                <p className="text-xs font-semibold text-white" dir="ltr">{record.partner1.whatsappNumber || record.partner1.phoneNumber || '—'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.socialAccountsLabel}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.socialAccountsLabel}</p>
                 {(() => {
                   const accounts = getDisplaySocialAccounts(record.partner1);
                   return accounts.length > 0 ? (
                     <div className="flex flex-wrap gap-1 mt-0.5" dir="ltr">
                       {accounts.map((a, i) => (
-                        <span key={i} className="text-xs font-semibold text-white font-mono">
+                        <span key={i} className="text-sm font-semibold text-white font-mono">
                           {a.display}{i < accounts.length - 1 ? ' ·' : ''}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs font-semibold text-white truncate" dir="ltr">—</p>
+                    <p className="text-sm sm:text-base font-semibold text-white truncate" dir="ltr">—</p>
                   );
                 })()}
               </div>
@@ -141,53 +137,49 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </section>
 
           {/* Partner 2 Read-only Card */}
-          <section className="p-3.5 rounded-2xl bg-[#202B52] border border-white/15 space-y-2.5">
+          <section className="p-4 rounded-2xl bg-[#202B52] border border-white/15 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2 text-[#C1C3E6]">
                 <User className="w-4 h-4" />
-                <h3 className="text-xs font-bold text-white">{language === 'ar' ? 'بيانات الشريك الثاني (P2)' : 'Partner 2 Details (P2)'}</h3>
+                <h3 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الثاني (P2)' : 'Partner 2 Details (P2)'}</h3>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#C1C3E6]/20 border border-[#C1C3E6]/30 text-[#C1C3E6] font-medium flex items-center gap-1">
-                <Lock className="w-2.5 h-2.5" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
+              <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#C1C3E6]/20 border border-[#C1C3E6]/30 text-[#C1C3E6] font-medium flex items-center gap-1">
+                <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-start">
+            <div className="grid grid-cols-2 gap-2.5 text-start">
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.fullNameLabel}</p>
-                <p className="text-xs font-semibold text-white">{record.partner2.fullName}</p>
-                {record.partner2.fullNameEn && <p className="text-[10px] text-[#C9CCE4]">{record.partner2.fullNameEn}</p>}
+                <p className="text-sm text-[#C9CCE4]">{t.fullNameLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white">{record.partner2.fullName}</p>
+                {record.partner2.fullNameEn && <p className="text-sm text-[#C9CCE4]">{record.partner2.fullNameEn}</p>}
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.birthdateLabel}</p>
-                <p className="text-xs font-semibold text-white">{p2BirthDate || '—'}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.birthdateLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white">{p2BirthDate || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.emailLabel}</p>
-                <p className="text-xs font-semibold text-white truncate" dir="ltr">{record.partner2.email || '—'}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.emailLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white truncate" dir="ltr">{record.partner2.email || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.phoneLabel}</p>
-                <p className="text-xs font-semibold text-white" dir="ltr">{record.partner2.phoneE164 || record.partner2.phoneNumber || '—'}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.phoneLabel}</p>
+                <p className="text-sm sm:text-base font-semibold text-white" dir="ltr">{record.partner2.phoneE164 || record.partner2.phoneNumber || '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.whatsappLabel}</p>
-                <p className="text-xs font-semibold text-white" dir="ltr">{record.partner2.whatsappNumber || record.partner2.phoneNumber || '—'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-[#C9CCE4]">{t.socialAccountsLabel}</p>
+                <p className="text-sm text-[#C9CCE4]">{t.socialAccountsLabel}</p>
                 {(() => {
                   const accounts = getDisplaySocialAccounts(record.partner2);
                   return accounts.length > 0 ? (
                     <div className="flex flex-wrap gap-1 mt-0.5" dir="ltr">
                       {accounts.map((a, i) => (
-                        <span key={i} className="text-xs font-semibold text-white font-mono">
+                        <span key={i} className="text-sm font-semibold text-white font-mono">
                           {a.display}{i < accounts.length - 1 ? ' ·' : ''}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs font-semibold text-white truncate" dir="ltr">—</p>
+                    <p className="text-sm sm:text-base font-semibold text-white truncate" dir="ltr">—</p>
                   );
                 })()}
               </div>
@@ -195,21 +187,21 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </section>
 
           {/* Relationship Stage & Date */}
-          <section className="p-3.5 rounded-2xl bg-[#202B52] border border-white/15 flex items-center justify-between text-start">
+          <section className="p-4 rounded-2xl bg-[#202B52] border border-white/15 flex items-center justify-between text-start">
             <div>
-              <p className="text-[10px] text-[#C9CCE4]">{t.relationshipDetailsTitle}</p>
-              <p className="text-xs font-bold text-white">{stageLabel}</p>
+              <p className="text-sm text-[#C9CCE4]">{t.relationshipDetailsTitle}</p>
+              <p className="text-sm sm:text-base font-bold text-white">{stageLabel}</p>
             </div>
             <div>
-              <p className="text-[10px] text-[#C9CCE4]">{t.startDateLabel}</p>
-              <p className="text-xs font-semibold text-white">{language === 'ar' ? record.startDateAr : record.startDate}</p>
+              <p className="text-sm text-[#C9CCE4]">{t.startDateLabel}</p>
+              <p className="text-sm sm:text-base font-semibold text-white">{language === 'ar' ? record.startDateAr : record.startDate}</p>
             </div>
           </section>
 
           {/* Lock & Authorized Change Notice */}
-          <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-start flex items-start gap-2.5">
+          <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-start flex items-start gap-2.5">
             <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[10.5px] text-amber-200/90 leading-relaxed">
+            <p className="text-base sm:text-sm text-amber-200/90 leading-relaxed">
               {language === 'ar'
                 ? 'جميع البيانات أعلاه معتمدة ومقفلة ضد التعديل المباشر. لتعديل أي بيانات، يرجى تقديم طلب تعديل رسمي للمراجعة والموافقة من الشريك.'
                 : 'All details above are locked against direct editing to ensure record validity. Use the official change request process for updates.'}
@@ -218,12 +210,12 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         </div>
 
         {/* Action Buttons for Active Relationship */}
-        <div className="mt-3 flex flex-col gap-2 pt-2 border-t border-white/10">
+        <div className="mt-3 flex flex-col gap-2.5 pt-2 border-t border-white/10">
           {onRequestChange && (
             <button
               type="button"
               onClick={onRequestChange}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
             >
               <Edit3 className="w-4 h-4" />
               <span>{t.requestChangeBtn}</span>
@@ -233,9 +225,9 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <button
               type="button"
               onClick={onViewControls}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#202B52] hover:bg-[#283566] border border-white/20 text-[#C9CCE4] hover:text-white font-medium text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
+              className="w-full py-3 px-4 rounded-xl bg-[#202B52] hover:bg-[#283566] border border-white/20 text-[#C9CCE4] hover:text-white font-medium text-sm sm:text-base flex items-center justify-center gap-2 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
             >
-              <Sliders className="w-3.5 h-3.5 text-[#C1C3E6]" />
+              <Sliders className="w-4 h-4 text-[#C1C3E6]" />
               <span>{language === 'ar' ? 'عرض الشهادة ولوحة التحكم' : 'View Certificate & Controls'}</span>
             </button>
           )}
@@ -250,50 +242,49 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.phoneCountry));
   const [phoneNumber, setPhoneNumber] = useState(initialData.phoneNumber || '');
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(
-    initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null
+    initialData.whatsappTrusted && initialData.whatsappE164
+      ? initialData.whatsappE164
+      : (initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null)
   );
-  const initialSameWhatsapp = Boolean(
-    !initialData.whatsappNumber ||
-      (initialData.phoneNumber && initialData.whatsappNumber === initialData.phoneNumber && initialData.whatsappCountry === initialData.phoneCountry)
+  const [isWhatsappVerified, setIsWhatsappVerified] = useState<boolean>(
+    Boolean(initialData.whatsappTrusted && initialData.whatsappE164)
   );
-  const [sameWhatsapp, setSameWhatsapp] = useState(initialSameWhatsapp);
-  const [whatsappCountry, setWhatsappCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.whatsappCountry || initialData.phoneCountry));
-  const [whatsappNumber, setWhatsappNumber] = useState(initialData.whatsappNumber || '');
-  const [whatsappVerifyEnabled, setWhatsappVerifyEnabled] = useState(false);
-  const [whatsappCode, setWhatsappCode] = useState('');
-  const [whatsappCodeSent, setWhatsappCodeSent] = useState(false);
-  const [whatsappSending, setWhatsappSending] = useState(false);
-  const [whatsappVerifying, setWhatsappVerifying] = useState(false);
-  const [whatsappVerifiedNumber, setWhatsappVerifiedNumber] = useState<string | null>(
-    initialData.whatsappTrusted && initialData.whatsappE164 ? initialData.whatsappE164 : null
-  );
-  const [whatsappError, setWhatsappError] = useState('');
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const editedFieldsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    authFetch('/api/whatsapp/verify/status')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && typeof data.enabled === 'boolean') {
-          setWhatsappVerifyEnabled(data.enabled);
-        }
-      })
-      .catch(() => {
-        setWhatsappVerifyEnabled(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (resendCooldown > 0) {
-      cooldownTimerRef.current = setTimeout(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
+    if (initialData.fullName && !editedFieldsRef.current.has('fullName')) {
+      setFullName(initialData.fullName);
     }
-    return () => {
-      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
-    };
-  }, [resendCooldown]);
+    const dob = isoFromParts(initialData.birthYear, initialData.birthMonth, initialData.birthDay);
+    if (dob && !editedFieldsRef.current.has('birthDate')) {
+      setBirthDate(dob);
+    }
+    if (initialData.email && !editedFieldsRef.current.has('email')) {
+      setEmail(initialData.email);
+    }
+    if (initialData.phoneCountry && !editedFieldsRef.current.has('phoneCountry')) {
+      setPhoneCountry(countryFromLegacyValue(initialData.phoneCountry));
+    }
+    if (initialData.phoneNumber && !editedFieldsRef.current.has('phoneNumber')) {
+      setPhoneNumber(initialData.phoneNumber);
+    }
+    const preverified = (initialData.whatsappTrusted && initialData.whatsappE164)
+      ? initialData.whatsappE164
+      : (initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null);
+    if (preverified && !editedFieldsRef.current.has('verifiedPhone')) {
+      setVerifiedPhone(preverified);
+    }
+    if (initialData.whatsappTrusted && initialData.whatsappE164 && !editedFieldsRef.current.has('isWhatsappVerified')) {
+      setIsWhatsappVerified(true);
+    }
+    if (!editedFieldsRef.current.has('socialAccounts')) {
+      if (Array.isArray(initialData.socialAccounts) && initialData.socialAccounts.length > 0) {
+        setSocialAccounts(initialData.socialAccounts);
+      } else if (initialData.socialHandle && initialData.socialHandle.trim()) {
+        setSocialAccounts([{ platform: 'instagram', handle: initialData.socialHandle.trim().replace(/^@/, '') }]);
+      }
+    }
+  }, [initialData]);
 
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>(() => {
     if (Array.isArray(initialData.socialAccounts) && initialData.socialAccounts.length > 0) {
@@ -314,90 +305,11 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  const canonicalWa = useMemo(() => normalizePhoneNumber(whatsappCountry, whatsappNumber), [whatsappCountry, whatsappNumber]);
-  const isDifferentWa = Boolean(!sameWhatsapp && canonicalWa && canonicalPhone && canonicalWa !== canonicalPhone);
-  const isWaApproved = Boolean(whatsappVerifiedNumber && canonicalWa && whatsappVerifiedNumber === canonicalWa);
-
-  const handleSendWhatsappCode = async () => {
-    setWhatsappError('');
-    if (!canonicalWa) {
-      setWhatsappError(language === 'ar' ? 'رقم الواتساب غير صالح.' : 'Invalid WhatsApp phone number.');
-      return;
-    }
-    setWhatsappSending(true);
-    try {
-      const res = await authFetch('/api/whatsapp/verify/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          country: legacyCountryValue(whatsappCountry),
-          number: whatsappNumber
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 429) {
-          setWhatsappError(language === 'ar' ? 'محاولات تحقق كثيرة جداً. يرجى الانتظار ساعة قبل المحاولة مرة أخرى.' : 'Too many verification attempts. Please wait an hour before trying again.');
-        } else {
-          setWhatsappError(language === 'ar' ? (data.messageAr || 'تعذر إرسال رمز التحقق.') : (data.messageEn || 'Failed to send verification code.'));
-        }
-        return;
-      }
-      setWhatsappCodeSent(true);
-      setResendCooldown(60);
-    } catch {
-      setWhatsappError(language === 'ar' ? 'حدث خطأ في الاتصال.' : 'Network error. Please try again.');
-    } finally {
-      setWhatsappSending(false);
-    }
-  };
-
-  const handleVerifyWhatsappCode = async () => {
-    setWhatsappError('');
-    if (whatsappCode.trim().length !== 6) {
-      setWhatsappError(language === 'ar' ? 'أدخل رمزاً مكوناً من 6 أرقام.' : 'Enter a 6-digit verification code.');
-      return;
-    }
-    setWhatsappVerifying(true);
-    try {
-      const res = await authFetch('/api/whatsapp/verify/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          country: legacyCountryValue(whatsappCountry),
-          number: whatsappNumber,
-          code: whatsappCode.trim()
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setWhatsappError(language === 'ar' ? (data.messageAr || 'رمز غير صالح أو منتهي الصلاحية.') : (data.messageEn || 'Invalid or expired verification code.'));
-        return;
-      }
-      setWhatsappVerifiedNumber(canonicalWa);
-      setWhatsappCode('');
-      setWhatsappCodeSent(false);
-    } catch {
-      setWhatsappError(language === 'ar' ? 'حدث خطأ في الاتصال.' : 'Network error. Please try again.');
-    } finally {
-      setWhatsappVerifying(false);
-    }
-  };
-
   const handlePhoneVerified = (e164: string | null) => {
+    editedFieldsRef.current.add('verifiedPhone');
+    editedFieldsRef.current.add('isWhatsappVerified');
     setVerifiedPhone(e164);
-    if (e164 && sameWhatsapp) {
-      setWhatsappCountry(phoneCountry);
-      setWhatsappNumber(phoneNumber);
-    }
-  };
-
-  const toggleSameWhatsapp = (checked: boolean) => {
-    setSameWhatsapp(checked);
-    if (checked) {
-      setWhatsappCountry(phoneCountry);
-      setWhatsappNumber(phoneNumber);
-    }
+    setIsWhatsappVerified(Boolean(e164));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -416,18 +328,11 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
       return;
     }
     if (!canonicalPhone || !phoneIsVerified) {
-      setError(language === 'ar' ? 'يجب التحقق من رقم الجوال أولاً.' : 'Verify your mobile number before continuing.');
+      setError(language === 'ar' ? 'يجب التحقق من رقم الجوال عبر واتساب أولاً.' : 'Verify your mobile number via WhatsApp before continuing.');
       return;
     }
 
     const [birthYear, birthMonth, birthDay] = birthDate.split('-');
-    const normWa = normalizePhoneNumber(whatsappCountry, whatsappNumber);
-    if (!sameWhatsapp && whatsappNumber.trim() && !normWa) {
-      setError(language === 'ar' ? 'رقم الواتساب غير صالح.' : 'Invalid WhatsApp phone number.');
-      return;
-    }
-    const whatsappE164 = sameWhatsapp ? canonicalPhone : (normWa || undefined);
-
     const cleanedSocialAccounts = socialAccounts
       .map((a) => ({ platform: a.platform, handle: a.handle.trim() }))
       .filter((a) => a.handle.length > 0);
@@ -445,11 +350,12 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           phoneNumber,
           phoneE164: canonicalPhone,
           phoneVerified: true,
-          whatsappCountry: legacyCountryValue(sameWhatsapp ? phoneCountry : whatsappCountry),
-          whatsappNumber: sameWhatsapp ? phoneNumber : whatsappNumber,
-          whatsappE164,
-          whatsappTrusted: sameWhatsapp || Boolean(whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa),
-          whatsappVerifiedAt: (!sameWhatsapp && whatsappVerifiedNumber && normWa && whatsappVerifiedNumber === normWa) ? new Date().toISOString() : undefined,
+          sameWhatsapp: true,
+          whatsappCountry: legacyCountryValue(phoneCountry),
+          whatsappNumber: phoneNumber,
+          whatsappE164: canonicalPhone,
+          whatsappTrusted: isWhatsappVerified,
+          whatsappVerifiedAt: isWhatsappVerified ? new Date().toISOString() : undefined,
           socialAccounts: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts : undefined,
           socialHandle: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts[0].handle.replace(/^@/, '') : undefined
         },
@@ -467,12 +373,12 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
     <div className="flex-1 flex flex-col justify-between px-4 py-3">
       <section className="text-center mb-3 mt-2">
         <div className="flex items-center justify-end mb-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2C345F]/60 border border-[#C1C3E6]/30 text-[10px] font-semibold tracking-widest text-[#C1C3E6] uppercase">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2C345F]/60 border border-[#C1C3E6]/30 text-sm font-semibold tracking-widest text-[#C1C3E6] uppercase">
             <Shield className="w-3.5 h-3.5" /> P1 • 2/5
           </div>
         </div>
-        <h2 className="text-lg font-extrabold text-white tracking-tight">{t.p1FormTitle}</h2>
-        <p className="text-[11px] text-[#C9CCE4] mt-0.5">{t.p1FormDesc}</p>
+        <h2 className="text-xl font-extrabold text-white tracking-tight">{t.p1FormTitle}</h2>
+        <p className="text-base text-[#C9CCE4] mt-0.5 leading-relaxed">{t.p1FormDesc}</p>
       </section>
 
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-3.5">
@@ -481,22 +387,22 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <div className="flex items-center gap-2 text-[#C1C3E6]">
               <Shield className="w-4 h-4" />
               <div>
-                <h3 className="text-xs font-bold text-white leading-tight">{t.verifiedIdentityTitle}</h3>
-                <p className="text-[10px] text-[#C9CCE4] mt-0.5">{language === 'ar' ? 'أدخل بياناتك الحقيقية لإكمال السجل.' : 'Enter your real information to continue.'}</p>
+                <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.verifiedIdentityTitle}</h3>
+                <p className="text-sm text-[#C9CCE4] mt-0.5">{language === 'ar' ? 'أدخل بياناتك الحقيقية لإكمال السجل.' : 'Enter your real information to continue.'}</p>
               </div>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1" htmlFor="p1-name">{t.fullNameLabel}</label>
-              <input id="p1-name" type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className={styles.inputControl} placeholder={t.fullNamePlaceholder} />
+              <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5" htmlFor="p1-name">{t.fullNameLabel}</label>
+              <input id="p1-name" type="text" required value={fullName} onChange={(e) => { editedFieldsRef.current.add('fullName'); setFullName(e.target.value); }} className={styles.inputControl} placeholder={t.fullNamePlaceholder} />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium text-[#C9CCE4]" htmlFor="p1-dob">{t.birthdateLabel}</label>
-                {birthDate && isAtLeast18(birthDate) && <span className="text-[9px] text-[#C1C3E6]">18+ ✓</span>}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-[#C9CCE4]" htmlFor="p1-dob">{t.birthdateLabel}</label>
+                {birthDate && isAtLeast18(birthDate) && <span className="text-sm text-[#C1C3E6] font-medium">18+ ✓</span>}
               </div>
-              <input id="p1-dob" type="date" required max={todayIso} value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className={styles.inputControl} dir="ltr" />
+              <input id="p1-dob" type="date" required max={todayIso} value={birthDate} onChange={(e) => { editedFieldsRef.current.add('birthDate'); setBirthDate(e.target.value); }} className={styles.inputControl} dir="ltr" />
             </div>
           </div>
         </section>
@@ -506,16 +412,16 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <div className="flex items-center gap-2.5">
               <Mail className="w-4 h-4 text-[#C1C3E6]" />
               <div>
-                <h3 className="text-xs font-bold text-white leading-tight">{t.contactDetailsTitle}</h3>
-                <p className="text-[10px] text-[#C9CCE4] mt-0.5">{language === 'ar' ? 'الجوال يحتاج تحقق حقيقي عبر Firebase.' : 'Mobile requires real Firebase verification.'}</p>
+                <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.contactDetailsTitle}</h3>
+                <p className="text-sm text-[#C9CCE4] mt-0.5">{language === 'ar' ? 'يتم التحقق من رقم الجوال عبر رسالة رمز تحقق في تطبيق واتساب.' : 'Mobile number is verified with a verification code via WhatsApp.'}</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-3">
             <div>
-              <label htmlFor="p1-email" className="block text-[11px] font-medium text-[#C9CCE4] mb-1">{t.emailLabel}</label>
-              <input id="p1-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={styles.inputControl} dir="ltr" />
+              <label htmlFor="p1-email" className="block text-sm font-medium text-[#C9CCE4] mb-1.5">{t.emailLabel}</label>
+              <input id="p1-email" type="email" required value={email} onChange={(e) => { editedFieldsRef.current.add('email'); setEmail(e.target.value); }} className={styles.inputControl} dir="ltr" />
             </div>
 
             <PhoneVerificationField
@@ -524,128 +430,26 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
               country={phoneCountry}
               number={phoneNumber}
               verifiedE164={verifiedPhone}
+              isWhatsappVerified={isWhatsappVerified}
               onCountryChange={(value) => {
+                editedFieldsRef.current.add('phoneCountry');
                 setPhoneCountry(value);
-                if (sameWhatsapp) setWhatsappCountry(value);
               }}
               onNumberChange={(value) => {
+                editedFieldsRef.current.add('phoneNumber');
                 setPhoneNumber(value);
-                if (sameWhatsapp) setWhatsappNumber(value);
               }}
               onVerified={handlePhoneVerified}
               label={t.phoneLabel}
             />
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <label className="flex items-center gap-1.5 text-[11px] font-medium text-[#C9CCE4]">
-                  <Phone className="w-3.5 h-3.5 text-[#C1C3E6]" /> {t.whatsappLabel}
-                </label>
-                <label className="flex items-center gap-1.5 text-[10px] text-[#C1C3E6] cursor-pointer">
-                  <input type="checkbox" checked={sameWhatsapp} onChange={(e) => toggleSameWhatsapp(e.target.checked)} className="accent-[#C1C3E6]" />
-                  {language === 'ar' ? 'نفس رقم الجوال' : 'Same as mobile'}
-                </label>
-              </div>
-
-              {sameWhatsapp ? (
-                <div className="rounded-xl border border-white/20 bg-[#172244] px-3 py-2.5 flex items-center justify-between" dir="ltr">
-                  <span className="text-xs text-white font-mono">{canonicalPhone || (language === 'ar' ? 'تحقق من الجوال أولاً' : 'Verify mobile first')}</span>
-                  <span className="text-[9px] text-[#C1C3E6]">{phoneIsVerified ? (language === 'ar' ? 'موثوق' : 'Trusted') : (language === 'ar' ? 'بانتظار التحقق' : 'Pending')}</span>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-12 gap-2" dir="ltr">
-                    <select
-                      value={whatsappCountry}
-                      onChange={(e) => {
-                        setWhatsappCountry(e.target.value as CountryCode);
-                        setWhatsappCodeSent(false);
-                        setWhatsappCode('');
-                        setWhatsappError('');
-                      }}
-                      className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-2.5 text-[11px]"
-                    >
-                      {supportedCountries.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.dialCode} {language === 'ar' ? item.nameAr : item.nameEn}</option>)}
-                    </select>
-                    <input
-                      type="tel"
-                      value={whatsappNumber}
-                      onChange={(e) => {
-                        setWhatsappNumber(e.target.value);
-                        setWhatsappCodeSent(false);
-                        setWhatsappCode('');
-                        setWhatsappError('');
-                      }}
-                      className={`${styles.inputControl} col-span-7`}
-                      dir="ltr"
-                      placeholder="WhatsApp"
-                    />
-                  </div>
-                  {!whatsappVerifyEnabled ? (
-                    <p className="text-[9.5px] text-amber-300">
-                      {language === 'ar' ? 'رقم واتساب المختلف غير موثوق حتى يتوفر تحقق حقيقي لواتساب.' : 'A different WhatsApp number remains unverified until genuine WhatsApp ownership proof is configured.'}
-                    </p>
-                  ) : isDifferentWa ? (
-                    isWaApproved ? (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold w-fit">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{t.whatsappVerifiedBadge}</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2 pt-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={whatsappSending || !canonicalWa || resendCooldown > 0}
-                            onClick={handleSendWhatsappCode}
-                            className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] disabled:opacity-50 disabled:cursor-not-allowed text-[#242C55] text-xs font-semibold transition cursor-pointer"
-                          >
-                            {whatsappSending
-                              ? t.whatsappSendingCode
-                              : resendCooldown > 0
-                              ? (language === 'ar' ? `إعادة الإرسال بعد ${resendCooldown} ثانية` : `Resend in ${resendCooldown}s`)
-                              : (whatsappCodeSent ? t.resendWhatsappCodeBtn : t.sendWhatsappCodeBtn)}
-                          </button>
-                        </div>
-
-                        {whatsappCodeSent && (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              maxLength={6}
-                              placeholder={t.whatsappCodePlaceholder}
-                              value={whatsappCode}
-                              onChange={(e) => setWhatsappCode(e.target.value.replace(/\D/g, ''))}
-                              className={`${styles.inputControl} max-w-[130px] text-center font-mono tracking-widest text-sm`}
-                              dir="ltr"
-                            />
-                            <button
-                              type="button"
-                              disabled={whatsappVerifying || whatsappCode.trim().length !== 6}
-                              onClick={handleVerifyWhatsappCode}
-                              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition cursor-pointer"
-                            >
-                              {whatsappVerifying ? t.whatsappVerifyingCode : t.verifyWhatsappCodeBtn}
-                            </button>
-                          </div>
-                        )}
-
-                        {whatsappError && (
-                          <p className="text-[10px] text-red-400">{whatsappError}</p>
-                        )}
-                      </div>
-                    )
-                  ) : null}
-                </>
-              )}
-            </div>
-
             <SocialAccountsEditor
               language={language}
               accounts={socialAccounts}
-              onChange={setSocialAccounts}
+              onChange={(accounts) => {
+                editedFieldsRef.current.add('socialAccounts');
+                setSocialAccounts(accounts);
+              }}
               maxAccounts={6}
             />
           </div>
@@ -656,8 +460,8 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <div className="flex items-center gap-2 text-[#C1C3E6]">
               <Heart className="w-4 h-4 fill-current" />
               <div>
-                <h3 className="text-xs font-bold text-white">{t.relationshipDetailsTitle}</h3>
-                <p className="text-[10px] text-[#C9CCE4] mt-0.5">{t.relationshipDetailsDesc}</p>
+                <h3 className="text-sm sm:text-base font-bold text-white">{t.relationshipDetailsTitle}</h3>
+                <p className="text-sm text-[#C9CCE4] mt-0.5">{t.relationshipDetailsDesc}</p>
               </div>
             </div>
           </div>
@@ -672,7 +476,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </div>
 
           <div>
-            <label htmlFor="relationship-start" className="flex items-center gap-1.5 text-[11px] font-medium text-[#C9CCE4] mb-1">
+            <label htmlFor="relationship-start" className="flex items-center gap-1.5 text-sm font-medium text-[#C9CCE4] mb-1.5">
               <Calendar className="w-3.5 h-3.5 text-[#C1C3E6]" />
               {t.startDateLabel}
             </label>
@@ -680,7 +484,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </div>
         </section>
 
-        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#1A2449] border border-white/10 text-xs text-[#C9CCE4]">
+        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#1A2449] border border-white/10 text-sm text-[#C9CCE4]">
           <input
             id="p1-legal-consent"
             type="checkbox"
@@ -689,7 +493,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             required
             className="mt-0.5 rounded border-white/20 bg-[#202B52] text-[#C1C3E6] focus:ring-[#C1C3E6] cursor-pointer"
           />
-          <label htmlFor="p1-legal-consent" className="cursor-pointer text-[11px] leading-relaxed select-none">
+          <label htmlFor="p1-legal-consent" className="cursor-pointer text-sm leading-relaxed select-none">
             {language === 'ar' ? (
               <>
                 أؤكد أن عمري 18 سنة أو أكثر، وأوافق على{' '}
@@ -746,7 +550,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </label>
         </div>
 
-        {error && <p className="text-[10.5px] text-rose-300 leading-relaxed">{error}</p>}
+        {error && <p className="text-sm text-rose-300 leading-relaxed">{error}</p>}
 
         <div className="pt-2">
           <button type="submit" disabled={!acceptedLegal || submitting} className={`${styles.primaryCta} disabled:opacity-50`}>

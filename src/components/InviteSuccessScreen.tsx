@@ -83,10 +83,10 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
 
       {/* Headline & Subtitle */}
       <div className="text-center px-4 mb-4">
-        <h2 className="text-xl font-bold text-white mb-1.5 tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mb-1.5 tracking-tight">
           {t.inviteSuccessTitle}
         </h2>
-        <p className="text-xs text-[#C9CCE4] leading-relaxed max-w-[280px] mx-auto font-normal">
+        <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed max-w-[320px] mx-auto font-normal">
           {t.inviteSuccessDesc}
         </p>
       </div>
@@ -94,25 +94,25 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
       {/* Link Box Card */}
       <div className="w-full bg-[#202B52] border border-white/20 rounded-2xl p-3.5 mb-3 shadow-xl">
         <div className="flex items-center justify-between mb-1.5 px-0.5">
-          <span className="text-xs font-semibold text-[#C1C3E6]">{t.invitationLinkLabel}</span>
-          <span className="text-[10px] text-[#C9CCE4] font-mono">
+          <span className="text-sm font-semibold text-[#C1C3E6]">{t.invitationLinkLabel}</span>
+          <span className="text-sm text-[#C9CCE4] font-mono">
             {invitation.partner2Name}
           </span>
         </div>
 
         <div className="flex items-center justify-between bg-[rgba(193,195,230,0.08)] border border-[#4E5A8E]/50 rounded-xl px-2.5 py-1.5">
           <div className="overflow-hidden mr-1 flex-1">
-            <p className="text-[11px] font-mono text-[#C9CCE4] truncate text-left" dir="ltr">
+            <p className="text-sm font-mono text-[#C9CCE4] truncate text-left" dir="ltr">
               {inviteUrl}
             </p>
           </div>
           <button
             type="button"
             onClick={handleCopy}
-            className="shrink-0 flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] border border-white/20 rounded-lg text-xs font-semibold text-[#242C55] transition-all active:scale-95 cursor-pointer"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] border border-white/20 rounded-lg text-sm font-semibold text-[#242C55] transition-all active:scale-95 cursor-pointer min-h-[40px]"
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="text-[11px]">{copied ? t.copiedBtn : t.copyBtn}</span>
+            <span>{copied ? t.copiedBtn : t.copyBtn}</span>
           </button>
         </div>
       </div>
@@ -122,10 +122,10 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
         <button
           type="button"
           onClick={handleCopy}
-          className="rounded-xl py-2.5 px-1.5 flex flex-col items-center justify-center gap-1.5 transition-all bg-[#202B52] border border-white/20 hover:bg-[#252F5A] active:scale-95 shadow-md cursor-pointer"
+          className="rounded-xl py-3 px-1.5 flex flex-col items-center justify-center gap-1.5 transition-all bg-[#202B52] border border-white/20 hover:bg-[#252F5A] active:scale-95 shadow-md cursor-pointer min-h-[64px]"
         >
           <Copy className="w-5 h-5 text-[#C1C3E6]" />
-          <span className="text-[10px] font-medium text-white/95 text-center leading-tight">
+          <span className="text-sm font-medium text-white/95 text-center leading-tight">
             {copied ? t.copiedBtn : t.copyLinkMainBtn}
           </span>
         </button>
@@ -133,10 +133,10 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
         <button
           type="button"
           onClick={handleWhatsApp}
-          className="rounded-xl py-2.5 px-1.5 flex flex-col items-center justify-center gap-1.5 transition-all bg-[#202B52] border border-white/20 hover:bg-[#252F5A] active:scale-95 shadow-md cursor-pointer"
+          className="rounded-xl py-3 px-1.5 flex flex-col items-center justify-center gap-1.5 transition-all bg-[#202B52] border border-white/20 hover:bg-[#252F5A] active:scale-95 shadow-md cursor-pointer min-h-[64px]"
         >
           <MessageCircle className="w-5 h-5 text-emerald-400" />
-          <span className="text-[10px] font-medium text-white/95 text-center leading-tight">
+          <span className="text-sm font-medium text-white/95 text-center leading-tight">
             {t.shareWhatsAppBtn}
           </span>
         </button>
@@ -144,29 +144,29 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
         <button
           type="button"
           onClick={handleEmail}
-          className="rounded-xl py-2.5 px-1.5 flex flex-col items-center justify-center gap-1.5 transition-all bg-[#202B52] border border-white/20 hover:bg-[#252F5A] active:scale-95 shadow-md cursor-pointer"
+          className="rounded-xl py-3 px-1.5 flex flex-col items-center justify-center gap-1.5 transition-all bg-[#202B52] border border-white/20 hover:bg-[#252F5A] active:scale-95 shadow-md cursor-pointer min-h-[64px]"
         >
           <Mail className="w-5 h-5 text-[#C1C3E6]" />
-          <span className="text-[10px] font-medium text-white/95 text-center leading-tight">
+          <span className="text-sm font-medium text-white/95 text-center leading-tight">
             {t.shareEmailBtn}
           </span>
         </button>
       </div>
 
       {/* Manual test helper: open invitation in a new tab */}
-      <div className="w-full mb-3 p-2 rounded-xl bg-[#252F5A] border border-[#C1C3E6]/30 flex items-center justify-between text-xs">
+      <div className="w-full mb-3 p-2.5 rounded-xl bg-[#252F5A] border border-[#C1C3E6]/30 flex items-center justify-between text-sm">
         <div className="text-right">
-          <span className="text-[10.5px] text-[#C1C3E6] font-bold block">
+          <span className="text-sm text-[#C1C3E6] font-bold block">
             {language === 'ar' ? 'اختبار رابط الدعوة:' : 'Test real invitation:'}
           </span>
-          <span className="text-[9.5px] text-[#C9CCE4]">
+          <span className="text-sm text-[#C9CCE4]">
             {language === 'ar' ? 'افتح رابط الدعوة في تبويب جديد' : 'Open this invitation in a new tab'}
           </span>
         </div>
         <button
           type="button"
           onClick={onOpenInvitation}
-          className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] text-[10px] font-semibold hover:from-[#D0D2ED] hover:to-[#B5BBE2] transition-all cursor-pointer"
+          className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] text-sm font-semibold hover:from-[#D0D2ED] hover:to-[#B5BBE2] transition-all cursor-pointer min-h-[40px]"
         >
           {language === 'ar' ? 'فتح الدعوة' : 'Open Invitation'}
         </button>
@@ -177,7 +177,7 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
         <button
           type="button"
           onClick={onGoToWaiting}
-          className="w-full py-3 px-4 bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold rounded-xl shadow-lg border border-white/20 transition-all flex items-center justify-center gap-2 text-xs active:scale-95 cursor-pointer"
+          className="w-full py-3.5 px-4 bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold rounded-xl shadow-lg border border-white/20 transition-all flex items-center justify-center gap-2 text-base active:scale-95 cursor-pointer min-h-[44px]"
         >
           <span>{t.returnToDashboardBtn}</span>
           {language === 'ar' ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
@@ -186,7 +186,7 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
         <button
           type="button"
           onClick={onCancelInvite}
-          className="w-full py-2.5 px-4 rounded-xl bg-[#202B52] hover:bg-[#252F5A] border border-[#C1C3E6]/40 text-[#C9CCE4] hover:text-white flex items-center justify-center gap-1.5 text-xs font-medium transition-all active:scale-95 cursor-pointer"
+          className="w-full py-2.5 px-4 rounded-xl bg-[#202B52] hover:bg-[#252F5A] border border-[#C1C3E6]/40 text-[#C9CCE4] hover:text-white flex items-center justify-center gap-1.5 text-sm font-medium transition-all active:scale-95 cursor-pointer min-h-[40px]"
         >
           <X className="w-3.5 h-3.5" />
           <span>{t.cancelInviteBtn}</span>

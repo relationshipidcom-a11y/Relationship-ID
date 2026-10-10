@@ -22,6 +22,7 @@ export interface PartnerData {
   phoneNumber: string;
   phoneE164?: string;
   phoneVerified?: boolean;
+  sameWhatsapp?: boolean;
   whatsappCountry?: string;
   whatsappNumber?: string;
   whatsappE164?: string;

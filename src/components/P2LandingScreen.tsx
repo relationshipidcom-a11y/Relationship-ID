@@ -56,12 +56,12 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تم رفض الدعوة' : 'Invitation Declined'}
           </h1>
-          <p className="text-xs text-[#C9CCE4] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#C9CCE4] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'لقد تم رفض هذه الدعوة. لن يتم إنشاء أو مشاركة أي سجل ارتباط أو شهادة رقمية.'
               : 'You have declined this invitation. No relationship record or digital certificate was created.'}
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#C9CCE4]/60">
+          <div className="flex items-center justify-center gap-1.5 text-sm text-[#C9CCE4]/60">
             <Shield className="w-3.5 h-3.5 text-[#C1C3E6]" />
             <span>{t.dataPrivacyAssurance}</span>
           </div>
@@ -83,7 +83,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               ? (language === 'ar' ? 'انتهت صلاحية الدعوة' : 'Invitation Expired')
               : (language === 'ar' ? 'تم إلغاء الدعوة' : 'Invitation Cancelled')}
           </h1>
-          <p className="text-xs text-[#C9CCE4] leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'لا يمكن قبول هذه الدعوة. اطلب من الشريك إنشاء دعوة جديدة عند الحاجة.'
               : 'This invitation can no longer be accepted. Ask the partner to create a new invitation if needed.'}
@@ -104,7 +104,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تم قبول الدعوة وتوثيق السجل' : 'Invitation Already Accepted'}
           </h1>
-          <p className="text-xs text-[#C9CCE4] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#C9CCE4] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'تم ربط وتوثيق هذا السجل بنجاح لكلا الطرفين.'
               : 'This relationship record has already been accepted by both partners.'}
@@ -126,7 +126,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   return (
     <main className="flex-1 flex flex-col items-center justify-center py-4 px-4 w-full">
       {/* Special Invitation Status Badge */}
-      <div className="mb-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2C345F]/90 border border-[#C1C3E6]/30 text-[#C1C3E6] text-xs font-semibold shadow-md">
+      <div className="mb-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#2C345F]/90 border border-[#C1C3E6]/30 text-[#C1C3E6] text-sm font-semibold shadow-md">
         <span className="w-2 h-2 rounded-full bg-[#C1C3E6] animate-pulse" />
         <span>{t.p2LandingBadge}</span>
         <Lock className="w-3.5 h-3.5 opacity-80" />
@@ -163,10 +163,10 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
 
         {/* Card Title & Inviter Info */}
         <div className="text-center space-y-1.5 mb-5">
-          <h1 className="text-xl font-bold tracking-tight text-white leading-snug">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">
             {t.p2LandingTitle}
           </h1>
-          <p className="text-[#C9CCE4] text-xs font-medium">
+          <p className="text-[#C9CCE4] text-base sm:text-sm font-medium">
             {t.p2InvitedYouText.replace('{inviter}', invitation.inviterName)}
           </p>
         </div>
@@ -174,7 +174,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
         {/* Details Box */}
         <div className="bg-[#172244]/80 border border-white/15 rounded-xl p-4 space-y-3 mb-5">
           {/* Inviter Info */}
-          <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
+          <div className="flex items-center justify-between text-sm py-1 border-b border-white/10">
             <div className="flex items-center gap-2 text-[#C9CCE4] font-medium">
               <span>{t.invitationFrom}</span>
               <span className="text-white font-semibold">{invitation.inviterName}</span>
@@ -185,7 +185,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           </div>
 
           {/* Requested Stage */}
-          <div className="flex items-center justify-between text-xs py-1 border-b border-white/10">
+          <div className="flex items-center justify-between text-sm py-1 border-b border-white/10">
             <div className="flex items-center gap-2 text-[#C9CCE4] font-medium">
               <span>{t.requestedRelationshipStage}</span>
               <span className="text-white font-semibold">
@@ -202,7 +202,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           </div>
 
           {/* Expiration Notice */}
-          <div className="flex items-center justify-between text-xs pt-0.5">
+          <div className="flex items-center justify-between text-sm pt-0.5">
             <div className="flex items-center gap-2 text-amber-300 font-medium">
               <span>{t.expirationNoticeText}</span>
             </div>
@@ -215,18 +215,18 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
         {/* Account Mismatch / Recipient Status Alert */}
         {isP1 && (
           <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-start space-y-2">
-            <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+            <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{t.p1CannotAcceptOwnInviteTitle}</span>
             </div>
-            <p className="text-[11px] text-amber-200/90 leading-relaxed">
+            <p className="text-base sm:text-sm text-amber-200/90 leading-relaxed">
               {t.p1CannotAcceptOwnInviteDesc}
             </p>
             {onSwitchAccount && (
               <button
                 type="button"
                 onClick={onSwitchAccount}
-                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 hover:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 hover:text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[40px]"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>{t.switchAccountBtn}</span>
@@ -237,18 +237,18 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
 
         {isMismatch && (
           <div className="mb-5 p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-start space-y-2">
-            <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+            <div className="flex items-center gap-2 text-rose-300 font-bold text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{t.recipientMismatchTitle}</span>
             </div>
-            <p className="text-[11px] text-rose-200/90 leading-relaxed">
+            <p className="text-base sm:text-sm text-rose-200/90 leading-relaxed">
               {t.recipientMismatchDesc.replace('{email}', authUser?.email || authUser?.id || '')}
             </p>
             {onSwitchAccount && (
               <button
                 type="button"
                 onClick={onSwitchAccount}
-                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 hover:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 hover:text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[40px]"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>{t.switchAccountBtn}</span>
@@ -261,7 +261,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           <div className="mb-4 p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-start flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div className="text-[11px] truncate">
+              <div className="text-sm truncate">
                 <span className="text-[#C9CCE4]">{t.signedInAsP2} </span>
                 <span className="text-white font-semibold">{authUser?.name || authUser?.email}</span>
               </div>
@@ -270,7 +270,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={onSwitchAccount}
-                className="text-[10px] text-[#C1C3E6] hover:text-white underline shrink-0 cursor-pointer"
+                className="text-sm text-[#C1C3E6] hover:text-white underline shrink-0 cursor-pointer"
               >
                 {t.switchAccountBtn}
               </button>
@@ -285,7 +285,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={onAccept}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer"
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer min-h-[44px]"
               >
                 <LogIn className="w-4 h-4" />
                 <span>{authUser ? t.reviewAndAcceptBtn : t.p2AcceptBtn}</span>
@@ -295,7 +295,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => onDecline(false)}
-                  className="w-full py-2.5 px-3 rounded-xl border border-[#C1C3E6]/30 bg-[#C1C3E6]/10 hover:bg-[#C1C3E6]/20 text-[#C1C3E6] hover:text-white font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-[#C1C3E6]/30 bg-[#C1C3E6]/10 hover:bg-[#C1C3E6]/20 text-[#C1C3E6] hover:text-white font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span>{t.p2DeclineBtn}</span>
@@ -304,7 +304,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowBlockConfirm(true)}
-                  className="w-full py-2.5 px-3 rounded-xl border border-rose-500/40 bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 font-medium text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-rose-500/40 bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
                 >
                   <UserX className="w-3.5 h-3.5" />
                   <span>{t.declineAndBlock}</span>
@@ -317,7 +317,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={onSwitchAccount}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer"
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] text-[#242C55] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-white/20 cursor-pointer min-h-[44px]"
               >
                 <LogIn className="w-4 h-4" />
                 <span>{t.switchAccountBtn}</span>
@@ -349,7 +349,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               </h3>
             </div>
 
-            <p className="text-xs text-gray-300 leading-relaxed">
+            <p className="text-base sm:text-sm text-gray-300 leading-relaxed">
               {t.declineAndBlockConfirm}
             </p>
 
@@ -357,7 +357,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowBlockConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-semibold transition-colors"
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 text-sm font-semibold transition-colors min-h-[40px]"
               >
                 {t.cancelBtn}
               </button>
@@ -367,7 +367,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                   setShowBlockConfirm(false);
                   onDecline(true);
                 }}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-lg shadow-rose-900/40 transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold shadow-lg shadow-rose-900/40 transition-colors flex items-center gap-1.5 min-h-[40px]"
               >
                 <UserX className="w-3.5 h-3.5" />
                 <span>{t.declineAndBlock}</span>
@@ -378,19 +378,19 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
       )}
 
       {/* Assurance footer */}
-      <div className="mt-4 flex flex-col items-center gap-2 text-[11px] text-[#C9CCE4]">
+      <div className="mt-4 flex flex-col items-center gap-2 text-sm text-[#C9CCE4]">
         <div className="flex items-center gap-1.5">
           <Shield className="w-3.5 h-3.5 text-[#C1C3E6]" />
           <span>{t.dataPrivacyAssurance}</span>
         </div>
-        <div className="flex items-center justify-center gap-3 text-[10.5px] text-[#C9CCE4]/60">
+        <div className="flex items-center justify-center gap-3 text-sm text-[#C9CCE4]/70">
           <a
             href="/privacy"
             onClick={(e) => {
               e.preventDefault();
               onNavigate?.('privacy');
             }}
-            className="text-[#C9CCE4]/60 hover:text-[#C1C3E6] transition-colors underline"
+            className="text-[#C9CCE4]/70 hover:text-[#C1C3E6] transition-colors underline"
           >
             {t.privacyPolicy}
           </a>
@@ -401,7 +401,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               e.preventDefault();
               onNavigate?.('terms');
             }}
-            className="text-[#C9CCE4]/60 hover:text-[#C1C3E6] transition-colors underline"
+            className="text-[#C9CCE4]/70 hover:text-[#C1C3E6] transition-colors underline"
           >
             {t.termsOfService}
           </a>

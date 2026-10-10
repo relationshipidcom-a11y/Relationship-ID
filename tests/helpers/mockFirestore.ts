@@ -254,6 +254,9 @@ export class MockTransaction {
   constructor(private readonly store: Map<string, Map<string, any>>) {}
 
   async get(ref: MockDocumentReference): Promise<MockDocumentSnapshot> {
+    if (this.stagedWrites.length > 0) {
+      throw new Error('Firestore transactions require all reads to be executed before all writes');
+    }
     return ref.get();
   }
 

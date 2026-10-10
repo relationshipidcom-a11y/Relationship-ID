@@ -34,8 +34,43 @@ body {
   background-color: var(--rid-velvet-bg);
   color: var(--rid-text-bright);
   font-family: 'Tajawal', 'IBM Plex Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
   -webkit-tap-highlight-color: transparent;
+  width: 100%;
 }
+
+/* Mobile & Global Input Typography Standards (minimum 16px to prevent mobile browser zoom) */
+input, select, textarea {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Mobile Readability: Enforce at least 14px for labels and supporting text across forms and cards */
+label,
+.form-label {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+[dir="rtl"] {
+  line-height: 1.65;
+}
+
+/* Safe touch targets on mobile: keep circular and square buttons properly sized and centered */
+@media (max-width: 640px) {
+  button, [role="button"] {
+    min-height: 40px;
+  }
+  button.w-10, [role="button"].w-10 {
+    min-width: 40px;
+  }
+  button.rounded-full.w-10, [role="button"].rounded-full.w-10 {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
 
 .bg-rid-gradient {
   background: var(--rid-gradient);
@@ -116,12 +151,17 @@ input[type="date"] {
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  filter: invert(0.9) brightness(1.1);
-  opacity: 0.85;
-  transition: opacity 0.2s ease;
+  /* Ensure bright lavender/white calendar icon across dark theme inputs:
+     Using brightness(0) normalizes any base user-agent icon to black,
+     then invert(88%) with soft lavender hue tint guarantees a crisp,
+     high-contrast light lavender/white icon (WCAG AA > 8:1 contrast against navy). */
+  filter: brightness(0) saturate(100%) invert(88%) sepia(16%) saturate(300%) hue-rotate(195deg) brightness(105%);
+  opacity: 0.95;
+  transition: opacity 0.2s ease, transform 0.15s ease;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
+  filter: brightness(0) saturate(100%) invert(100%) brightness(110%);
 }
 

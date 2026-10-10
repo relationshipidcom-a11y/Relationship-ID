@@ -54,8 +54,6 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
     return [];
   });
   const [fullNameEn, setFullNameEn] = useState(myData.fullNameEn || '');
-  const [whatsappNumber, setWhatsappNumber] = useState(myData.whatsappNumber || '');
-  const [whatsappCountry, setWhatsappCountry] = useState(myData.whatsappCountry || 'SA +966');
   const [personalSaving, setPersonalSaving] = useState(false);
   const [personalSuccess, setPersonalSuccess] = useState('');
   const [personalError, setPersonalError] = useState('');
@@ -85,9 +83,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
       await onSavePersonalInfo({
         socialAccounts: cleanedSocialAccounts,
         socialHandle: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts[0].handle.replace(/^@/, '') : undefined,
-        fullNameEn,
-        whatsappNumber,
-        whatsappCountry
+        fullNameEn
       });
       setPersonalSuccess(t.personalInfoSaved);
       setTimeout(() => setPersonalSuccess(''), 4000);
@@ -175,7 +171,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
               <h3 id="change-request-modal-title" className="text-sm sm:text-base font-bold text-white leading-tight">
                 {t.requestChangeBtn}
               </h3>
-              <p className="text-[10px] text-[#C9CCE4] mt-0.5">
+              <p className="text-sm text-[#C9CCE4] mt-0.5">
                 {language === 'ar' ? 'إدارة وتعديل بيانات السجل والشهادة' : 'Manage & update record and certificate details'}
               </p>
             </div>
@@ -196,25 +192,25 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
         {/* Pending Requests Banner for Approver */}
         {pendingRequestsForMe.length > 0 && (
           <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 space-y-2 shrink-0">
-            <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold">
+            <div className="flex items-center gap-2 text-amber-300 text-sm font-semibold">
               <Clock className="w-4 h-4 shrink-0" />
               <span>{t.partnerRequestedChange}</span>
             </div>
             {pendingRequestsForMe.map((cr) => (
-              <div key={cr.id} className="bg-black/30 p-2.5 rounded-lg border border-amber-500/20 text-xs space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-[#C9CCE4]">
+              <div key={cr.id} className="bg-black/30 p-2.5 rounded-lg border border-amber-500/20 text-sm space-y-2">
+                <div className="flex items-center justify-between text-sm text-[#C9CCE4]">
                   <span className="font-semibold text-white">{language === 'ar' ? cr.fieldLabelAr : cr.fieldLabelEn}</span>
-                  <span className="text-[10px] text-amber-300 font-mono">
+                  <span className="text-sm text-amber-300 font-mono">
                     {new Date(cr.requestedAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-white/5 p-1.5 rounded">
-                    <span className="text-[9px] text-[#9FA5C7] block">{language === 'ar' ? 'القيمة الحالية:' : 'Current:'}</span>
+                    <span className="text-sm text-[#9FA5C7] block">{language === 'ar' ? 'القيمة الحالية:' : 'Current:'}</span>
                     <span className="text-white font-medium">{language === 'ar' ? (cr.oldValueDisplayAr || cr.oldValue) : (cr.oldValueDisplayEn || cr.oldValue)}</span>
                   </div>
                   <div className="bg-[#C1C3E6]/20 p-1.5 rounded border border-[#C1C3E6]/30">
-                    <span className="text-[9px] text-[#C1C3E6] block">{language === 'ar' ? 'القيمة المقترحة:' : 'Proposed:'}</span>
+                    <span className="text-sm text-[#C1C3E6] block">{language === 'ar' ? 'القيمة المقترحة:' : 'Proposed:'}</span>
                     <span className="text-white font-semibold">{language === 'ar' ? (cr.proposedValueDisplayAr || cr.proposedValue) : (cr.proposedValueDisplayEn || cr.proposedValue)}</span>
                   </div>
                 </div>
@@ -223,7 +219,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                     type="button"
                     disabled={actionLoadingId === cr.id}
                     onClick={() => void handleApprove(cr.id)}
-                    className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>{actionLoadingId === cr.id ? '...' : t.approveBtn}</span>
@@ -232,7 +228,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                     type="button"
                     disabled={actionLoadingId === cr.id}
                     onClick={() => void handleDecline(cr.id)}
-                    className="py-1.5 px-3 rounded-lg bg-rose-900/60 hover:bg-rose-900 border border-rose-500/40 text-rose-100 text-xs transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                    className="py-1.5 px-3 rounded-lg bg-rose-900/60 hover:bg-rose-900 border border-rose-500/40 text-rose-100 text-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <XCircle className="w-3.5 h-3.5" />
                     <span>{t.declineBtn}</span>
@@ -248,7 +244,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('my_info')}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+            className={`flex-1 py-2 px-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'my_info' ? 'bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] shadow-sm' : 'text-[#C9CCE4] hover:text-white'
             }`}
           >
@@ -258,7 +254,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('shared_info')}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+            className={`flex-1 py-2 px-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'shared_info' ? 'bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] shadow-sm' : 'text-[#C9CCE4] hover:text-white'
             }`}
           >
@@ -268,7 +264,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+            className={`py-2 px-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'history' ? 'bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] shadow-sm' : 'text-[#C9CCE4] hover:text-white'
             }`}
           >
@@ -284,30 +280,30 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
             <div className="space-y-4">
               {/* Partner Read-Only Banner */}
               <div className="p-3 rounded-xl bg-[#252F5A] border border-white/10 space-y-2">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-1.5 text-white font-semibold">
                     <Lock className="w-3.5 h-3.5 text-[#C1C3E6]" />
                     <span>{partnerLabel} ({partnerData.fullName})</span>
                   </div>
-                  <span className="text-[10px] text-[#9FA5C7] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+                  <span className="text-sm text-[#9FA5C7] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
                     {language === 'ar' ? 'للقراءة فقط • محمي' : 'Read-only • Protected'}
                   </span>
                 </div>
-                <p className="text-[10px] text-[#C9CCE4]">
+                <p className="text-sm text-[#C9CCE4]">
                   {t.partnerInfoReadOnly}
                 </p>
               </div>
 
               {/* My Personal Fields Form */}
               <form onSubmit={handleSavePersonal} className="space-y-3">
-                <div className="p-3 rounded-xl bg-[#252F5A] border border-white/10 space-y-3">
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-[#C1C3E6]" />
+                <div className="p-3.5 rounded-xl bg-[#252F5A] border border-white/10 space-y-3.5">
+                  <h4 className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-[#C1C3E6]" />
                     <span>{language === 'ar' ? 'تعديل بياناتي الشخصية المسموحة' : 'Edit My Allowed Profile Information'}</span>
                   </h4>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1">
+                    <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5">
                       {language === 'ar' ? 'الاسم باللغة الإنجليزية (للعرض بالشهادة الإنجليزية)' : 'Full Name in English (For English Certificate)'}
                     </label>
                     <input
@@ -315,7 +311,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                       value={fullNameEn}
                       onChange={(e) => setFullNameEn(e.target.value)}
                       placeholder="e.g. Rami Khalil"
-                      className="w-full px-3 py-2 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-xs text-white placeholder:text-[#9FA5C7] focus:outline-none focus:border-[#C1C3E6]"
+                      className="w-full px-3 py-2.5 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-base text-white placeholder:text-[#9FA5C7] focus:outline-none focus:border-[#C1C3E6]"
                       dir="ltr"
                     />
                   </div>
@@ -327,22 +323,8 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                     maxAccounts={6}
                   />
 
-                  <div>
-                    <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1">
-                      {language === 'ar' ? 'رقم واتساب للتواصل' : 'WhatsApp Contact Number'}
-                    </label>
-                    <input
-                      type="tel"
-                      value={whatsappNumber}
-                      onChange={(e) => setWhatsappNumber(e.target.value)}
-                      placeholder="05XXXXXXXX"
-                      className="w-full px-3 py-2 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-xs text-white placeholder:text-[#9FA5C7] focus:outline-none focus:border-[#C1C3E6]"
-                      dir="ltr"
-                    />
-                  </div>
-
                   {/* Security Note on Verified Phone */}
-                  <div className="pt-2 border-t border-white/10 flex items-start gap-2 text-[10px] text-[#9FA5C7]">
+                  <div className="pt-2 border-t border-white/10 flex items-start gap-2 text-sm text-[#9FA5C7]">
                     <Shield className="w-3.5 h-3.5 text-[#C1C3E6] shrink-0 mt-0.5" />
                     <span>
                       {language === 'ar'
@@ -353,13 +335,13 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                 </div>
 
                 {personalError && (
-                  <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs">
+                  <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-sm">
                     {personalError}
                   </div>
                 )}
 
                 {personalSuccess && (
-                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2">
+                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-sm flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>{personalSuccess}</span>
                   </div>
@@ -368,9 +350,9 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                 <button
                   type="submit"
                   disabled={personalSaving}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-xs transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-sm sm:text-base transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-4 h-4" />
                   <span>{personalSaving ? '...' : t.saveMyInfoBtn}</span>
                 </button>
               </form>
@@ -380,26 +362,26 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
           {/* TAB 2: Shared Certificate Information */}
           {activeTab === 'shared_info' && (
             <div className="space-y-4">
-              <div className="p-3 rounded-xl bg-[#252F5A] border border-white/10 space-y-1 text-xs">
+              <div className="p-3 rounded-xl bg-[#252F5A] border border-white/10 space-y-1 text-sm">
                 <div className="flex items-center gap-1.5 text-white font-semibold">
                   <AlertCircle className="w-4 h-4 text-[#C1C3E6]" />
                   <span>{language === 'ar' ? 'شرط موافقة الطرفين' : 'Mutual Approval Requirement'}</span>
                 </div>
-                <p className="text-[10.5px] text-[#C9CCE4] leading-relaxed">
+                <p className="text-sm text-[#C9CCE4] leading-relaxed">
                   {t.approvalRequiredNotice}
                 </p>
               </div>
 
               <form onSubmit={handleSubmitShared} className="space-y-3">
-                <div className="p-3 rounded-xl bg-[#252F5A] border border-white/10 space-y-3">
+                <div className="p-3.5 rounded-xl bg-[#252F5A] border border-white/10 space-y-3.5">
                   <div>
-                    <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1">
+                    <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5">
                       {language === 'ar' ? 'اختر الحقل المراد طلب تعديله:' : 'Select field to change:'}
                     </label>
                     <select
                       value={selectedField}
                       onChange={(e) => setSelectedField(e.target.value as 'type' | 'startDate' | 'myName')}
-                      className="w-full px-3 py-2 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-xs text-white focus:outline-none focus:border-[#C1C3E6] cursor-pointer"
+                      className="w-full px-3 py-2.5 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-base text-white focus:outline-none focus:border-[#C1C3E6] cursor-pointer"
                     >
                       <option value="type">{language === 'ar' ? 'مرحلة الارتباط (زواج / خطوبة / تعارف)' : 'Relationship Stage (Marriage / Engagement / Dating)'}</option>
                       <option value="startDate">{language === 'ar' ? 'تاريخ بداية الارتباط' : 'Relationship Start Date'}</option>
@@ -410,20 +392,20 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                   {/* Field Specific Inputs */}
                   {selectedField === 'type' && (
                     <div className="space-y-2">
-                      <div className="text-[11px] text-[#9FA5C7]">
+                      <div className="text-sm text-[#9FA5C7]">
                         {language === 'ar' ? 'الحالة الحالية:' : 'Current Stage:'}{' '}
                         <span className="text-white font-semibold">
                           {record.type === 'marriage' ? (language === 'ar' ? 'زواج' : 'Marriage') : record.type === 'engagement' ? (language === 'ar' ? 'خطوبة' : 'Engagement') : (language === 'ar' ? 'تعارف' : 'Dating')}
                         </span>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1">
+                        <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5">
                           {language === 'ar' ? 'الحالة المقترحة الجديدة:' : 'Proposed New Stage:'}
                         </label>
                         <select
                           value={proposedType}
                           onChange={(e) => setProposedType(e.target.value as RelationshipType)}
-                          className="w-full px-3 py-2 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-xs text-white focus:outline-none focus:border-[#C1C3E6] cursor-pointer"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-base text-white focus:outline-none focus:border-[#C1C3E6] cursor-pointer"
                         >
                           <option value="dating">{language === 'ar' ? 'تعارف (Dating)' : 'Dating'}</option>
                           <option value="engagement">{language === 'ar' ? 'خطوبة (Engagement)' : 'Engagement'}</option>
@@ -435,14 +417,14 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
 
                   {selectedField === 'startDate' && (
                     <div className="space-y-2">
-                      <div className="text-[11px] text-[#9FA5C7]">
+                      <div className="text-sm text-[#9FA5C7]">
                         {language === 'ar' ? 'تاريخ البداية الحالي:' : 'Current Start Date:'}{' '}
                         <span className="text-white font-semibold">
                           {language === 'ar' ? record.startDateAr : record.startDate}
                         </span>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1">
+                        <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5">
                           {language === 'ar' ? 'تاريخ البداية المقترح الجديد:' : 'Proposed New Start Date:'}
                         </label>
                         <input
@@ -451,7 +433,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                           max={new Date().toISOString().slice(0, 10)}
                           value={proposedStartDate}
                           onChange={(e) => setProposedStartDate(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-xs text-white focus:outline-none focus:border-[#C1C3E6]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-base text-white focus:outline-none focus:border-[#C1C3E6]"
                           dir="ltr"
                         />
                       </div>
@@ -460,12 +442,12 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
 
                   {selectedField === 'myName' && (
                     <div className="space-y-2">
-                      <div className="text-[11px] text-[#9FA5C7]">
+                      <div className="text-sm text-[#9FA5C7]">
                         {language === 'ar' ? 'اسمك الحالي بالشهادة:' : 'Your Current Name on Certificate:'}{' '}
                         <span className="text-white font-semibold">{myData.fullName}</span>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1">
+                        <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5">
                           {language === 'ar' ? 'الاسم المقترح الجديد بالشهادة:' : 'Proposed New Name on Certificate:'}
                         </label>
                         <input
@@ -473,7 +455,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                           required
                           value={proposedName}
                           onChange={(e) => setProposedName(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-xs text-white focus:outline-none focus:border-[#C1C3E6]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[rgba(193,195,230,0.08)] border border-white/20 text-base text-white focus:outline-none focus:border-[#C1C3E6]"
                         />
                       </div>
                     </div>
@@ -481,13 +463,13 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                 </div>
 
                 {requestError && (
-                  <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs">
+                  <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-sm">
                     {requestError}
                   </div>
                 )}
 
                 {requestSuccess && (
-                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2">
+                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-sm flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>{requestSuccess}</span>
                   </div>
@@ -496,9 +478,9 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                 <button
                   type="submit"
                   disabled={requestSubmitting}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-xs transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-sm sm:text-base transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-4 h-4" />
                   <span>{requestSubmitting ? '...' : t.submitChangeRequestBtn}</span>
                 </button>
               </form>
@@ -509,7 +491,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
           {activeTab === 'history' && (
             <div className="space-y-3">
               {changeRequests.length === 0 ? (
-                <div className="text-center py-6 text-xs text-[#9FA5C7]">
+                <div className="text-center py-6 text-sm text-[#9FA5C7]">
                   {t.noChangeRequests}
                 </div>
               ) : (
@@ -520,7 +502,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                   return (
                     <div
                       key={cr.id}
-                      className={`p-3 rounded-xl border text-xs space-y-2 ${
+                      className={`p-3 rounded-xl border text-sm space-y-2 ${
                         cr.status === 'pending'
                           ? 'bg-amber-950/20 border-amber-500/30'
                           : cr.status === 'approved'
@@ -533,7 +515,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                           {language === 'ar' ? cr.fieldLabelAr : cr.fieldLabelEn}
                         </span>
                         <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                          className={`text-sm font-semibold px-2 py-0.5 rounded-full border ${
                             cr.status === 'pending'
                               ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                               : cr.status === 'approved'
@@ -549,22 +531,22 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                         </span>
                       </div>
 
-                      <div className="text-[11px] text-[#C9CCE4] flex items-center justify-between">
+                      <div className="text-sm text-[#C9CCE4] flex items-center justify-between">
                         <span>
                           {language === 'ar' ? `مقدم الطلب: ${cr.requesterName}` : `Requester: ${cr.requesterName}`}
                         </span>
-                        <span className="text-[10px] font-mono text-[#9FA5C7]">
+                        <span className="text-sm font-mono text-[#9FA5C7]">
                           {new Date(cr.requestedAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div className="grid grid-cols-2 gap-2 text-sm pt-1">
                         <div className="bg-black/30 p-2 rounded">
-                          <span className="text-[9px] text-[#9FA5C7] block">{language === 'ar' ? 'السابق:' : 'Previous:'}</span>
+                          <span className="text-sm text-[#9FA5C7] block">{language === 'ar' ? 'السابق:' : 'Previous:'}</span>
                           <span className="text-white">{language === 'ar' ? (cr.oldValueDisplayAr || cr.oldValue) : (cr.oldValueDisplayEn || cr.oldValue)}</span>
                         </div>
                         <div className="bg-black/30 p-2 rounded">
-                          <span className="text-[9px] text-[#C1C3E6] block">{language === 'ar' ? 'المقترح:' : 'Proposed:'}</span>
+                          <span className="text-sm text-[#C1C3E6] block">{language === 'ar' ? 'المقترح:' : 'Proposed:'}</span>
                           <span className="text-white font-semibold">{language === 'ar' ? (cr.proposedValueDisplayAr || cr.proposedValue) : (cr.proposedValueDisplayEn || cr.proposedValue)}</span>
                         </div>
                       </div>
@@ -576,7 +558,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                             type="button"
                             disabled={actionLoadingId === cr.id}
                             onClick={() => void handleApprove(cr.id)}
-                            className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition cursor-pointer flex items-center justify-center gap-1"
+                            className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition cursor-pointer flex items-center justify-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>{t.approveBtn}</span>
@@ -585,7 +567,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                             type="button"
                             disabled={actionLoadingId === cr.id}
                             onClick={() => void handleDecline(cr.id)}
-                            className="py-1.5 px-3 rounded-lg bg-rose-900/60 hover:bg-rose-900 border border-rose-500/40 text-rose-100 text-xs transition cursor-pointer flex items-center justify-center gap-1"
+                            className="py-1.5 px-3 rounded-lg bg-rose-900/60 hover:bg-rose-900 border border-rose-500/40 text-rose-100 text-sm transition cursor-pointer flex items-center justify-center gap-1"
                           >
                             <XCircle className="w-3.5 h-3.5" />
                             <span>{t.declineBtn}</span>
@@ -594,7 +576,7 @@ export const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({
                       )}
 
                       {cr.status === 'pending' && isRequester && (
-                        <div className="text-[10.5px] text-amber-300/90 pt-1 flex items-center gap-1">
+                        <div className="text-sm text-amber-300/90 pt-1 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           <span>{t.awaitingPartnerDecision}</span>
                         </div>

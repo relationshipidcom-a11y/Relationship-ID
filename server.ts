@@ -44,6 +44,7 @@ interface PartnerData {
   phoneNumber: string;
   phoneE164?: string;
   phoneVerified?: boolean;
+  sameWhatsapp?: boolean;
   whatsappCountry?: string;
   whatsappNumber?: string;
   whatsappE164?: string;
@@ -117,6 +118,24 @@ const PUBLIC_CONTACT_INDEX_COL = 'public_contact_index';
 const ACCOUNT_DELETIONS_COL = 'account_deletions';
 const RELATIONSHIP_DELETIONS_COL = 'relationship_deletions';
 const INVITATION_BLOCKS_COL = 'invitation_blocks';
+export const WHATSAPP_VERIFY_ATTEMPTS_COL = 'whatsapp_verify_attempts';
+export const WHATSAPP_VERIFY_LIMITS_COL = 'whatsapp_verify_limits';
+
+export interface WhatsAppVerificationAttempt {
+  attemptId: string;
+  uid: string;
+  canonicalPhone: string;
+  country?: string;
+  sid: string;
+  channel: 'whatsapp';
+  state: 'pending' | 'provider_approved' | 'consumed';
+  createdAt: string;
+  createdAtMs: number;
+  expiresAtMs: number;
+  consumedAt?: string;
+  providerApprovedAt?: string;
+  updatedAt?: string;
+}
 
 interface ChangeRequestDoc {
   id: string;
@@ -308,17 +327,21 @@ const getOwnedRecord = async (uid: string): Promise<RelationshipRecord | null> =
 
   const p1Snap = await adminDb.collection(RELATIONSHIPS_COL)
     .where('p1Uid', '==', uid)
-    .where('status', 'in', ['draft', 'pending_partner', 'active'])
-    .limit(1)
+    .limit(10)
     .get();
-  if (!p1Snap.empty) return p1Snap.docs[0].data() as RelationshipRecord;
+  const p1Record = p1Snap.docs
+    .map((d) => d.data() as RelationshipRecord)
+    .find((r) => ['draft', 'pending_partner', 'active'].includes(r.status));
+  if (p1Record) return p1Record;
 
   const p2Snap = await adminDb.collection(RELATIONSHIPS_COL)
     .where('p2Uid', '==', uid)
-    .where('status', 'in', ['active', 'pending_partner'])
-    .limit(1)
+    .limit(10)
     .get();
-  if (!p2Snap.empty) return p2Snap.docs[0].data() as RelationshipRecord;
+  const p2Record = p2Snap.docs
+    .map((d) => d.data() as RelationshipRecord)
+    .find((r) => ['active', 'pending_partner'].includes(r.status));
+  if (p2Record) return p2Record;
 
   return null;
 };
@@ -504,6 +527,10 @@ const checkUserActiveRelationshipConflict = async (
 };
 
 const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
+  VERIFIED_PHONE_REQUIRED: {
+    en: 'Please verify your phone number via WhatsApp before continuing.',
+    ar: 'يرجى التحقق من رقم جوالك عبر واتساب للمتابعة.'
+  },
   CONTACT_IN_ACTIVE_RELATIONSHIP: {
     en: 'This contact is already associated with an active relationship.',
     ar: 'جهة الاتصال هذه مرتبطة بسجل علاقة نشط بالفعل.'
@@ -592,6 +619,10 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
     en: 'You are not authorized to respond to this invitation.',
     ar: 'غير مصرح لك بالرد على هذه الدعوة.'
   },
+  NOT_INVITATION_OWNER: {
+    en: 'Only the inviter can cancel this invitation.',
+    ar: 'يمكن لمرسل الدعوة فقط إلغاء هذه الدعوة.'
+  },
   AUTH_DELETION_FAILED: {
     en: 'Account authentication deletion failed. Please retry.',
     ar: 'فشل حذف مصادقة الحساب. يرجى إعادة المحاولة.'
@@ -636,6 +667,10 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
     en: 'WhatsApp verification is currently unavailable.',
     ar: 'خدمة التحقق من واتساب غير متاحة حالياً.'
   },
+  WHATSAPP_VERIFY_PROVIDER_ERROR: {
+    en: 'WhatsApp verification provider service is temporarily unavailable. Please try again later.',
+    ar: 'خدمة التحقق من واتساب غير متاحة مؤقتاً من مزود الخدمة. يرجى المحاولة لاحقاً.'
+  },
   WHATSAPP_VERIFY_RATE_LIMITED: {
     en: 'Too many verification attempts. Please try again in an hour.',
     ar: 'محاولات تحقق كثيرة جداً. يرجى المحاولة بعد ساعة.'
@@ -655,6 +690,34 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
   RELATIONSHIP_NOT_PENDING: {
     en: 'This invitation is no longer available.',
     ar: 'هذه الدعوة لم تعد متاحة.'
+  },
+  NO_ACTIVE_VERIFICATION_ATTEMPT: {
+    en: 'No active verification attempt found. Please request a new verification code.',
+    ar: 'لا توجد محاولة تحقق نشطة. يرجى طلب رمز تحقق جديد.'
+  },
+  VERIFICATION_ATTEMPT_EXPIRED: {
+    en: 'Verification code has expired. Please request a new verification code.',
+    ar: 'انتهت صلاحية رمز التحقق. يرجى طلب رمز تحقق جديد.'
+  },
+  VERIFICATION_ATTEMPT_CONSUMED: {
+    en: 'This verification code has already been used. Please request a new code.',
+    ar: 'تم استخدام رمز التحقق هذا بالفعل. يرجى طلب رمز جديد.'
+  },
+  VERIFICATION_ATTEMPT_SUPERSEDED: {
+    en: 'A newer verification code was requested. Please use the most recent code.',
+    ar: 'تم طلب رمز تحقق أحدث. يرجى استخدام أحدث رمز تم إرساله.'
+  },
+  PHONE_NUMBER_MISMATCH: {
+    en: 'Phone number does not match the active verification request.',
+    ar: 'رقم الجوال لا يطابق طلب التحقق النشط.'
+  },
+  INVALID_VERIFICATION_ATTEMPT: {
+    en: 'Invalid verification attempt. Please request a new code.',
+    ar: 'محاولة تحقق غير صالحة. يرجى طلب رمز جديد.'
+  },
+  INVALID_VERIFICATION_CHANNEL: {
+    en: 'Invalid verification channel.',
+    ar: 'قناة التحقق غير صالحة.'
   }
 };
 
@@ -1427,10 +1490,29 @@ export function createApp(): express.Express {
       }
 
       const verifyServiceSid = process.env.TWILIO_VERIFY_SID!;
-      await client.verify.v2.services(verifyServiceSid).verifications.create({
+      const verification = await client.verify.v2.services(verifyServiceSid).verifications.create({
         to: norm.canonical,
-        channel: 'sms'
+        channel: 'whatsapp'
       });
+
+      const attemptId = crypto.randomUUID();
+      const now = Date.now();
+      const newAttempt: WhatsAppVerificationAttempt = {
+        attemptId,
+        uid: user.uid,
+        canonicalPhone: norm.canonical,
+        country: country || 'SA +966',
+        sid: (verification as any)?.sid || attemptId,
+        channel: 'whatsapp',
+        state: 'pending',
+        createdAt: new Date(now).toISOString(),
+        createdAtMs: now,
+        expiresAtMs: now + (10 * 60 * 1000), // 10 minutes expiry
+        updatedAt: new Date(now).toISOString()
+      };
+
+      const attemptRef = adminDb.collection(WHATSAPP_VERIFY_ATTEMPTS_COL).doc(user.uid);
+      await attemptRef.set(newAttempt);
 
       // Increment Firestore counter
       await limitRef.set({
@@ -1442,12 +1524,14 @@ export function createApp(): express.Express {
       return res.json({ success: true });
     } catch (err: any) {
       console.error('Error starting WhatsApp verification:', err);
-      const statusMap: Record<string, number> = {
-        WHATSAPP_VERIFY_UNAVAILABLE: 503,
-        INVALID_PHONE_NUMBER: 400
-      };
-      const code = err?.message || 'INTERNAL_ERROR';
-      return respondWithError(res, statusMap[code] || 500, code);
+      const code = err?.message || '';
+      if (code === 'WHATSAPP_VERIFY_UNAVAILABLE') {
+        return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');
+      }
+      if (code === 'INVALID_PHONE_NUMBER') {
+        return respondWithError(res, 400, 'INVALID_PHONE_NUMBER');
+      }
+      return respondWithError(res, 502, 'WHATSAPP_VERIFY_PROVIDER_ERROR');
     }
   });
 
@@ -1471,65 +1555,242 @@ export function createApp(): express.Express {
 
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
 
+      // Read server-owned attempt before calling Twilio
+      const attemptRef = adminDb.collection(WHATSAPP_VERIFY_ATTEMPTS_COL).doc(user.uid);
+      const attemptDoc = await attemptRef.get();
+
+      if (!attemptDoc.exists) {
+        return respondWithError(res, 400, 'NO_ACTIVE_VERIFICATION_ATTEMPT');
+      }
+
+      const attempt = attemptDoc.data() as WhatsAppVerificationAttempt;
+      if (!attempt || attempt.uid !== user.uid) {
+        return respondWithError(res, 400, 'INVALID_VERIFICATION_ATTEMPT');
+      }
+
+      if (attempt.canonicalPhone !== norm.canonical) {
+        return respondWithError(res, 400, 'PHONE_NUMBER_MISMATCH');
+      }
+
+      if (attempt.channel !== 'whatsapp') {
+        return respondWithError(res, 400, 'INVALID_VERIFICATION_CHANNEL');
+      }
+
+      if (attempt.state === 'consumed') {
+        return respondWithError(res, 400, 'VERIFICATION_ATTEMPT_CONSUMED');
+      }
+
+      const nowMs = Date.now();
+      if (attempt.expiresAtMs && nowMs > attempt.expiresAtMs) {
+        return respondWithError(res, 400, 'VERIFICATION_ATTEMPT_EXPIRED');
+      }
+
+      if (attempt.state !== 'pending' && attempt.state !== 'provider_approved') {
+        return respondWithError(res, 400, 'INVALID_VERIFICATION_ATTEMPT');
+      }
+
       const client = getTwilioClient();
       if (!client) {
         return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');
       }
 
       const verifyServiceSid = process.env.TWILIO_VERIFY_SID!;
-      let verificationCheck: any;
-      try {
-        verificationCheck = await client.verify.v2.services(verifyServiceSid).verificationChecks.create({
-          to: norm.canonical,
-          code: code.trim()
-        });
-      } catch (checkErr: any) {
-        console.warn('Twilio verification check error:', checkErr?.message);
-        return respondWithError(res, 400, 'INVALID_VERIFICATION_CODE');
-      }
 
-      if (!verificationCheck || verificationCheck.status !== 'approved') {
-        return respondWithError(res, 400, 'INVALID_VERIFICATION_CODE');
+      // Call Twilio Verify only if not already verified at provider (safe retry)
+      if (attempt.state !== 'provider_approved') {
+        let verificationCheck: any;
+        try {
+          verificationCheck = await client.verify.v2.services(verifyServiceSid).verificationChecks.create({
+            to: attempt.canonicalPhone,
+            code: code.trim()
+          });
+        } catch (checkErr: any) {
+          console.warn('Twilio verification check error:', checkErr?.message);
+          return respondWithError(res, 400, 'INVALID_VERIFICATION_CODE');
+        }
+
+        if (!verificationCheck || verificationCheck.status !== 'approved') {
+          return respondWithError(res, 400, 'INVALID_VERIFICATION_CODE');
+        }
+
+        if (verificationCheck.channel && verificationCheck.channel !== 'whatsapp') {
+          return respondWithError(res, 400, 'INVALID_VERIFICATION_CHANNEL');
+        }
+
+        // Persist provider_approved state on attempt before transaction to support safe retry if DB has a transient failure
+        try {
+          await attemptRef.update({
+            state: 'provider_approved',
+            providerApprovedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        } catch (updateErr) {
+          console.warn('Failed to record provider_approved state on attempt:', updateErr);
+        }
       }
 
       const nowIso = new Date().toISOString();
+      const preliminaryOwned = await getOwnedRecord(user.uid);
 
-      // Update caller's OWN partner record:
-      // 1. In users/{uid}
-      const userRef = adminDb.collection(USERS_COL).doc(user.uid);
-      await userRef.set({
-        whatsappE164: norm.canonical,
-        whatsappTrusted: true,
-        whatsappVerifiedAt: nowIso,
-        updatedAt: nowIso
-      }, { merge: true });
-
-      // 2. In active or draft relationship record if caller is P1 or P2
-      const owned = await getOwnedRecord(user.uid);
-      if (owned) {
-        const isP1 = owned.p1Uid === user.uid;
-        const isP2 = owned.p2Uid === user.uid;
-        if (isP1) {
-          owned.partner1.whatsappE164 = norm.canonical;
-          owned.partner1.whatsappTrusted = true;
-          owned.partner1.whatsappVerifiedAt = nowIso;
-        } else if (isP2) {
-          owned.partner2.whatsappE164 = norm.canonical;
-          owned.partner2.whatsappTrusted = true;
-          owned.partner2.whatsappVerifiedAt = nowIso;
+      await adminDb.runTransaction(async (transaction) => {
+        if (await isUserDeletionPending(adminDb, user.uid, transaction)) {
+          throw new Error('ACCOUNT_DELETION_PENDING');
         }
-        await adminDb.collection(RELATIONSHIPS_COL).doc(owned.id).set(owned, { merge: true });
-      }
+
+        // Recheck attempt doc inside the transaction!
+        const txAttemptDoc = await transaction.get(attemptRef);
+        if (!txAttemptDoc.exists) {
+          throw new Error('NO_ACTIVE_VERIFICATION_ATTEMPT');
+        }
+        const txAttempt = txAttemptDoc.data() as WhatsAppVerificationAttempt;
+
+        // Verify attemptId matches the attempt we validated (guards against superseded attempts / concurrent resend)
+        if (txAttempt.attemptId !== attempt.attemptId) {
+          throw new Error('VERIFICATION_ATTEMPT_SUPERSEDED');
+        }
+
+        // Verify state is not already consumed by a concurrent request
+        if (txAttempt.state === 'consumed') {
+          throw new Error('VERIFICATION_ATTEMPT_CONSUMED');
+        }
+
+        // Verify user and phone match
+        if (txAttempt.uid !== user.uid || txAttempt.canonicalPhone !== norm.canonical) {
+          throw new Error('INVALID_VERIFICATION_ATTEMPT');
+        }
+
+        // Verify expiry
+        if (txAttempt.expiresAtMs && Date.now() > txAttempt.expiresAtMs) {
+          throw new Error('VERIFICATION_ATTEMPT_EXPIRED');
+        }
+
+        const userRef = adminDb.collection(USERS_COL).doc(user.uid);
+        const userDoc = await transaction.get(userRef);
+        const activeRecordId = (userDoc.exists ? (userDoc.data()?.activeRecordId as string | undefined) : undefined) || preliminaryOwned?.id;
+
+        let owned: RelationshipRecord | null = null;
+        let ownedRef: FirebaseFirestore.DocumentReference | null = null;
+
+        if (activeRecordId) {
+          if (await isRelationshipDeletionPending(adminDb, activeRecordId, transaction)) {
+            throw new Error('RELATIONSHIP_DELETION_PENDING');
+          }
+
+          ownedRef = adminDb.collection(RELATIONSHIPS_COL).doc(activeRecordId);
+          const ownedDoc = await transaction.get(ownedRef);
+          if (ownedDoc.exists) {
+            const rec = ownedDoc.data() as RelationshipRecord;
+            if (rec.status !== 'ended' && rec.status !== 'cancelled') {
+              owned = rec;
+            }
+          }
+        }
+
+        if (owned) {
+          if (owned.status === 'deleting') {
+            throw new Error('RELATIONSHIP_DELETION_PENDING');
+          }
+
+          if (owned.status === 'active') {
+            const isP1 = owned.p1Uid === user.uid;
+            const isP2 = owned.p2Uid === user.uid;
+            const currentParticipantPhone = isP1 ? owned.partner1.phoneE164 : (isP2 ? owned.partner2.phoneE164 : null);
+            if (currentParticipantPhone && currentParticipantPhone !== norm.canonical) {
+              throw new Error('ACTIVE_RELATIONSHIP_LOCKED');
+            }
+          }
+        }
+
+        const contactCheck = await validateContactUniqueness(
+          adminDb,
+          { phones: [norm.canonical], whatsapps: [norm.canonical] },
+          owned?.id || null,
+          transaction
+        );
+        if (!contactCheck.valid) {
+          throw new Error(contactCheck.error?.code || 'CONTACT_IN_ACTIVE_RELATIONSHIP');
+        }
+
+        // Atomically consume the attempt
+        transaction.set(attemptRef, {
+          ...txAttempt,
+          state: 'consumed',
+          consumedAt: nowIso,
+          updatedAt: nowIso
+        }, { merge: true });
+
+        transaction.set(userRef, {
+          whatsappE164: norm.canonical,
+          whatsappTrusted: true,
+          whatsappVerifiedAt: nowIso,
+          phoneE164: norm.canonical,
+          phoneVerified: true,
+          phoneVerificationMethod: 'twilio_whatsapp',
+          updatedAt: nowIso
+        }, { merge: true });
+
+        if (owned && ownedRef) {
+          const isP1 = owned.p1Uid === user.uid;
+          const isP2 = owned.p2Uid === user.uid;
+          if (isP1) {
+            owned.partner1.whatsappE164 = norm.canonical;
+            owned.partner1.whatsappTrusted = true;
+            owned.partner1.whatsappVerifiedAt = nowIso;
+            owned.partner1.phoneE164 = norm.canonical;
+            owned.partner1.phoneVerified = true;
+          } else if (isP2) {
+            owned.partner2.whatsappE164 = norm.canonical;
+            owned.partner2.whatsappTrusted = true;
+            owned.partner2.whatsappVerifiedAt = nowIso;
+            owned.partner2.phoneE164 = norm.canonical;
+            owned.partner2.phoneVerified = true;
+          }
+          transaction.set(ownedRef, owned, { merge: true });
+        }
+      });
 
       return res.json({
         success: true,
         whatsappE164: norm.canonical,
         whatsappTrusted: true,
-        whatsappVerifiedAt: nowIso
+        whatsappVerifiedAt: nowIso,
+        phoneE164: norm.canonical,
+        phoneVerified: true
       });
     } catch (err: any) {
       console.error('Error checking WhatsApp verification:', err);
-      return respondWithError(res, 500, 'INTERNAL_ERROR');
+      const code = err?.message || '';
+      if (code === 'WHATSAPP_VERIFY_UNAVAILABLE') {
+        return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');
+      }
+      if (code === 'INVALID_PHONE_NUMBER') {
+        return respondWithError(res, 400, 'INVALID_PHONE_NUMBER');
+      }
+      if (
+        code === 'INVALID_INPUT' ||
+        code === 'INVALID_VERIFICATION_CODE' ||
+        code === 'NO_ACTIVE_VERIFICATION_ATTEMPT' ||
+        code === 'VERIFICATION_ATTEMPT_EXPIRED' ||
+        code === 'VERIFICATION_ATTEMPT_CONSUMED' ||
+        code === 'VERIFICATION_ATTEMPT_SUPERSEDED' ||
+        code === 'PHONE_NUMBER_MISMATCH' ||
+        code === 'INVALID_VERIFICATION_ATTEMPT' ||
+        code === 'INVALID_VERIFICATION_CHANNEL'
+      ) {
+        return respondWithError(res, 400, code);
+      }
+      if (
+        code === 'ACCOUNT_DELETION_PENDING' ||
+        code === 'RELATIONSHIP_DELETION_PENDING' ||
+        code === 'ACTIVE_RELATIONSHIP_LOCKED' ||
+        code === 'CONTACT_IN_ACTIVE_RELATIONSHIP'
+      ) {
+        return respondWithError(res, 409, code);
+      }
+      if (code === 'DATABASE_ERROR') {
+        return respondWithError(res, 500, 'DATABASE_ERROR');
+      }
+      return respondWithError(res, 502, 'WHATSAPP_VERIFY_PROVIDER_ERROR');
     }
   });
 
@@ -1538,10 +1799,37 @@ export function createApp(): express.Express {
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
       const user = userFromResponse(res);
       const userDoc = await adminDb.collection(USERS_COL).doc(user.uid).get();
-      const userProfile = userDoc.exists ? (userDoc.data()?.profile as PartnerData | undefined) : null;
+      const userData = userDoc.exists ? userDoc.data() : null;
+      let userProfile = (userData?.profile as PartnerData | undefined) || null;
+      if (userProfile) {
+        const isTwilioVerified = Boolean(
+          userData?.whatsappTrusted &&
+          userData?.whatsappE164 &&
+          (!userProfile.phoneE164 || userProfile.phoneE164 === userData.whatsappE164)
+        );
+        const isLegacyVerified = Boolean(
+          user.phone_number &&
+          (!userProfile.phoneE164 || userProfile.phoneE164 === user.phone_number)
+        );
+        const isPhoneVerified = isTwilioVerified || isLegacyVerified;
+        userProfile.phoneVerified = isPhoneVerified;
+        if (user.phone_number) {
+          userProfile.phoneE164 = user.phone_number;
+        } else if (isTwilioVerified && userData?.whatsappE164) {
+          userProfile.phoneE164 = userData.whatsappE164;
+        }
+        if (isTwilioVerified) {
+          userProfile.whatsappTrusted = true;
+          userProfile.whatsappE164 = userData?.whatsappE164;
+          userProfile.whatsappVerifiedAt = userData?.whatsappVerifiedAt;
+        } else {
+          userProfile.whatsappTrusted = false;
+          userProfile.whatsappVerifiedAt = undefined;
+        }
+      }
       const record = await getOwnedRecord(user.uid);
       let invitation: Invitation | null = null;
-      if (record?.inviteId) {
+      if (record?.inviteId && record.inviteId !== 'current') {
         const invDoc = await adminDb.collection(INVITATIONS_COL).doc(record.inviteId).get();
         if (invDoc.exists) {
           invitation = invDoc.data() as Invitation;
@@ -1554,7 +1842,7 @@ export function createApp(): express.Express {
       });
     } catch (error) {
       console.error('Error fetching relationship:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -1603,8 +1891,9 @@ export function createApp(): express.Express {
       if (!startDate || startDate > new Date().toISOString().slice(0, 10)) {
         return res.status(400).json({ error: 'INVALID_START_DATE' });
       }
-      if (!user.phone_number || !partner1.phoneE164 || user.phone_number !== partner1.phoneE164) {
-        return res.status(400).json({ error: 'VERIFIED_PHONE_REQUIRED' });
+      const p1PrePhone = normalizeCanonicalPhone(partner1.phoneE164 || partner1.phoneNumber, partner1.phoneCountry);
+      if (!p1PrePhone.isValid || !p1PrePhone.canonical) {
+        return respondWithError(res, 400, 'INVALID_PHONE_NUMBER');
       }
 
       const result = await adminDb.runTransaction(async (transaction) => {
@@ -1654,6 +1943,7 @@ export function createApp(): express.Express {
         }
 
         // Validate and normalize P1's contacts
+        const nowIso = new Date().toISOString();
         const p1EmailNorm = normalizeCanonicalEmail(partner1.email);
         if (!p1EmailNorm.isValid) throw new Error('INVALID_CONTACT_FORMAT');
 
@@ -1665,22 +1955,43 @@ export function createApp(): express.Express {
 
         delete (partner1 as any).whatsappTrusted;
         delete (partner1 as any).whatsappVerifiedAt;
+        delete (partner1 as any).phoneVerified;
 
         partner1.email = p1EmailNorm.canonical;
         partner1.phoneE164 = p1PhoneNorm.canonical;
-        partner1.whatsappE164 = p1WaNorm.canonical || undefined;
-        const isSameAsMobile = Boolean(p1WaNorm.canonical && partner1.phoneE164 && p1WaNorm.canonical === partner1.phoneE164);
-        const isTwilioVerified = Boolean(
+        partner1.whatsappE164 = p1WaNorm.canonical || partner1.phoneE164;
+
+        const isP1PhoneTwilioVerified = Boolean(
+          p1PhoneNorm.canonical &&
+          userDoc.exists &&
+          userDoc.data()?.whatsappTrusted === true &&
+          userDoc.data()?.whatsappE164 === p1PhoneNorm.canonical
+        );
+        const isP1PhoneLegacyVerified = Boolean(
+          user.phone_number &&
+          p1PhoneNorm.canonical &&
+          user.phone_number === p1PhoneNorm.canonical
+        );
+        const isP1WaTwilioVerified = Boolean(
           p1WaNorm.canonical &&
           userDoc.exists &&
-          userDoc.data()?.whatsappE164 === p1WaNorm.canonical &&
-          userDoc.data()?.whatsappTrusted === true
+          userDoc.data()?.whatsappTrusted === true &&
+          userDoc.data()?.whatsappE164 === p1WaNorm.canonical
         );
-        partner1.whatsappTrusted = isSameAsMobile || isTwilioVerified;
-        if (isTwilioVerified && !isSameAsMobile) {
-          partner1.whatsappVerifiedAt = userDoc.data()?.whatsappVerifiedAt;
-        } else if (!isSameAsMobile) {
-          partner1.whatsappVerifiedAt = undefined;
+
+        const isP1MobileVerified = isP1PhoneTwilioVerified || isP1PhoneLegacyVerified;
+        if (!isP1MobileVerified) {
+          throw new Error('VERIFIED_PHONE_REQUIRED');
+        }
+
+        partner1.phoneVerified = true;
+        const isSameAsMobile = Boolean(partner1.whatsappE164 && partner1.phoneE164 && partner1.whatsappE164 === partner1.phoneE164);
+        if (isSameAsMobile) {
+          partner1.whatsappTrusted = isP1PhoneTwilioVerified;
+          partner1.whatsappVerifiedAt = isP1PhoneTwilioVerified ? (userDoc.data()?.whatsappVerifiedAt || nowIso) : undefined;
+        } else {
+          partner1.whatsappTrusted = isP1WaTwilioVerified;
+          partner1.whatsappVerifiedAt = isP1WaTwilioVerified ? (userDoc.data()?.whatsappVerifiedAt || nowIso) : undefined;
         }
 
         // Enforce: P1's email, phone, or WhatsApp cannot belong to another active relationship
@@ -1698,7 +2009,6 @@ export function createApp(): express.Express {
           throw new Error(contactCheck.error?.code || 'CONTACT_IN_ACTIVE_RELATIONSHIP');
         }
 
-        const nowIso = new Date().toISOString();
         let targetRecord: RelationshipRecord;
 
         if (!existingRecord) {
@@ -1726,6 +2036,7 @@ export function createApp(): express.Express {
           transaction.set(relRef, targetRecord);
           transaction.set(userRef, {
             activeRecordId: recordId,
+            profile: partner1,
             phoneE164: partner1.phoneE164,
             legalConsentVersion: CURRENT_LEGAL_VERSION,
             legalConsentAt: nowIso,
@@ -1752,6 +2063,7 @@ export function createApp(): express.Express {
           };
           transaction.set(existingRecordRef!, targetRecord, { merge: true });
           transaction.set(userRef, {
+            profile: mergedPartner1,
             phoneE164: partner1.phoneE164,
             legalConsentVersion: CURRENT_LEGAL_VERSION,
             legalConsentAt: nowIso,
@@ -2036,11 +2348,18 @@ export function createApp(): express.Express {
         if (token) {
           try {
             const decoded = await adminAuth.verifyIdToken(token);
+            let effectivePhone = decoded.phone_number;
+            if (!effectivePhone && adminDb) {
+              const uDoc = await adminDb.collection(USERS_COL).doc(decoded.uid).get();
+              if (uDoc.exists && uDoc.data()?.whatsappTrusted && uDoc.data()?.whatsappE164) {
+                effectivePhone = uDoc.data()?.whatsappE164;
+              }
+            }
             authenticatedUser = {
               uid: decoded.uid,
               email: decoded.email,
               email_verified: Boolean(decoded.email_verified),
-              phone_number: decoded.phone_number
+              phone_number: effectivePhone
             };
           } catch {
             // Unauthenticated or invalid token - fall through to public preview
@@ -2123,7 +2442,7 @@ export function createApp(): express.Express {
       });
     } catch (error) {
       console.error('Error getting invitation preview:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -2172,8 +2491,9 @@ export function createApp(): express.Express {
       if (!isAtLeast18(partner2.birthYear, partner2.birthMonth, partner2.birthDay)) {
         return respondWithError(res, 400, 'AGE_REQUIREMENT_NOT_MET');
       }
-      if (!user.phone_number || !partner2.phoneE164 || user.phone_number !== partner2.phoneE164) {
-        return res.status(400).json({ error: 'VERIFIED_PHONE_REQUIRED' });
+      const p2PhoneNormPre = normalizeCanonicalPhone(partner2.phoneE164 || partner2.phoneNumber, partner2.phoneCountry);
+      if (!p2PhoneNormPre.isValid || !p2PhoneNormPre.canonical) {
+        return respondWithError(res, 400, 'INVALID_PHONE_NUMBER');
       }
 
       const inviteRef = adminDb.collection(INVITATIONS_COL).doc(req.params.inviteId);
@@ -2200,13 +2520,17 @@ export function createApp(): express.Express {
           throw new Error('RELATIONSHIP_DELETION_PENDING');
         }
 
+        const p2UserRef = adminDb.collection(USERS_COL).doc(user.uid);
+        const p2UserDoc = await transaction.get(p2UserRef);
+
+        const p2EffectivePhone = user.phone_number || (p2UserDoc.exists && p2UserDoc.data()?.whatsappTrusted ? p2UserDoc.data()?.whatsappE164 : undefined);
         const recipientCheck = verifyRecipientIdentity({
           invitation,
           user: {
             uid: user.uid,
             email: user.email,
             email_verified: Boolean(user.email_verified),
-            phone_number: user.phone_number
+            phone_number: p2EffectivePhone
           },
           isAction: 'accept'
         });
@@ -2235,8 +2559,6 @@ export function createApp(): express.Express {
         }
 
         // Check if P2 is already bound to an active relationship
-        const p2UserRef = adminDb.collection(USERS_COL).doc(user.uid);
-        const p2UserDoc = await transaction.get(p2UserRef);
         if (p2UserDoc.exists && p2UserDoc.data()?.activeRecordId && p2UserDoc.data()?.activeRecordId !== record.id) {
           const existingRelDoc = await transaction.get(adminDb.collection(RELATIONSHIPS_COL).doc(p2UserDoc.data()?.activeRecordId));
           if (existingRelDoc.exists && (existingRelDoc.data() as RelationshipRecord).status === 'active') {
@@ -2245,6 +2567,8 @@ export function createApp(): express.Express {
         }
 
         // Check if P1 or P2 contacts are bound to any other active relationship
+        const now = new Date();
+        const nowIso = now.toISOString();
         const p2EmailNorm = normalizeCanonicalEmail(partner2.email);
         if (!p2EmailNorm.isValid) throw new Error('INVALID_CONTACT_FORMAT');
 
@@ -2264,22 +2588,43 @@ export function createApp(): express.Express {
 
         delete (partner2 as any).whatsappTrusted;
         delete (partner2 as any).whatsappVerifiedAt;
+        delete (partner2 as any).phoneVerified;
 
         partner2.email = p2EmailNorm.canonical;
         partner2.phoneE164 = p2PhoneNorm.canonical;
-        partner2.whatsappE164 = p2WaNorm.canonical || undefined;
-        const p2IsSameAsMobile = Boolean(p2WaNorm.canonical && partner2.phoneE164 && p2WaNorm.canonical === partner2.phoneE164);
-        const p2IsTwilioVerified = Boolean(
+        partner2.whatsappE164 = p2WaNorm.canonical || partner2.phoneE164;
+
+        const isP2PhoneTwilioVerified = Boolean(
+          p2PhoneNorm.canonical &&
+          p2UserDoc.exists &&
+          p2UserDoc.data()?.whatsappTrusted === true &&
+          p2UserDoc.data()?.whatsappE164 === p2PhoneNorm.canonical
+        );
+        const isP2PhoneLegacyVerified = Boolean(
+          user.phone_number &&
+          p2PhoneNorm.canonical &&
+          user.phone_number === p2PhoneNorm.canonical
+        );
+        const isP2WaTwilioVerified = Boolean(
           p2WaNorm.canonical &&
           p2UserDoc.exists &&
-          p2UserDoc.data()?.whatsappE164 === p2WaNorm.canonical &&
-          p2UserDoc.data()?.whatsappTrusted === true
+          p2UserDoc.data()?.whatsappTrusted === true &&
+          p2UserDoc.data()?.whatsappE164 === p2WaNorm.canonical
         );
-        partner2.whatsappTrusted = p2IsSameAsMobile || p2IsTwilioVerified;
-        if (p2IsTwilioVerified && !p2IsSameAsMobile) {
-          partner2.whatsappVerifiedAt = p2UserDoc.data()?.whatsappVerifiedAt;
-        } else if (!p2IsSameAsMobile) {
-          partner2.whatsappVerifiedAt = undefined;
+
+        const isP2MobileVerified = isP2PhoneTwilioVerified || isP2PhoneLegacyVerified;
+        if (!isP2MobileVerified) {
+          throw new Error('VERIFIED_PHONE_REQUIRED');
+        }
+
+        partner2.phoneVerified = true;
+        const p2IsSameAsMobile = Boolean(partner2.whatsappE164 && partner2.phoneE164 && partner2.whatsappE164 === partner2.phoneE164);
+        if (p2IsSameAsMobile) {
+          partner2.whatsappTrusted = isP2PhoneTwilioVerified;
+          partner2.whatsappVerifiedAt = isP2PhoneTwilioVerified ? (p2UserDoc.data()?.whatsappVerifiedAt || nowIso) : undefined;
+        } else {
+          partner2.whatsappTrusted = isP2WaTwilioVerified;
+          partner2.whatsappVerifiedAt = isP2WaTwilioVerified ? (p2UserDoc.data()?.whatsappVerifiedAt || nowIso) : undefined;
         }
 
         const p1EmailNorm = normalizeCanonicalEmail(record.partner1.email);
@@ -2293,19 +2638,35 @@ export function createApp(): express.Express {
 
         record.partner1.email = p1EmailNorm.canonical;
         record.partner1.phoneE164 = p1PhoneNorm.canonical;
-        record.partner1.whatsappE164 = p1WaNorm.canonical || undefined;
-        const p1IsSameAsMobile = Boolean(p1WaNorm.canonical && record.partner1.phoneE164 && p1WaNorm.canonical === record.partner1.phoneE164);
-        const p1IsTwilioVerified = Boolean(
-          p1WaNorm.canonical &&
+        const p1EffectiveWa = p1WaNorm.canonical || record.partner1.phoneE164;
+        record.partner1.whatsappE164 = p1EffectiveWa;
+        const p1IsSameAsMobile = Boolean(record.partner1.phoneE164 && p1EffectiveWa === record.partner1.phoneE164);
+
+        const isP1PhoneTwilioVerified = Boolean(
+          record.partner1.phoneE164 &&
           p1UserDoc.exists &&
-          p1UserDoc.data()?.whatsappE164 === p1WaNorm.canonical &&
-          p1UserDoc.data()?.whatsappTrusted === true
+          p1UserDoc.data()?.whatsappTrusted === true &&
+          p1UserDoc.data()?.whatsappE164 === record.partner1.phoneE164
         );
-        record.partner1.whatsappTrusted = p1IsSameAsMobile || p1IsTwilioVerified;
-        if (p1IsTwilioVerified && !p1IsSameAsMobile) {
-          record.partner1.whatsappVerifiedAt = p1UserDoc.data()?.whatsappVerifiedAt;
-        } else if (!p1IsSameAsMobile) {
-          record.partner1.whatsappVerifiedAt = undefined;
+        const isP1WaTwilioVerified = Boolean(
+          p1EffectiveWa &&
+          p1UserDoc.exists &&
+          p1UserDoc.data()?.whatsappTrusted === true &&
+          p1UserDoc.data()?.whatsappE164 === p1EffectiveWa
+        );
+
+        if (p1IsSameAsMobile) {
+          record.partner1.whatsappTrusted = isP1PhoneTwilioVerified;
+          record.partner1.whatsappVerifiedAt = isP1PhoneTwilioVerified
+            ? (p1UserDoc.data()?.whatsappVerifiedAt || record.partner1.whatsappVerifiedAt || nowIso)
+            : undefined;
+        } else {
+          // Different WhatsApp number: MUST be specifically verified for that exact WhatsApp number!
+          // Verified mobile A must NEVER mark a different WhatsApp B as trusted!
+          record.partner1.whatsappTrusted = isP1WaTwilioVerified;
+          record.partner1.whatsappVerifiedAt = isP1WaTwilioVerified
+            ? (p1UserDoc.data()?.whatsappVerifiedAt || nowIso)
+            : undefined;
         }
 
         const { hashes, invalidContacts } = extractCanonicalContacts(record.partner1, partner2);
@@ -2323,8 +2684,6 @@ export function createApp(): express.Express {
           }
         }
 
-        const now = new Date();
-        const nowIso = now.toISOString();
         const recordNumber = crypto.randomInt(100000, 999999).toString();
         const verificationRef = `RID-${now.getUTCFullYear()}-${recordNumber}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         const issuedDate = new Intl.DateTimeFormat('en', { day: '2-digit', month: 'long', year: 'numeric' }).format(now);
@@ -2430,6 +2789,7 @@ export function createApp(): express.Express {
         SELF_INVITATION_NOT_ALLOWED: 400,
         CURRENTLY_SIGNED_IN_AS_INVITER: 403,
         P2_AUTH_REQUIRED: 401,
+        VERIFIED_PHONE_REQUIRED: 400,
         INVALID_PHONE_NUMBER: 400,
         INVALID_CONTACT_FORMAT: 400
       };
@@ -2468,13 +2828,16 @@ export function createApp(): express.Express {
           throw new Error('RELATIONSHIP_DELETION_PENDING');
         }
 
+        const declinerDoc = await transaction.get(adminDb.collection(USERS_COL).doc(user.uid));
+        const declinerPhone = user.phone_number || (declinerDoc.exists && declinerDoc.data()?.whatsappTrusted ? declinerDoc.data()?.whatsappE164 : undefined);
+
         const recipientCheck = verifyRecipientIdentity({
           invitation,
           user: {
             uid: user.uid,
             email: user.email,
             email_verified: Boolean(user.email_verified),
-            phone_number: user.phone_number
+            phone_number: declinerPhone
           },
           isAction: 'decline'
         });
@@ -2494,8 +2857,8 @@ export function createApp(): express.Express {
           const c = normalizeCanonicalEmail(user.email).canonical;
           if (c) p2Hashes.push(hashContact(c));
         }
-        if (user.phone_number) {
-          const c = normalizeCanonicalPhone(user.phone_number).canonical;
+        if (declinerPhone) {
+          const c = normalizeCanonicalPhone(declinerPhone).canonical;
           if (c) p2Hashes.push(hashContact(c));
         }
         if (invitation.partner2Email) {
@@ -2578,7 +2941,6 @@ export function createApp(): express.Express {
           throw new Error('RELATIONSHIP_DELETION_PENDING');
         }
 
-        transaction.update(inviteRef, { status: 'cancelled' });
         const relRef = adminDb.collection(RELATIONSHIPS_COL).doc(invitation.recordId);
         const relDoc = await transaction.get(relRef);
         let updatedRecord: RelationshipRecord | null = null;
@@ -2589,6 +2951,11 @@ export function createApp(): express.Express {
             status: 'draft',
             inviteId: undefined
           };
+        }
+
+        // WRITE PHASE: all reads and validations above must complete before writes
+        transaction.update(inviteRef, { status: 'cancelled' });
+        if (relDoc.exists) {
           transaction.update(relRef, {
             status: 'draft',
             inviteId: FieldValue.delete()
@@ -2609,7 +2976,7 @@ export function createApp(): express.Express {
         ACCOUNT_DELETION_PENDING: 409,
         RELATIONSHIP_DELETION_PENDING: 409
       };
-      const statusCode = statusMap[msg] || 500;
+      const statusCode = statusMap[msg] || (msg.startsWith('INVITATION_') ? 409 : 500);
       return respondWithError(res, statusCode, msg);
     }
   });
@@ -2705,7 +3072,7 @@ export function createApp(): express.Express {
       console.error('Error updating settings:', error);
       const msg = error instanceof Error ? error.message : String(error);
       const status = msg === 'RELATIONSHIP_NOT_FOUND' ? 404 : msg === 'NOT_RELATIONSHIP_PARTICIPANT' ? 403 : 500;
-      return res.status(status).json({ error: msg === 'RELATIONSHIP_NOT_FOUND' || msg === 'NOT_RELATIONSHIP_PARTICIPANT' ? msg : 'DATABASE_ERROR' });
+      return respondWithError(res, status, msg);
     }
   });
 
@@ -2766,7 +3133,7 @@ export function createApp(): express.Express {
       return res.status(404).json({ found: false, message: 'No record found' });
     } catch (error) {
       console.error('Error verifying record:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -2795,7 +3162,7 @@ export function createApp(): express.Express {
       return res.json({ changeRequests });
     } catch (error) {
       console.error('Error fetching change requests:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -3166,6 +3533,339 @@ export function createApp(): express.Express {
     }
   });
 
+  app.get(['/api/profile', '/api/profile/me'], requireAuth, async (_req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const userDoc = await adminDb.collection(USERS_COL).doc(user.uid).get();
+      const userData = userDoc.exists ? userDoc.data() : null;
+      let profile = (userData?.profile as PartnerData | undefined) || null;
+
+      const phoneFromAuth = user.phone_number || null;
+      const phoneE164FromDoc = (userData?.phoneE164 as string | undefined) || null;
+      const waE164FromDoc = (userData?.whatsappE164 as string | undefined) || null;
+      const waTrustedFromDoc = Boolean(userData?.whatsappTrusted);
+
+      const targetProfileWa = profile
+        ? (profile.sameWhatsapp !== false ? (profile.phoneE164 || phoneFromAuth || waE164FromDoc) : (profile.whatsappE164 || profile.phoneE164))
+        : null;
+      const isWaVerified = Boolean(
+        waTrustedFromDoc &&
+        waE164FromDoc &&
+        (!targetProfileWa || targetProfileWa === waE164FromDoc)
+      );
+      const isLegacyPhoneVerified = Boolean(phoneFromAuth && (!profile?.phoneE164 || profile.phoneE164 === phoneFromAuth));
+      const isPhoneVerified = isLegacyPhoneVerified || isWaVerified;
+      const effectivePhone = phoneFromAuth || (isWaVerified ? waE164FromDoc : null) || phoneE164FromDoc || profile?.phoneE164 || null;
+
+      if (profile) {
+        profile = {
+          ...profile,
+          email: profile.email || user.email || '',
+          phoneVerified: isPhoneVerified,
+          phoneE164: effectivePhone || undefined,
+          whatsappTrusted: isWaVerified,
+          whatsappVerifiedAt: isWaVerified ? (userData?.whatsappVerifiedAt as string | undefined) : undefined
+        };
+      } else if (user.email || phoneFromAuth || (waTrustedFromDoc && waE164FromDoc)) {
+        const defaultPhone = phoneFromAuth || (isWaVerified ? waE164FromDoc : '') || '';
+        profile = {
+          fullName: user.name || '',
+          birthDay: '',
+          birthMonth: '',
+          birthYear: '',
+          email: user.email || '',
+          phoneCountry: 'SA +966',
+          phoneNumber: defaultPhone,
+          phoneE164: defaultPhone || undefined,
+          phoneVerified: isPhoneVerified,
+          sameWhatsapp: true,
+          whatsappCountry: 'SA +966',
+          whatsappNumber: defaultPhone,
+          whatsappTrusted: isWaVerified,
+          whatsappVerifiedAt: isWaVerified ? (userData?.whatsappVerifiedAt as string | undefined) : undefined
+        };
+      }
+
+      return res.json({
+        success: true,
+        profile,
+        verification: {
+          phoneVerified: isPhoneVerified,
+          phoneE164: effectivePhone,
+          emailVerified: Boolean(user.email_verified),
+          email: user.email || null,
+          whatsappTrusted: Boolean(profile?.whatsappTrusted),
+          whatsappE164: profile?.whatsappE164 || waE164FromDoc || null
+        }
+      });
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.post(['/api/profile', '/api/profile/me'], requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      if (!limiter(`profile_save:${user.uid}`, 20, 60000)) {
+        return respondWithError(res, 429, 'RATE_LIMITED');
+      }
+
+      const body = req.body as Record<string, unknown>;
+      const rawPartner = (body.partner || body.partner1 || body.profile || body) as Record<string, any>;
+
+      if (rawPartner.fullName !== undefined) {
+        const check = validateFieldLength(rawPartner.fullName, 'fullName', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+      if (rawPartner.fullNameEn !== undefined) {
+        const check = validateFieldLength(rawPartner.fullNameEn, 'fullNameEn', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+      if (rawPartner.socialHandle !== undefined) {
+        const check = validateFieldLength(rawPartner.socialHandle, 'socialHandle', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+      if (rawPartner.socialAccounts !== undefined) {
+        const check = validateSocialAccounts(rawPartner.socialAccounts);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+        rawPartner.socialAccounts = check.sanitized;
+      }
+      if (rawPartner.email !== undefined) {
+        const check = validateFieldLength(rawPartner.email, 'email', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+      if (rawPartner.phoneNumber !== undefined || rawPartner.phoneE164 !== undefined) {
+        const check = validateFieldLength(rawPartner.phoneNumber || rawPartner.phoneE164, 'phone', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+      if (rawPartner.whatsappNumber !== undefined || rawPartner.whatsappE164 !== undefined) {
+        const check = validateFieldLength(rawPartner.whatsappNumber || rawPartner.whatsappE164, 'whatsapp', false);
+        if (!check.valid) return respondWithError(res, 400, check.error);
+      }
+
+      const phoneCandidate = rawPartner.phoneE164 || rawPartner.phoneNumber;
+      const phoneNorm = phoneCandidate ? normalizeCanonicalPhone(phoneCandidate, rawPartner.phoneCountry) : { isValid: false, canonical: null };
+      const canonicalPhone = phoneNorm.canonical;
+
+      // Authoritative verification: phone is verified ONLY if matching user.phone_number in auth token
+      const isPhoneVerified = Boolean(canonicalPhone && user.phone_number && canonicalPhone === user.phone_number);
+
+      const explicitSameWa = typeof rawPartner.sameWhatsapp === 'boolean' ? rawPartner.sameWhatsapp : undefined;
+      const sameWa = explicitSameWa !== undefined
+        ? explicitSameWa
+        : Boolean(!rawPartner.whatsappNumber || rawPartner.whatsappNumber === rawPartner.phoneNumber);
+
+      const waCandidate = sameWa ? canonicalPhone : (rawPartner.whatsappE164 || rawPartner.whatsappNumber);
+      const waNorm = waCandidate ? normalizeCanonicalPhone(waCandidate, rawPartner.whatsappCountry || rawPartner.phoneCountry) : { isValid: false, canonical: null };
+      const canonicalWa = waNorm.canonical;
+
+      const userRef = adminDb.collection(USERS_COL).doc(user.uid);
+      const owned = await getOwnedRecord(user.uid);
+
+      const result = await adminDb.runTransaction(async (transaction) => {
+        // Read 1: Account deletion guard
+        const userDelRef = adminDb.collection(ACCOUNT_DELETIONS_COL).doc(user.uid);
+        const userDelDoc = await transaction.get(userDelRef);
+        if (userDelDoc.exists) {
+          throw new Error('ACCOUNT_DELETION_PENDING');
+        }
+
+        // Read 2: User profile document
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.exists ? userDoc.data() : null;
+
+        // Read 3: Owned relationship and deletion guard
+        let relRef: FirebaseFirestore.DocumentReference | null = null;
+        let currentRel: RelationshipRecord | null = null;
+
+        if (owned) {
+          relRef = adminDb.collection(RELATIONSHIPS_COL).doc(owned.id);
+          const relDoc = await transaction.get(relRef);
+          if (relDoc.exists) {
+            currentRel = relDoc.data() as RelationshipRecord;
+            if (currentRel.status === 'active') {
+              const isP1 = currentRel.p1Uid === user.uid;
+              const currentPartner = isP1 ? currentRel.partner1 : currentRel.partner2;
+              if (rawPartner.fullName && rawPartner.fullName !== currentPartner.fullName) {
+                throw new Error('ACTIVE_RELATIONSHIP_LOCKED');
+              }
+              if (rawPartner.birthYear && rawPartner.birthYear !== currentPartner.birthYear) {
+                throw new Error('ACTIVE_RELATIONSHIP_LOCKED');
+              }
+            } else if (currentRel.status === 'draft') {
+              const relDelRef = adminDb.collection(RELATIONSHIP_DELETIONS_COL).doc(owned.id);
+              const relDelDoc = await transaction.get(relDelRef);
+              if (relDelDoc.exists) {
+                throw new Error('RELATIONSHIP_DELETION_PENDING');
+              }
+            }
+          }
+        }
+
+        // All reads complete. Compute WhatsApp and phone trust state based on transaction data:
+        const isTwilioPhoneVerified = Boolean(
+          canonicalPhone &&
+          userData?.whatsappTrusted &&
+          userData?.whatsappE164 === canonicalPhone
+        );
+        const isLegacyPhoneVerified = Boolean(
+          canonicalPhone &&
+          user.phone_number &&
+          canonicalPhone === user.phone_number
+        );
+        const effectivePhoneVerified = isTwilioPhoneVerified || isLegacyPhoneVerified;
+
+        // Label a number "Verified via WhatsApp" ONLY when server-authoritative evidence shows that exact number passed a WhatsApp check.
+        // A legacy Firebase SMS verification (isLegacyPhoneVerified) must NEVER set whatsappTrusted: true, even if sameWa is true.
+        // And verified mobile A must never mark a different WhatsApp B as trusted.
+        const targetWa = sameWa ? canonicalPhone : canonicalWa;
+        const isWaTrusted = Boolean(
+          targetWa &&
+          userData?.whatsappTrusted === true &&
+          userData?.whatsappE164 === targetWa
+        );
+        const waVerifiedAt = isWaTrusted ? (userData?.whatsappVerifiedAt as string | undefined) : undefined;
+
+        const nowIso = new Date().toISOString();
+        const cleanProfile: PartnerData = {
+          fullName: typeof rawPartner.fullName === 'string' ? rawPartner.fullName.trim() : '',
+          fullNameEn: typeof rawPartner.fullNameEn === 'string' ? rawPartner.fullNameEn.trim() : undefined,
+          birthDay: typeof rawPartner.birthDay === 'string' ? rawPartner.birthDay : '',
+          birthMonth: typeof rawPartner.birthMonth === 'string' ? rawPartner.birthMonth : '',
+          birthYear: typeof rawPartner.birthYear === 'string' ? rawPartner.birthYear : '',
+          email: typeof rawPartner.email === 'string' ? rawPartner.email.trim() : (user.email || ''),
+          phoneCountry: typeof rawPartner.phoneCountry === 'string' ? rawPartner.phoneCountry : 'SA +966',
+          phoneNumber: typeof rawPartner.phoneNumber === 'string' ? rawPartner.phoneNumber.trim() : (canonicalPhone || ''),
+          phoneE164: canonicalPhone || undefined,
+          phoneVerified: effectivePhoneVerified,
+          sameWhatsapp: sameWa,
+          whatsappCountry: typeof rawPartner.whatsappCountry === 'string' ? rawPartner.whatsappCountry : undefined,
+          whatsappNumber: typeof rawPartner.whatsappNumber === 'string' ? rawPartner.whatsappNumber.trim() : undefined,
+          whatsappE164: canonicalWa || undefined,
+          whatsappTrusted: isWaTrusted,
+          whatsappVerifiedAt: waVerifiedAt,
+          socialAccounts: Array.isArray(rawPartner.socialAccounts) ? rawPartner.socialAccounts : undefined,
+          socialHandle: typeof rawPartner.socialHandle === 'string' ? rawPartner.socialHandle.trim().replace(/^@/, '') : undefined
+        };
+
+        // Write phase:
+        transaction.set(userRef, {
+          profile: cleanProfile,
+          phoneE164: effectivePhoneVerified ? canonicalPhone : (userData?.phoneE164 || null),
+          whatsappE164: isWaTrusted ? canonicalWa : (userData?.whatsappE164 || null),
+          whatsappTrusted: isWaTrusted,
+          updatedAt: nowIso
+        }, { merge: true });
+
+        if (currentRel && currentRel.status === 'draft' && relRef) {
+          const isP1 = currentRel.p1Uid === user.uid;
+          if (isP1) {
+            transaction.set(relRef, { partner1: { ...currentRel.partner1, ...cleanProfile }, updatedAt: nowIso }, { merge: true });
+          } else {
+            transaction.set(relRef, { partner2: { ...currentRel.partner2, ...cleanProfile }, updatedAt: nowIso }, { merge: true });
+          }
+        }
+
+        return { cleanProfile, isPhoneVerified: effectivePhoneVerified, canonicalPhone, isWaTrusted, canonicalWa };
+      });
+
+      return res.json({
+        success: true,
+        profile: result.cleanProfile,
+        verification: {
+          phoneVerified: result.isPhoneVerified,
+          phoneE164: result.canonicalPhone || null,
+          whatsappTrusted: result.isWaTrusted,
+          whatsappE164: result.canonicalWa || null
+        }
+      });
+    } catch (err) {
+      console.error('Error saving personal profile:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === 'ACCOUNT_DELETION_PENDING' || msg === 'RELATIONSHIP_DELETION_PENDING') {
+        return respondWithError(res, 409, msg);
+      }
+      if (msg === 'ACTIVE_RELATIONSHIP_LOCKED') {
+        return respondWithError(res, 403, msg);
+      }
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.post('/api/profile/sync-verification', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const userRef = adminDb.collection(USERS_COL).doc(user.uid);
+      const userDelRef = adminDb.collection(ACCOUNT_DELETIONS_COL).doc(user.uid);
+
+      await adminDb.runTransaction(async (transaction) => {
+        // Read 1: Check account deletion guard before any write
+        const userDelDoc = await transaction.get(userDelRef);
+        if (userDelDoc.exists) {
+          throw new Error('ACCOUNT_DELETION_PENDING');
+        }
+
+        // Read 2: User document
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.exists ? userDoc.data() : null;
+        const nowIso = new Date().toISOString();
+
+        const updateData: Record<string, any> = { updatedAt: nowIso };
+
+        const effectiveSyncPhone = user.phone_number || (userData?.whatsappTrusted ? userData?.whatsappE164 : null);
+
+        if (effectiveSyncPhone) {
+          updateData.phoneE164 = effectiveSyncPhone;
+          updateData.phoneVerified = true;
+          updateData.phoneVerifiedAt = nowIso;
+        }
+
+        if (userData?.profile) {
+          const existingProfile = { ...userData.profile };
+          if (effectiveSyncPhone) {
+            existingProfile.phoneE164 = effectiveSyncPhone;
+            existingProfile.phoneVerified = true;
+            const targetWa = existingProfile.sameWhatsapp !== false
+              ? effectiveSyncPhone
+              : (existingProfile.whatsappE164 || effectiveSyncPhone);
+            const isWaGenuinelyTrusted = Boolean(
+              userData?.whatsappTrusted === true &&
+              userData?.whatsappE164 &&
+              userData.whatsappE164 === targetWa
+            );
+            if (isWaGenuinelyTrusted) {
+              existingProfile.whatsappE164 = userData?.whatsappE164;
+              existingProfile.whatsappTrusted = true;
+            } else {
+              existingProfile.whatsappTrusted = false;
+              delete existingProfile.whatsappVerifiedAt;
+            }
+          }
+          updateData.profile = existingProfile;
+        }
+
+        transaction.set(userRef, updateData, { merge: true });
+      });
+
+      return res.json({
+        success: true,
+        phone_number: user.phone_number || null,
+        email_verified: Boolean(user.email_verified)
+      });
+    } catch (err: any) {
+      console.error('Error syncing verification:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === 'ACCOUNT_DELETION_PENDING') {
+        return respondWithError(res, 409, 'ACCOUNT_DELETION_PENDING');
+      }
+      return respondWithError(res, 500, 'INTERNAL_ERROR');
+    }
+  });
+
   app.patch(['/api/profile/me', '/api/account/personal-info'], requireAuth, async (req, res) => {
     try {
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
@@ -3314,15 +4014,12 @@ export function createApp(): express.Express {
           }
           if (waNorm?.canonical) {
             updatedPartner.whatsappE164 = waNorm.canonical;
-            const isSameAsMobile = Boolean(currentPartner.phoneE164 && waNorm.canonical === currentPartner.phoneE164);
             const isTwilioVerified = Boolean(
               userDoc.exists &&
               userDoc.data()?.whatsappE164 === waNorm.canonical &&
               userDoc.data()?.whatsappTrusted === true
             );
-            if (isSameAsMobile) {
-              updatedPartner.whatsappTrusted = true;
-            } else if (isTwilioVerified) {
+            if (isTwilioVerified) {
               updatedPartner.whatsappTrusted = true;
               updatedPartner.whatsappVerifiedAt = userDoc.data()?.whatsappVerifiedAt;
             } else {
@@ -3658,7 +4355,7 @@ export function createApp(): express.Express {
       });
     } catch (error) {
       console.error('Error exporting account data:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -3753,6 +4450,8 @@ export function createApp(): express.Express {
       // 6. Delete ONLY the requesting user's Firestore document & invitation blocks
       await cleanUserBlocksInBatches(adminDb, user.uid);
       await adminDb.collection(USERS_COL).doc(user.uid).delete();
+      await adminDb.collection(WHATSAPP_VERIFY_ATTEMPTS_COL).doc(user.uid).delete();
+      await adminDb.collection(WHATSAPP_VERIFY_LIMITS_COL).doc(user.uid).delete();
 
       // 7. Delete temporary progress document after successful completion
       await delRef.delete();
@@ -3790,7 +4489,7 @@ export function createApp(): express.Express {
       return res.json({ notifications });
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -3814,7 +4513,7 @@ export function createApp(): express.Express {
       return res.json({ success: true });
     } catch (error) {
       console.error('Error dismissing notification:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -3837,7 +4536,7 @@ export function createApp(): express.Express {
       return res.json({ blocks });
     } catch (error) {
       console.error('Error fetching blocks:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -3862,7 +4561,7 @@ export function createApp(): express.Express {
       return res.json({ success: true });
     } catch (error) {
       console.error('Error deleting block:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 
@@ -3887,7 +4586,7 @@ export function createApp(): express.Express {
       });
     } catch (error) {
       console.error('Error in internal reconcile:', error);
-      return res.status(500).json({ error: 'DATABASE_ERROR' });
+      return respondWithError(res, 500, 'DATABASE_ERROR');
     }
   });
 

@@ -20,7 +20,11 @@ import {
   evaluateP2Authorization,
   shouldRenderP2RegistrationScreen,
   evaluateP2AuthNavigation,
-  executeInvitationLoad
+  executeInvitationLoad,
+  executePrivateRecordLoad,
+  executeRelationshipSnapshotRecovery,
+  handleRelationshipSubscriptionError,
+  executeNotificationsFetch
 } from './utils/relationshipState';
 import { TopBar } from './components/TopBar';
 import { AuthScreen } from './components/AuthScreen';
@@ -151,6 +155,7 @@ export default function App() {
   const privateRecordRequestIdRef = useRef(0);
   const invitationRequestIdRef = useRef(0);
   const changeRequestsRequestIdRef = useRef(0);
+  const notificationsRequestIdRef = useRef(0);
   const isSubmittingRef = useRef(false);
 
   const allowScreenExplorer = useMemo(
@@ -160,24 +165,27 @@ export default function App() {
 
   const fetchNotifications = async () => {
     if (!auth?.currentUser) return;
-    try {
-      const res = await authFetch('/api/notifications');
-      const data = await parseApiError(res);
-      if (Array.isArray(data.notifications) && data.notifications.length > 0) {
-        const latest = data.notifications[0];
-        setActiveNotification(latest);
-        if (latest.type === 'relationship_ended') {
-          // Sync local state: clear active relationship
-          setRecord((prev) => ({
-            ...initialRecord,
-            partner1: authUser?.id === prev.p2Uid ? prev.partner2 : prev.partner1
-          }));
-          setInvitation(initialInvitation);
-        }
+    const requestUid = auth.currentUser.uid;
+    const requestId = ++notificationsRequestIdRef.current;
+    await executeNotificationsFetch({
+      requestUid,
+      requestId,
+      getCurrentRequestId: () => notificationsRequestIdRef.current,
+      getActiveAuthUid: () => activeAuthUidRef.current,
+      getCurrentAuthUid: () => auth?.currentUser?.uid || null,
+      fetchNotifications: async () => {
+        const res = await authFetch('/api/notifications');
+        return parseApiError(res);
+      },
+      setActiveNotification,
+      onRelationshipEnded: (uid) => {
+        setRecord((prev) => ({
+          ...initialRecord,
+          partner1: uid === prev.p2Uid ? prev.partner2 : prev.partner1
+        }));
+        setInvitation(initialInvitation);
       }
-    } catch {
-      // ignore background notification poll errors
-    }
+    });
   };
 
   const handleDismissNotification = async (notifId: string) => {
@@ -207,68 +215,25 @@ export default function App() {
     const requestUid = auth.currentUser.uid;
     const requestId = ++privateRecordRequestIdRef.current;
     activeAuthUidRef.current = requestUid;
-    try {
-      const response = await authFetch('/api/record');
-      const data = await parseApiError(response);
-
-      // Guard against stale async responses after sign-out, account switch, or superseded requests
-      if (
-        privateRecordRequestIdRef.current !== requestId ||
-        activeAuthUidRef.current !== requestUid ||
-        !auth?.currentUser ||
-        auth.currentUser.uid !== requestUid
-      ) {
-        return null;
-      }
-
-      const loadedRecord = data.record as RelationshipRecord | null;
-      const loadedInvitation = data.invitation as Invitation | null;
-
-      if (loadedRecord) setRecord(loadedRecord);
-      else setRecord(initialRecord);
-
-      if (loadedInvitation) setInvitation(loadedInvitation);
-      else setInvitation(initialInvitation);
-
-      if (routeAfterLoad) {
-        // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before triggering navigateTo
-        if (
-          !auth?.currentUser ||
-          activeAuthUidRef.current !== auth.currentUser.uid ||
-          activeAuthUidRef.current !== requestUid
-        ) {
-          return null;
-        }
-        if (!loadedRecord) {
-          navigateTo('p1_details', '/');
-        } else if (loadedRecord.status === 'active') {
-          if (loadedRecord.p2Uid === requestUid) {
-            const p2InviteId = (loadedRecord.inviteId && loadedRecord.inviteId !== 'current')
-              ? loadedRecord.inviteId
-              : (loadedInvitation?.id && loadedInvitation.id !== 'current' ? loadedInvitation.id : '');
-            navigateTo('p2_details', p2InviteId ? `/invite/${p2InviteId}/details` : '/p2');
-          } else {
-            navigateTo('p1_details', '/');
-          }
-        } else if (loadedRecord.status === 'pending_partner' && loadedInvitation?.id) {
-          navigateTo('p1_waiting', '/waiting');
-        } else if (loadedRecord.partner1.fullName) {
-          navigateTo('p1_invite_create', '/');
-        } else {
-          navigateTo('p1_details', '/');
-        }
-      }
-      return data;
-    } catch (error) {
-      if (
-        privateRecordRequestIdRef.current === requestId &&
-        activeAuthUidRef.current === requestUid &&
-        auth?.currentUser?.uid === requestUid
-      ) {
-        setAppError(getLocalizedErrorMessage(error, language));
-      }
-      return null;
-    }
+    return executePrivateRecordLoad({
+      requestUid,
+      requestId,
+      getCurrentRequestId: () => privateRecordRequestIdRef.current,
+      getActiveAuthUid: () => activeAuthUidRef.current,
+      getCurrentAuthUid: () => auth?.currentUser?.uid || null,
+      fetchRecord: async () => {
+        const response = await authFetch('/api/record');
+        return parseApiError(response);
+      },
+      setRecord,
+      setInvitation,
+      setAppError,
+      formatErrorMessage: (err) => getLocalizedErrorMessage(err, language),
+      routeAfterLoad,
+      onNavigate: navigateTo,
+      initialRecord,
+      initialInvitation
+    });
   };
 
   const renderLoadingScreen = (title: string, subtitle: string) => (
@@ -362,6 +327,7 @@ export default function App() {
         privateRecordRequestIdRef.current += 1;
         invitationRequestIdRef.current += 1;
         changeRequestsRequestIdRef.current += 1;
+        notificationsRequestIdRef.current += 1;
         setAuthUser(null);
         setRecord(initialRecord);
         setInvitation(initialInvitation);
@@ -412,11 +378,13 @@ export default function App() {
   // Real-time listener for current user document (/users/{uid})
   useEffect(() => {
     if (!db || !authUser?.id) return;
+    let isSubscribed = true;
     const unsub = onSnapshot(
       doc(db, 'users', authUser.id),
       (userSnap) => {
         // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
         if (
+          !isSubscribed ||
           !auth?.currentUser ||
           activeAuthUidRef.current !== auth.currentUser.uid ||
           auth.currentUser.uid !== authUser.id
@@ -425,7 +393,7 @@ export default function App() {
         }
         if (userSnap.exists()) {
           const data = userSnap.data();
-          if (data.activeRecordId && data.activeRecordId !== record.id) {
+          if (data.activeRecordId && data.activeRecordId !== record.id && record.id) {
             void loadPrivateRecord();
           } else if (!data.activeRecordId && (record.status === 'active' || (record.status as string) === 'deleting' || Boolean(record.id))) {
             // Relationship was ended by partner
@@ -445,7 +413,10 @@ export default function App() {
         console.debug('Realtime user subscription notice:', error.message);
       }
     );
-    return () => unsub();
+    return () => {
+      isSubscribed = false;
+      unsub();
+    };
   }, [authUser?.id, record.id, record.status]);
 
   const applyServerRecord = (nextRecord: RelationshipRecord | null | undefined) => {
@@ -472,14 +443,17 @@ export default function App() {
   useEffect(() => {
     if (!db || !record.id || !authUser?.id) return;
     const currentRelId = record.id;
+    const subscriptionUid = authUser.id;
+    let isSubscribed = true;
     const unsub = onSnapshot(
       doc(db, 'relationships', currentRelId),
       (relSnap) => {
         // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
         if (
+          !isSubscribed ||
           !auth?.currentUser ||
           activeAuthUidRef.current !== auth.currentUser.uid ||
-          auth.currentUser.uid !== authUser.id
+          auth.currentUser.uid !== subscriptionUid
         ) {
           return;
         }
@@ -503,46 +477,42 @@ export default function App() {
       },
       (error) => {
         console.debug('Realtime relationship subscription notice:', error.message);
-        if (error.code !== 'permission-denied' && (error as any).code !== 'not-found') {
-          return;
-        }
-        const requestUid = auth?.currentUser?.uid || null;
-        if (!requestUid) return;
-        const requestId = ++privateRecordRequestIdRef.current;
-        void (async () => {
-          try {
+        void handleRelationshipSubscriptionError({
+          error,
+          currentRelId,
+          subscriptionUid,
+          isSubscribed: () => isSubscribed,
+          getActiveAuthUid: () => activeAuthUidRef.current,
+          getCurrentAuthUid: () => auth?.currentUser?.uid || null,
+          incrementRequestId: () => ++privateRecordRequestIdRef.current,
+          getCurrentRequestId: () => privateRecordRequestIdRef.current,
+          fetchRecord: async () => {
             const response = await authFetch('/api/record');
-            const data = await parseApiError(response);
-            if (
-              privateRecordRequestIdRef.current !== requestId ||
-              activeAuthUidRef.current !== requestUid ||
-              !auth?.currentUser ||
-              auth.currentUser.uid !== requestUid
-            ) {
-              return;
-            }
-            if (!data.record || data.record.id !== currentRelId) {
-              resetAfterRelationshipCleared(currentRelId);
-            } else {
-              setRecord(data.record as RelationshipRecord);
-            }
-          } catch (serverErr) {
-            setAppError(getLocalizedErrorMessage(serverErr, language));
-          }
-        })();
+            return parseApiError(response);
+          },
+          onRelationshipCleared: resetAfterRelationshipCleared,
+          setRecord: (rec) => setRecord(rec),
+          setAppError: (msg) => setAppError(msg),
+          formatErrorMessage: (err) => getLocalizedErrorMessage(err, language)
+        });
       }
     );
-    return () => unsub();
+    return () => {
+      isSubscribed = false;
+      unsub();
+    };
   }, [db, record.id, authUser?.id, currentScreen, language]);
 
   // Real-time listener for invitation document (/invitations/{inviteId})
   useEffect(() => {
     if (!db || !invitation.id || !authUser?.id) return;
+    let isSubscribed = true;
     const unsub = onSnapshot(
       doc(db, 'invitations', invitation.id),
       (invSnap) => {
         // Navigation guard: check activeAuthUidRef against auth.currentUser.uid before updating state or triggering navigateTo
         if (
+          !isSubscribed ||
           !auth?.currentUser ||
           activeAuthUidRef.current !== auth.currentUser.uid ||
           auth.currentUser.uid !== authUser.id
@@ -560,7 +530,7 @@ export default function App() {
           } else if (updated.status === 'cancelled' && currentScreen === 'p1_waiting') {
             if (!hasAutoNavigatedRef.current) {
               hasAutoNavigatedRef.current = true;
-              navigateTo('p1_invite_create', '/');
+              navigateTo('p1_details', '/');
             }
           }
         }
@@ -569,7 +539,10 @@ export default function App() {
         console.debug('Realtime invitation subscription notice:', error.message);
       }
     );
-    return () => unsub();
+    return () => {
+      isSubscribed = false;
+      unsub();
+    };
   }, [db, invitation.id, authUser?.id, currentScreen]);
 
   const handleToggleLanguage = () => setLanguage((prev) => (prev === 'ar' ? 'en' : 'ar'));
@@ -586,6 +559,7 @@ export default function App() {
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
+    notificationsRequestIdRef.current += 1;
     try {
       await signOut(auth);
       setAuthUser(null);
@@ -606,6 +580,7 @@ export default function App() {
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
+    notificationsRequestIdRef.current += 1;
     if (auth) {
       try {
         await signOut(auth);
@@ -652,6 +627,7 @@ export default function App() {
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
+    notificationsRequestIdRef.current += 1;
     try {
       const res = await authFetch('/api/relationship/end', {
         method: 'POST',
@@ -662,6 +638,7 @@ export default function App() {
       privateRecordRequestIdRef.current += 1;
       invitationRequestIdRef.current += 1;
       changeRequestsRequestIdRef.current += 1;
+      notificationsRequestIdRef.current += 1;
       setShowExitModal(false);
       // Keep current user's personal profile and reset relationship state
       setRecord((prev) => ({
@@ -686,6 +663,7 @@ export default function App() {
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
+    notificationsRequestIdRef.current += 1;
     try {
       const res = await authFetch('/api/account/delete', {
         method: 'POST',
@@ -696,6 +674,7 @@ export default function App() {
       privateRecordRequestIdRef.current += 1;
       invitationRequestIdRef.current += 1;
       changeRequestsRequestIdRef.current += 1;
+      notificationsRequestIdRef.current += 1;
       let noticeText = '';
       if (res.status === 202 && data?.status === 'DELETION_PENDING') {
         noticeText = language === 'ar' ? (data.messageAr || data.messageEn || '') : (data.messageEn || data.messageAr || '');
@@ -794,18 +773,38 @@ export default function App() {
     isSubmittingRef.current = true;
     setAppError('');
     try {
-      const response = await authFetch('/api/record', {
+      // 1. Persist the user's profile under authenticated Firebase UID independently
+      const profileResponse = await authFetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partner1: p1Data })
+      });
+      const profileData = await parseApiError(profileResponse);
+
+      // 2. Prepare or update the relationship draft through POST /api/record so invite creation succeeds
+      const recordResponse = await authFetch('/api/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          partner1: p1Data,
+          partner1: profileData?.profile || p1Data,
           type: relType,
           startDate: startDateIso,
           acceptedLegalVersion: LEGAL_VERSION
         })
       });
-      const data = await parseApiError(response);
-      applyServerRecord(data.record);
+      const recordData = await parseApiError(recordResponse);
+
+      if (recordData.record) {
+        applyServerRecord(recordData.record);
+      } else {
+        setRecord((prev) => ({
+          ...prev,
+          partner1: { ...prev.partner1, ...(profileData?.profile || p1Data) },
+          type: relType,
+          startDateIso
+        }));
+      }
+
       navigateTo('p1_invite_create');
     } catch (err) {
       setAppError(getLocalizedErrorMessage(err, language));
@@ -853,9 +852,10 @@ export default function App() {
       const data = await parseApiError(response);
       if (data.invitation) setInvitation(data.invitation);
       if (data.record) applyServerRecord(data.record);
-      navigateTo('p1_invite_create');
+      navigateTo('p1_details', '/');
     } catch (error) {
       setAppError(getLocalizedErrorMessage(error, language));
+      throw error;
     } finally {
       isSubmittingRef.current = false;
     }
@@ -1062,7 +1062,7 @@ export default function App() {
         />
 
         {appError && (
-          <div className="mx-4 mt-2 px-3 py-2 rounded-xl border border-rose-400/30 bg-rose-500/10 text-[10px] text-rose-200 break-words" dir="ltr">
+          <div className="mx-4 mt-2 px-3.5 py-2.5 rounded-xl border border-rose-400/30 bg-rose-500/10 text-sm sm:text-base text-rose-200 break-words leading-relaxed" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             {appError}
           </div>
         )}
@@ -1251,13 +1251,13 @@ export default function App() {
               <CertificateScreen language={language} record={record} onHome={handleGoHome} />
             ) : (
               <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                <p className="text-xs text-[#C9CCE4]">
+                <p className="text-sm sm:text-base text-[#C9CCE4]">
                   {language === 'ar' ? 'لا توجد شهادة نشطة لعرضها.' : 'No active certificate to display.'}
                 </p>
                 <button
                   type="button"
                   onClick={handleGoHome}
-                  className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] text-xs font-semibold cursor-pointer"
+                  className="mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] text-sm font-semibold cursor-pointer"
                 >
                   {language === 'ar' ? 'الرئيسية' : 'Home'}
                 </button>
@@ -1291,6 +1291,7 @@ export default function App() {
         <LegalFooter
           language={language}
           onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : '/terms')}
+          showPreferredSource={currentScreen === 'auth'}
         />
 
         {allowScreenExplorer && showScreenSwitcher && (
@@ -1410,7 +1411,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-xs font-semibold text-[#242C55] transition shadow-sm cursor-pointer hover:opacity-95 active:scale-[0.98]"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-sm font-semibold text-[#242C55] transition shadow-sm cursor-pointer hover:opacity-95 active:scale-[0.98]"
                 >
                   {language === 'ar' ? 'فهمت ذلك ومتابعة' : 'Understood'}
                 </button>

@@ -169,7 +169,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   return (
     <main className="px-5 py-4 flex-1 flex flex-col justify-start">
       <div className="text-center pt-1 pb-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2C345F]/70 border border-[#4E5A8E] text-[10.5px] font-semibold tracking-widest text-[#C1C3E6] uppercase mb-2.5 font-mono">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2C345F]/70 border border-[#4E5A8E] text-sm font-semibold tracking-widest text-[#C1C3E6] uppercase mb-2.5 font-mono">
           <Shield className="w-3.5 h-3.5" />
           <span>
             {isP2InvitationFlow
@@ -178,12 +178,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </span>
         </div>
 
-        <h2 className="text-[18px] font-bold text-white tracking-tight leading-snug max-w-[280px] mx-auto">
+        <h2 className="text-xl font-bold text-white tracking-tight leading-snug max-w-[280px] mx-auto">
           {isP2InvitationFlow
             ? (language === 'ar' ? 'تسجيل الدخول لقبول الدعوة' : 'Sign in to accept invitation')
             : t.authHeroTitle}
         </h2>
-        <p className="text-[11px] text-[#C9CCE4] mt-1.5 leading-relaxed max-w-[290px] mx-auto">
+        <p className="text-base sm:text-sm text-[#C9CCE4] mt-1.5 leading-relaxed max-w-[290px] mx-auto">
           {isP2InvitationFlow
             ? (language === 'ar'
                 ? `سجّل دخولك لإكمال دعوة ${inviterName}.`
@@ -193,13 +193,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </div>
 
       {isP2InvitationFlow && (
-        <div className="mb-3.5 w-full rounded-xl bg-[#202B52] border border-[#C1C3E6]/40 p-2.5 flex items-center gap-2.5 shadow-sm text-right">
+        <div className="mb-3.5 w-full rounded-xl bg-[#202B52] border border-[#C1C3E6]/40 p-3 flex items-center gap-2.5 shadow-sm text-right">
           <div className="w-8 h-8 rounded-lg bg-[#C1C3E6]/20 flex items-center justify-center shrink-0 text-[#C1C3E6]">
             <Lock className="w-4 h-4" />
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="text-[11px] font-bold text-[#C1C3E6] leading-tight">{t.p2ReturnNoticeTitle}</p>
-            <p className="text-[9.5px] text-[#C9CCE4]">
+            <p className="text-sm font-bold text-[#C1C3E6] leading-tight">{t.p2ReturnNoticeTitle}</p>
+            <p className="text-sm text-[#C9CCE4]">
               {language === 'ar' ? `الدعوة من ${inviterName}` : `Invitation from ${inviterName}`}
             </p>
           </div>
@@ -219,7 +219,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         type="button"
         disabled={loading}
         onClick={handleGoogleAuth}
-        className="w-full py-2.5 px-4 rounded-xl border border-white/20 bg-[#252F5A] hover:bg-[#323D6E] transition-all flex items-center justify-center gap-2.5 text-xs font-medium text-white shadow-sm mb-3.5 active:scale-95 cursor-pointer disabled:opacity-50"
+        className="w-full py-3 px-4 rounded-xl border border-white/20 bg-[#252F5A] hover:bg-[#323D6E] transition-all flex items-center justify-center gap-2.5 text-base sm:text-sm font-medium text-white shadow-sm mb-3.5 active:scale-95 cursor-pointer disabled:opacity-50 min-h-[44px]"
       >
         <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z" fill="#4285F4" />
@@ -232,27 +232,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
       <div className="relative flex items-center justify-center my-1 mb-3.5">
         <div className="border-t border-white/20 w-full" />
-        <span className="bg-[#202B52] px-2 text-[10px] uppercase tracking-widest font-semibold text-[#C9CCE4] absolute">{t.orUseEmail}</span>
+        <span className="bg-[#202B52] px-2 text-sm uppercase tracking-widest font-semibold text-[#C9CCE4] absolute">{t.orUseEmail}</span>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         {activeTab === 'signup' && (
           <div>
-            <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1" htmlFor="auth-name">{t.fullNameLabel}</label>
+            <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5" htmlFor="auth-name">{t.fullNameLabel}</label>
             <input id="auth-name" type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className={styles.inputField} placeholder={t.fullNamePlaceholder} />
           </div>
         )}
 
         <div>
-          <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1" htmlFor="auth-email">{t.emailLabel}</label>
+          <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5" htmlFor="auth-email">{t.emailLabel}</label>
           <input id="auth-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={styles.inputField} placeholder={t.emailPlaceholder} dir="ltr" />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-2 gap-2">
-            <label className="block text-[11px] font-medium text-[#C9CCE4] shrink-0 select-none" htmlFor="auth-pass">{t.passwordLabel}</label>
+            <label className="block text-sm font-medium text-[#C9CCE4] shrink-0 select-none" htmlFor="auth-pass">{t.passwordLabel}</label>
             {activeTab === 'login' && (
-              <div className="flex items-center gap-1.5 text-[11px] font-medium shrink-0">
+              <div className="flex items-center gap-1.5 text-sm font-medium shrink-0">
                 <button
                   type="button"
                   onClick={openResetModal}
@@ -297,19 +297,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         </div>
 
         <div className="flex items-center pt-0.5">
-          <input id="auth-remember" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-3.5 w-3.5 rounded bg-[#1B264A] border-white/30 text-[#C1C3E6] focus:ring-0 cursor-pointer accent-[#C1C3E6]" />
-          <label htmlFor="auth-remember" className="ml-2 block text-[11px] text-[#C9CCE4] select-none cursor-pointer">{t.keepSignedIn}</label>
+          <input id="auth-remember" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded bg-[#1B264A] border-white/30 text-[#C1C3E6] focus:ring-0 cursor-pointer accent-[#C1C3E6]" />
+          <label htmlFor="auth-remember" className="ml-2 block text-sm text-[#C9CCE4] select-none cursor-pointer">{t.keepSignedIn}</label>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-[11px] leading-relaxed space-y-2 shadow-sm">
+          <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-sm leading-relaxed space-y-2 shadow-sm">
             <div className="font-semibold flex items-center gap-1.5 text-rose-300">
               <span aria-hidden="true">⚠️</span>
               <span>{language === 'ar' ? 'تنبيه المصادقة' : 'Authentication Notice'}</span>
             </div>
-            <p className="text-rose-100/90 text-[10.5px] leading-normal">{error}</p>
+            <p className="text-rose-100/90 text-sm leading-normal">{error}</p>
             {(error.toLowerCase().includes('api-key') || error.toLowerCase().includes('apikey')) && (
-              <div className="mt-2.5 pt-2 border-t border-rose-500/30 font-mono text-[10px] text-left leading-relaxed" dir="ltr">
+              <div className="mt-2.5 pt-2 border-t border-rose-500/30 font-mono text-sm text-left leading-relaxed" dir="ltr">
                 <div className="flex flex-wrap items-center gap-2 mb-2 text-rose-200/90">
                   <span>projectId: <strong>{firebaseConfig.projectId || '(none)'}</strong></span>
                   <span>•</span>
@@ -329,12 +329,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       setIsTestingApiKey(false);
                     }
                   }}
-                  className="px-2.5 py-1 rounded bg-rose-900/60 hover:bg-rose-900 text-rose-100 border border-rose-400/40 text-[10px] font-medium transition cursor-pointer disabled:opacity-50"
+                  className="px-2.5 py-1 rounded bg-rose-900/60 hover:bg-rose-900 text-rose-100 border border-rose-400/40 text-sm font-medium transition cursor-pointer disabled:opacity-50 min-h-[40px]"
                 >
                   {isTestingApiKey ? 'Testing...' : 'Test API key with Google'}
                 </button>
                 {apiKeyTestResult && (
-                  <div className="mt-1.5 p-1.5 rounded bg-black/40 border border-rose-500/30 text-[10px] text-rose-100 whitespace-pre-wrap break-all">
+                  <div className="mt-1.5 p-1.5 rounded bg-black/40 border border-rose-500/30 text-sm text-rose-100 whitespace-pre-wrap break-all">
                     {apiKeyTestResult}
                   </div>
                 )}
@@ -343,13 +343,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
         )}
         {notice && (
-          <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-[11px] leading-relaxed flex items-start gap-2.5 shadow-sm">
+          <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-sm leading-relaxed flex items-start gap-2.5 shadow-sm">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="font-semibold text-emerald-300">
                 {language === 'ar' ? 'استعادة الحساب' : 'Account Recovery'}
               </p>
-              <p className="text-emerald-100/90 text-[10.5px] mt-0.5 leading-normal">{notice}</p>
+              <p className="text-emerald-100/90 text-sm mt-0.5 leading-normal">{notice}</p>
             </div>
           </div>
         )}
@@ -361,7 +361,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </form>
 
       <div className="text-center mt-3 space-y-1">
-        <p className="text-[11px] text-[#9FA5C7]">
+        <p className="text-sm text-[#9FA5C7]">
           {activeTab === 'login' ? t.dontHaveAccount : t.haveAccount}{' '}
           <button type="button" onClick={() => setActiveTab(activeTab === 'login' ? 'signup' : 'login')} className="text-[#C1C3E6] underline hover:text-white font-medium bg-transparent border-none cursor-pointer">
             {activeTab === 'login' ? t.createAccount : t.tabLogin}
@@ -385,7 +385,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onClick={() => setShowResetModal(false)}
               disabled={resetLoading}
               aria-label={language === 'ar' ? 'إغلاق' : 'Close'}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors cursor-pointer bg-transparent border-none disabled:opacity-40"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[#172244] text-[#C9CCE4] hover:text-white flex items-center justify-center cursor-pointer border border-white/10 transition-colors disabled:opacity-40"
             >
               <X className="w-4 h-4" />
             </button>
@@ -395,16 +395,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
-                <h3 id="reset-modal-title" className="text-[15px] font-bold text-white leading-tight">
+                <h3 id="reset-modal-title" className="text-base font-bold text-white leading-tight">
                   {language === 'ar' ? 'استعادة كلمة المرور' : 'Reset Password'}
                 </h3>
-                <p className="text-[10.5px] text-[#C9CCE4] mt-0.5">
+                <p className="text-sm text-[#C9CCE4] mt-0.5">
                   {language === 'ar' ? 'استعادة الوصول إلى حسابك' : 'Recover access to your account'}
                 </p>
               </div>
             </div>
 
-            <p className="text-[11px] text-[#C9CCE4] leading-relaxed">
+            <p className="text-sm text-[#C9CCE4] leading-relaxed">
               {language === 'ar'
                 ? 'أدخل عنوان بريدك الإلكتروني المسجل، وسنرسل لك رابطاً رسمياً لإعادة تعيين كلمة المرور.'
                 : 'Enter your registered email address, and we will send you an official password reset link.'}
@@ -412,7 +412,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
             <form onSubmit={handleModalPasswordReset} className="space-y-3 pt-1">
               <div>
-                <label className="block text-[11px] font-medium text-[#C9CCE4] mb-1" htmlFor="reset-email-input">
+                <label className="block text-sm font-medium text-[#C9CCE4] mb-1.5" htmlFor="reset-email-input">
                   {t.emailLabel}
                 </label>
                 <input
@@ -429,13 +429,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </div>
 
               {resetError && (
-                <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-[10.5px] leading-relaxed">
+                <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-sm leading-relaxed">
                   {resetError}
                 </div>
               )}
 
               {resetSuccess && (
-                <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-200 text-[10.5px] leading-relaxed flex items-start gap-2">
+                <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-200 text-sm leading-relaxed flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <p>{resetSuccess}</p>
                 </div>
@@ -445,7 +445,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-xs transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-sm transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 min-h-[40px]"
                 >
                   {resetLoading ? (
                     <span>{language === 'ar' ? 'جاري الإرسال...' : 'Sending...'}</span>
@@ -458,7 +458,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   type="button"
                   onClick={() => setShowResetModal(false)}
                   disabled={resetLoading}
-                  className="py-2.5 px-3.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs text-[#C9CCE4] hover:text-white transition cursor-pointer"
+                  className="py-2.5 px-3.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-sm text-[#C9CCE4] hover:text-white transition cursor-pointer min-h-[40px]"
                 >
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </button>
@@ -483,7 +483,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               type="button"
               onClick={() => setShowForgotEmailModal(false)}
               aria-label={language === 'ar' ? 'إغلاق' : 'Close'}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors cursor-pointer bg-transparent border-none"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[#172244] text-[#C9CCE4] hover:text-white flex items-center justify-center cursor-pointer border border-white/10 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -493,22 +493,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <h3 id="forgot-email-modal-title" className="text-[15px] font-bold text-white leading-tight">
+                <h3 id="forgot-email-modal-title" className="text-base font-bold text-white leading-tight">
                   {language === 'ar' ? 'استعادة البريد الإلكتروني' : 'Forgot Email?'}
                 </h3>
-                <p className="text-[10.5px] text-[#C9CCE4] mt-0.5">
+                <p className="text-sm text-[#C9CCE4] mt-0.5">
                   {language === 'ar' ? 'إرشادات استرجاع الحساب والوصول' : 'Account access guidance'}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2.5 text-[11px] text-[#C9CCE4] leading-relaxed">
+            <div className="space-y-2.5 text-sm text-[#C9CCE4] leading-relaxed">
               <div className="p-3 rounded-xl bg-[#252F5A] border border-white/10 space-y-1">
                 <p className="font-semibold text-white flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#C1C3E6]" />
                   <span>{language === 'ar' ? 'البحث في بريدك الإلكتروني' : 'Search Your Mailbox'}</span>
                 </p>
-                <p className="text-[10.5px] text-[#C9CCE4]">
+                <p className="text-sm text-[#C9CCE4]">
                   {language === 'ar'
                     ? 'ابحث في صناديق بريدك عن رسائل من "Relationship ID" أو إشعارات الدعوة للتحقق من البريد المستخدم.'
                     : 'Search your email accounts for messages or invitations from "Relationship ID" to verify which email was used.'}
@@ -520,7 +520,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-[#C1C3E6]" />
                   <span>{language === 'ar' ? 'المتابعة باستخدام Google' : 'Try Google Sign-In'}</span>
                 </p>
-                <p className="text-[10.5px] text-[#C9CCE4]">
+                <p className="text-sm text-[#C9CCE4]">
                   {language === 'ar'
                     ? 'إذا كنت قد سجلت عبر حساب Google، يمكنك النقر على "المتابعة باستخدام Google" لتسجيل الدخول فوراً.'
                     : 'If you originally registered with Google, simply use the "Continue with Google" button.'}
@@ -532,7 +532,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-[#C1C3E6]" />
                   <span>{language === 'ar' ? 'التحقق مع الشريك' : 'Check with Your Partner'}</span>
                 </p>
-                <p className="text-[10.5px] text-[#C9CCE4]">
+                <p className="text-sm text-[#C9CCE4]">
                   {language === 'ar'
                     ? 'يمكن لشريكك مراجعة تفاصيل الدعوة المشتركة للتأكد من عنوان البريد المسجل في السجل.'
                     : 'Your partner can view the mutual invitation details to confirm the registered email address.'}
@@ -544,7 +544,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowForgotEmailModal(false)}
-                className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-xs transition shadow-sm cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-semibold text-sm transition shadow-sm cursor-pointer min-h-[40px]"
               >
                 {language === 'ar' ? 'فهمت ذلك • إغلاق' : 'Got it • Close'}
               </button>

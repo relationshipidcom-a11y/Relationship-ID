@@ -22,9 +22,9 @@
   background-color: rgba(193, 195, 230, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #F6F5FF;
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   outline: none;
   transition: all 0.2s ease;
   color-scheme: dark;
@@ -40,9 +40,9 @@
   background-color: rgba(193, 195, 230, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #F6F5FF;
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   outline: none;
   appearance: none;
 }
@@ -52,9 +52,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 8px;
+  padding: 11px 8px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   background: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -69,9 +69,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 8px;
+  padding: 11px 8px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   background-color: #202B52;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -91,7 +91,7 @@
   padding: 14px 16px;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;

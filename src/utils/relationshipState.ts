@@ -1,3 +1,5 @@
+import type { ScreenId } from '../types';
+
 export interface AccountMenuItemsInput {
   signedIn: boolean;
   hasActiveRelationship: boolean;
@@ -284,6 +286,288 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
     if (isCurrent()) {
       setInvitationLoading(false);
     }
+  }
+}
+
+export interface PrivateRecordLoadingContext<T = any> {
+  requestUid: string | null;
+  requestId: number;
+  getCurrentRequestId: () => number;
+  getActiveAuthUid: () => string | null;
+  getCurrentAuthUid: () => string | null;
+  fetchRecord: () => Promise<T>;
+  setRecord: (record: any) => void;
+  setInvitation: (invitation: any) => void;
+  setAppError: (errorMsg: string) => void;
+  formatErrorMessage?: (err: any) => string;
+  routeAfterLoad?: boolean;
+  onNavigate?: (screen: ScreenId, path?: string) => void;
+  initialRecord: any;
+  initialInvitation: any;
+}
+
+export async function executePrivateRecordLoad<T extends { record?: any; invitation?: any } = any>(
+  ctx: PrivateRecordLoadingContext<T>
+): Promise<T | null> {
+  const {
+    requestUid,
+    requestId,
+    getCurrentRequestId,
+    getActiveAuthUid,
+    getCurrentAuthUid,
+    fetchRecord,
+    setRecord,
+    setInvitation,
+    setAppError,
+    formatErrorMessage = (err) => (err instanceof Error ? err.message : String(err)),
+    routeAfterLoad = false,
+    onNavigate,
+    initialRecord,
+    initialInvitation
+  } = ctx;
+
+  if (!requestUid) return null;
+
+  const isCurrent = () =>
+    getCurrentRequestId() === requestId &&
+    getActiveAuthUid() === requestUid &&
+    getCurrentAuthUid() === requestUid;
+
+  try {
+    const data = await fetchRecord();
+
+    // Guard against stale async responses after sign-out, account switch, or superseded requests
+    if (!isCurrent()) {
+      return null;
+    }
+
+    const loadedRecord = data.record || null;
+    const loadedInvitation = data.invitation || null;
+    const userProfile = (data as any)?.userProfile || null;
+
+    if (loadedRecord) {
+      setRecord(loadedRecord);
+    } else if (userProfile) {
+      setRecord({
+        ...initialRecord,
+        partner1: {
+          ...initialRecord.partner1,
+          ...userProfile
+        }
+      });
+    } else {
+      setRecord(initialRecord);
+    }
+
+    if (loadedInvitation) setInvitation(loadedInvitation);
+    else setInvitation(initialInvitation);
+
+    // On verified successful load or retry, clear any active error
+    setAppError('');
+
+    if (routeAfterLoad && onNavigate) {
+      if (!isCurrent()) return null;
+
+      if (!loadedRecord) {
+        onNavigate('p1_details', '/');
+      } else if (loadedRecord.status === 'active') {
+        if (loadedRecord.p2Uid === requestUid) {
+          const p2InviteId = (loadedRecord.inviteId && loadedRecord.inviteId !== 'current')
+            ? loadedRecord.inviteId
+            : (loadedInvitation?.id && loadedInvitation.id !== 'current' ? loadedInvitation.id : '');
+          onNavigate('p2_details', p2InviteId ? `/invite/${p2InviteId}/details` : '/p2');
+        } else {
+          onNavigate('p1_details', '/');
+        }
+      } else if (loadedRecord.status === 'pending_partner' && loadedInvitation?.id) {
+        onNavigate('p1_waiting', '/waiting');
+      } else if (loadedRecord.partner1?.fullName) {
+        onNavigate('p1_invite_create', '/');
+      } else {
+        onNavigate('p1_details', '/');
+      }
+    }
+
+    return data;
+  } catch (error) {
+    if (isCurrent()) {
+      // Preserve existing record and invitation in state, never catch a database failure and pretend success
+      setAppError(formatErrorMessage(error));
+    }
+    return null;
+  }
+}
+
+export interface RelationshipSnapshotRecoveryContext<T = any> {
+  currentRelId: string;
+  requestUid: string | null;
+  requestId: number;
+  isSubscriptionActive: () => boolean;
+  getCurrentRequestId: () => number;
+  getActiveAuthUid: () => string | null;
+  getCurrentAuthUid: () => string | null;
+  fetchRecord: () => Promise<T>;
+  onRelationshipCleared: (relId: string) => void;
+  setRecord: (record: any) => void;
+  setAppError: (errorMsg: string) => void;
+  formatErrorMessage?: (err: any) => string;
+}
+
+export async function executeRelationshipSnapshotRecovery<T extends { record?: any } = any>(
+  ctx: RelationshipSnapshotRecoveryContext<T>
+): Promise<T | null> {
+  const {
+    currentRelId,
+    requestUid,
+    requestId,
+    isSubscriptionActive,
+    getCurrentRequestId,
+    getActiveAuthUid,
+    getCurrentAuthUid,
+    fetchRecord,
+    onRelationshipCleared,
+    setRecord,
+    setAppError,
+    formatErrorMessage = (err) => (err instanceof Error ? err.message : String(err))
+  } = ctx;
+
+  if (!requestUid) return null;
+
+  const isCurrent = () =>
+    isSubscriptionActive() &&
+    getCurrentRequestId() === requestId &&
+    getActiveAuthUid() === requestUid &&
+    getCurrentAuthUid() === requestUid;
+
+  try {
+    const data = await fetchRecord();
+    if (!isCurrent()) {
+      return null;
+    }
+    if (!data.record || data.record.id !== currentRelId) {
+      onRelationshipCleared(currentRelId);
+    } else {
+      setRecord(data.record);
+      setAppError('');
+    }
+    return data;
+  } catch (serverErr) {
+    if (!isCurrent()) {
+      return null;
+    }
+    setAppError(formatErrorMessage(serverErr));
+    return null;
+  }
+}
+
+export interface RelationshipSubscriptionErrorContext<T = any> {
+  error: { code?: string; message?: string };
+  currentRelId: string;
+  subscriptionUid: string;
+  isSubscribed: () => boolean;
+  getActiveAuthUid: () => string | null;
+  getCurrentAuthUid: () => string | null;
+  incrementRequestId: () => number;
+  getCurrentRequestId: () => number;
+  fetchRecord: () => Promise<T>;
+  onRelationshipCleared: (relId: string) => void;
+  setRecord: (record: any) => void;
+  setAppError: (errorMsg: string) => void;
+  formatErrorMessage?: (err: any) => string;
+}
+
+export async function handleRelationshipSubscriptionError<T extends { record?: any } = any>(
+  ctx: RelationshipSubscriptionErrorContext<T>
+): Promise<T | null> {
+  const {
+    error,
+    currentRelId,
+    subscriptionUid,
+    isSubscribed,
+    getActiveAuthUid,
+    getCurrentAuthUid,
+    incrementRequestId,
+    getCurrentRequestId,
+    fetchRecord,
+    onRelationshipCleared,
+    setRecord,
+    setAppError,
+    formatErrorMessage
+  } = ctx;
+
+  if (error.code !== 'permission-denied' && (error as any).code !== 'not-found') {
+    return null;
+  }
+  if (
+    !isSubscribed() ||
+    getActiveAuthUid() !== subscriptionUid ||
+    getCurrentAuthUid() !== subscriptionUid
+  ) {
+    return null;
+  }
+  const requestId = incrementRequestId();
+  return executeRelationshipSnapshotRecovery({
+    currentRelId,
+    requestUid: subscriptionUid,
+    requestId,
+    isSubscriptionActive: isSubscribed,
+    getCurrentRequestId,
+    getActiveAuthUid,
+    getCurrentAuthUid,
+    fetchRecord,
+    onRelationshipCleared,
+    setRecord,
+    setAppError,
+    formatErrorMessage
+  });
+}
+
+export interface NotificationsFetchContext<T = any> {
+  requestUid: string;
+  requestId: number;
+  getCurrentRequestId: () => number;
+  getActiveAuthUid: () => string | null;
+  getCurrentAuthUid: () => string | null;
+  fetchNotifications: () => Promise<T>;
+  setActiveNotification: (notification: any) => void;
+  onRelationshipEnded?: (requestUid: string) => void;
+}
+
+export async function executeNotificationsFetch<T extends { notifications?: any[] } = any>(
+  ctx: NotificationsFetchContext<T>
+): Promise<T | null> {
+  const {
+    requestUid,
+    requestId,
+    getCurrentRequestId,
+    getActiveAuthUid,
+    getCurrentAuthUid,
+    fetchNotifications,
+    setActiveNotification,
+    onRelationshipEnded
+  } = ctx;
+
+  const isCurrent = () =>
+    getCurrentRequestId() === requestId &&
+    getActiveAuthUid() === requestUid &&
+    getCurrentAuthUid() === requestUid;
+
+  try {
+    const data = await fetchNotifications();
+    if (!isCurrent()) {
+      return null;
+    }
+    if (Array.isArray(data?.notifications) && data.notifications.length > 0) {
+      const latest = data.notifications[0];
+      setActiveNotification(latest);
+      if (latest.type === 'relationship_ended' && onRelationshipEnded) {
+        onRelationshipEnded(requestUid);
+      }
+    }
+    return data;
+  } catch {
+    // Ignore background notification fetch errors
+    return null;
   }
 }
 

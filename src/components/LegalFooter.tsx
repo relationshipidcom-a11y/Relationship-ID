@@ -1,22 +1,28 @@
 import React from 'react';
+import { ExternalLink } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../i18n/translations';
 
 interface LegalFooterProps {
   language: Language;
   onNavigate?: (screen: 'privacy' | 'terms') => void;
+  showPreferredSource?: boolean;
 }
 
-export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }) => {
+export const LegalFooter: React.FC<LegalFooterProps> = ({
+  language,
+  onNavigate,
+  showPreferredSource = false
+}) => {
   const isAr = language === 'ar';
   const t = translations[language];
 
   return (
     <footer
       dir={isAr ? 'rtl' : 'ltr'}
-      className="print:hidden w-full px-4 py-3 bg-[#131F3B] border-t border-white/10 text-center text-[10px] text-[#C9CCE4] space-y-1.5 shrink-0 select-none"
+      className="print:hidden w-full px-4 py-3.5 bg-[#131F3B] border-t border-white/10 text-center text-sm text-[#C9CCE4] space-y-2 shrink-0 select-none"
     >
-      <div className="flex items-center justify-center gap-3 font-medium">
+      <div className="flex flex-wrap items-center justify-center gap-3 font-medium text-sm">
         <a
           href="/privacy"
           onClick={(e) => {
@@ -40,14 +46,28 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
         </a>
         <span className="text-white/20">•</span>
         <a
-          href="mailto:rami@relationshipid.org"
-          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer"
+          href="mailto:customerservices@relationshipid.org"
+          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer break-all"
         >
-          rami@relationshipid.org
+          customerservices@relationshipid.org
         </a>
       </div>
 
-      <p className="text-[9.5px] text-[#C9CCE4]/80 leading-relaxed max-w-sm mx-auto">
+      {showPreferredSource && (
+        <div className="pt-0.5 flex justify-center">
+          <a
+            href="https://www.google.com/preferences/source?q=relationshipid.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#202B52] hover:bg-[#252F5A] text-[#C9CCE4] hover:text-white border border-white/15 hover:border-white/25 text-xs sm:text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#C1C3E6] focus:ring-offset-1 focus:ring-offset-[#131F3B] cursor-pointer"
+          >
+            <span>{t.addPreferredSource}</span>
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          </a>
+        </div>
+      )}
+
+      <p className="text-sm text-[#C9CCE4]/90 leading-relaxed max-w-sm mx-auto">
         {isAr ? (
           <>
             هذا الموقع محمي بواسطة reCAPTCHA وتُطبق{' '}
@@ -95,7 +115,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({ language, onNavigate }
         )}
       </p>
 
-      <p className="text-[9px] text-[#C9CCE4]/60">
+      <p className="text-sm text-[#C9CCE4]/70">
         {isAr
           ? 'Relationship ID — سجل رقمي خاص للعلاقات'
           : 'Relationship ID — Private Relationship Registry'}

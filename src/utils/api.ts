@@ -64,6 +64,7 @@ export const ALLOWED_ERROR_CODES = new Set([
   'P2_AUTH_REQUIRED',
   'AUTH_DELETION_FAILED',
   'WHATSAPP_VERIFY_UNAVAILABLE',
+  'WHATSAPP_VERIFY_PROVIDER_ERROR',
   'WHATSAPP_VERIFY_RATE_LIMITED',
   'INVALID_VERIFICATION_CODE',
   'INVALID_CODE',
@@ -154,6 +155,10 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
   CANNOT_ACCEPT_OWN_INVITE: {
     en: 'You cannot accept your own invitation.',
     ar: 'لا يمكنك قبول دعوتك الخاصة.'
+  },
+  NOT_INVITATION_OWNER: {
+    en: 'Only the inviter can cancel this invitation.',
+    ar: 'يمكن لمرسل الدعوة فقط إلغاء هذه الدعوة.'
   },
   ALREADY_IN_ACTIVE_RELATIONSHIP: {
     en: 'You already have an active relationship record.',
@@ -299,6 +304,10 @@ export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'WhatsApp verification is currently unavailable.',
     ar: 'خدمة التحقق من واتساب غير متاحة حالياً.'
   },
+  WHATSAPP_VERIFY_PROVIDER_ERROR: {
+    en: 'WhatsApp verification provider service is temporarily unavailable. Please try again later.',
+    ar: 'خدمة التحقق من واتساب غير متاحة مؤقتاً من مزود الخدمة. يرجى المحاولة لاحقاً.'
+  },
   WHATSAPP_VERIFY_RATE_LIMITED: {
     en: 'Too many verification attempts. Please try again in an hour.',
     ar: 'محاولات تحقق كثيرة جداً. يرجى المحاولة بعد ساعة.'
@@ -394,7 +403,8 @@ export function getRouteTemplate(urlOrPath: string): string {
   if (path === '/api/record') return '/api/record';
   if (path === '/api/invite/create') return '/api/invite/create';
   if (path === '/api/change-requests') return '/api/change-requests';
-  if (path === '/api/profile/me') return '/api/profile/me';
+  if (path === '/api/profile/me' || path === '/api/profile') return '/api/profile/me';
+  if (path === '/api/profile/sync-verification') return '/api/profile/sync-verification';
   if (path === '/api/relationship/end') return '/api/relationship/end';
   if (path === '/api/account/export') return '/api/account/export';
   if (path === '/api/account/delete') return '/api/account/delete';

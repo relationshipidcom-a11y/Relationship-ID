@@ -76,7 +76,7 @@ test('Legal Content Compliance Suite', async (t) => {
     checkSections(legalContent.ar.termsSections, 'Arabic terms');
   });
 
-  // 5. The privacy content contains "SDAIA", "rami@relationshipid.org", and a statement about Firebase Authentication being global
+  // 5. The privacy content contains "SDAIA", "customerservices@relationshipid.org", and a statement about Firebase Authentication being global
   await t.test('5. Privacy content contains SDAIA, contact email, and Firebase Auth global disclosure', () => {
     const enPrivacyCombined = legalContent.en.privacySections.map((s) => `${s.heading} ${s.body}`).join('\n');
     const arPrivacyCombined = legalContent.ar.privacySections.map((s) => `${s.heading} ${s.body}`).join('\n');
@@ -84,8 +84,8 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.ok(enPrivacyCombined.includes('SDAIA'), 'English privacy content must mention SDAIA');
     assert.ok(arPrivacyCombined.includes('SDAIA') || arPrivacyCombined.includes('سدايا'), 'Arabic privacy content must mention SDAIA / سدايا');
 
-    assert.ok(enPrivacyCombined.includes('rami@relationshipid.org'), 'English privacy content must include rami@relationshipid.org');
-    assert.ok(arPrivacyCombined.includes('rami@relationshipid.org'), 'Arabic privacy content must include rami@relationshipid.org');
+    assert.ok(enPrivacyCombined.includes('customerservices@relationshipid.org'), 'English privacy content must include customerservices@relationshipid.org');
+    assert.ok(arPrivacyCombined.includes('customerservices@relationshipid.org'), 'Arabic privacy content must include customerservices@relationshipid.org');
 
     assert.ok(
       enPrivacyCombined.includes('Firebase Authentication is a global Google service'),
@@ -135,13 +135,14 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.equal(stringified.includes('security and audit logs'), false, 'Old phrase "security and audit logs" must be absent');
     assert.equal(stringified.includes('وسجلات الأمان والتدقيق'), false, 'Old phrase "وسجلات الأمان والتدقيق" must be absent');
     assert.equal(stringified.includes('optional social media handle'), false, 'Old phrase "optional social media handle" must be absent');
-    assert.equal(stringified.includes('عبر تطبيق WhatsApp'), false, 'Old phrase "عبر تطبيق WhatsApp" must be absent');
+    assert.equal(stringified.includes('by SMS'), false, 'Old phrase "by SMS" must be absent');
+    assert.equal(stringified.includes('عبر رسالة نصية قصيرة (SMS)'), false, 'Old phrase "عبر رسالة نصية قصيرة (SMS)" must be absent');
 
     // New phrases must be present
     assert.equal(stringified.includes('technical server logs'), true, 'New phrase "technical server logs" must be present');
     assert.equal(stringified.includes('up to six optional social media accounts'), true, 'New phrase "up to six optional social media accounts" must be present');
-    assert.equal(stringified.includes('by SMS'), true, 'New phrase "by SMS" must be present');
-    assert.equal(stringified.includes('عبر رسالة نصية قصيرة (SMS)'), true, 'New phrase "عبر رسالة نصية قصيرة (SMS)" must be present');
+    assert.equal(stringified.includes('deliver one-time verification passcodes through WhatsApp'), true, 'New phrase "deliver one-time verification passcodes through WhatsApp" must be present');
+    assert.equal(stringified.includes('عبر تطبيق WhatsApp للتحقق من رقم جوال المستخدم'), true, 'New phrase "عبر تطبيق WhatsApp للتحقق من رقم جوال المستخدم" must be present');
     assert.equal(stringified.includes('والسجلات التقنية للخادم'), true, 'New phrase "والسجلات التقنية للخادم" must be present');
 
     // Version remains 2026-10-01
@@ -174,5 +175,13 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.ok(stringified.includes('sets no cookies of its own'), 'Must preserve "sets no cookies of its own"');
     assert.ok(stringified.includes('no third-party analytics, behavioral tracking, or advertising networks'), 'Must preserve analytics disclaimer');
     assert.ok(stringified.includes('Google reCAPTCHA Enterprise'), 'Must preserve reCAPTCHA disclosure');
+  });
+
+  // 11. Google Preferred Sources footer link configuration and translations
+  await t.test('11. Google Preferred Sources footer link translations and destination', () => {
+    assert.equal(translations.en.addPreferredSource, 'Add to Preferred Sources on Google');
+    assert.equal(translations.ar.addPreferredSource, 'أضفنا إلى المصادر المفضّلة على Google');
+    const expectedUrl = 'https://www.google.com/preferences/source?q=relationshipid.org';
+    assert.equal(expectedUrl, 'https://www.google.com/preferences/source?q=relationshipid.org');
   });
 });

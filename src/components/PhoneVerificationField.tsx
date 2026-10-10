@@ -1,16 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle, Loader2, Phone, ShieldCheck } from 'lucide-react';
-import {
-  PhoneAuthProvider,
-  RecaptchaVerifier,
-  linkWithCredential,
-  updatePhoneNumber
-} from 'firebase/auth';
+import { CheckCircle, Loader2, MessageSquare } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import type { CountryCode } from 'libphonenumber-js';
 import { legacyCountryValue, normalizePhoneNumber, supportedCountries } from '../utils/phone';
 import { Language } from '../types';
-import { readableError } from '../utils/authErrors';
+import { authFetch } from '../utils/api';
 import styles from '../styles/RegistryForm.module.css';
 
 interface PhoneVerificationFieldProps {
@@ -19,6 +13,7 @@ interface PhoneVerificationFieldProps {
   country: CountryCode;
   number: string;
   verifiedE164?: string | null;
+  isWhatsappVerified?: boolean;
   onCountryChange: (country: CountryCode) => void;
   onNumberChange: (number: string) => void;
   onVerified: (e164: string | null) => void;
@@ -32,48 +27,49 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   country,
   number,
   verifiedE164,
+  isWhatsappVerified = true,
   onCountryChange,
   onNumberChange,
   onVerified,
   required = true,
   label
 }) => {
-  const [verificationId, setVerificationId] = useState<string | null>(null);
+  const [codeSent, setCodeSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
-  const verifierRef = useRef<RecaptchaVerifier | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const canonical = useMemo(() => normalizePhoneNumber(country, number), [country, number]);
   const isVerified = Boolean(canonical && verifiedE164 === canonical);
 
-  const clearVerifier = () => {
-    try {
-      verifierRef.current?.clear();
-    } catch {
-      // Clearing an already-destroyed verifier is harmless.
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      cooldownTimerRef.current = setTimeout(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
     }
-    verifierRef.current = null;
-  };
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, [resendCooldown]);
 
-  useEffect(() => () => clearVerifier(), []);
-
-  const resetCandidateVerification = () => {
-    setVerificationId(null);
+  const resetVerificationState = () => {
+    setCodeSent(false);
     setOtp('');
     setError('');
-    clearVerifier();
     onVerified(null);
   };
 
-  const changeCountry = (value: string) => {
-    resetCandidateVerification();
+  const handleCountryChange = (value: string) => {
+    resetVerificationState();
     onCountryChange(value as CountryCode);
   };
 
-  const changeNumber = (value: string) => {
-    resetCandidateVerification();
+  const handleNumberChange = (value: string) => {
+    resetVerificationState();
     onNumberChange(value);
   };
 
@@ -84,29 +80,65 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       return;
     }
     if (!auth?.currentUser) {
-      setError(language === 'ar' ? 'سجّل الدخول أولاً للتحقق من الجوال.' : 'Sign in before verifying your mobile.');
-      return;
-    }
-
-    if (auth.currentUser.phoneNumber === canonical) {
-      onVerified(canonical);
+      setError(language === 'ar' ? 'سجّل الدخول أولاً للتحقق من الجوال عبر واتساب.' : 'Sign in before verifying your mobile number via WhatsApp.');
       return;
     }
 
     setSending(true);
-    clearVerifier();
     try {
-      auth.languageCode = language === 'ar' ? 'ar' : 'en';
-      const verifier = new RecaptchaVerifier(auth, `${id}-recaptcha`, {
-        size: 'invisible'
+      const res = await authFetch('/api/whatsapp/verify/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country: legacyCountryValue(country),
+          number
+        })
       });
-      verifierRef.current = verifier;
-      const provider = new PhoneAuthProvider(auth);
-      const idFromFirebase = await provider.verifyPhoneNumber(canonical, verifier);
-      setVerificationId(idFromFirebase);
-    } catch (err) {
-      setError(readableError(err, language));
-      clearVerifier();
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 429) {
+          setError(
+            language === 'ar'
+              ? 'محاولات تحقق كثيرة جداً. يرجى الانتظار ساعة قبل المحاولة مرة أخرى.'
+              : 'Too many verification attempts. Please wait an hour before trying again.'
+          );
+        } else if (res.status === 503) {
+          setError(
+            language === 'ar'
+              ? 'خدمة التحقق عبر واتساب غير متاحة حالياً.'
+              : 'WhatsApp verification is currently unavailable.'
+          );
+        } else if (res.status === 502) {
+          setError(
+            language === 'ar'
+              ? 'تعذر تسليم رمز واتساب أو الرقم غير مسجل في واتساب. تأكد من وجود حساب واتساب نشط على هذا الرقم، أو حاول لاحقاً.'
+              : 'WhatsApp delivery failed or number not reachable on WhatsApp. Ensure this number has an active WhatsApp account, or try again later.'
+          );
+        } else if (res.status === 400) {
+          setError(
+            language === 'ar'
+              ? (data.messageAr || 'رقم الجوال غير صالح.')
+              : (data.messageEn || 'Invalid mobile phone number.')
+          );
+        } else {
+          setError(
+            language === 'ar'
+              ? (data.messageAr || 'فشل إرسال رمز التحقق عبر واتساب.')
+              : (data.messageEn || 'Failed to send WhatsApp verification code.')
+          );
+        }
+        return;
+      }
+
+      setCodeSent(true);
+      setResendCooldown(60);
+    } catch {
+      setError(
+        language === 'ar'
+          ? 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.'
+          : 'Network error. Please try again.'
+      );
     } finally {
       setSending(false);
     }
@@ -114,8 +146,8 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
 
   const confirmCode = async () => {
     setError('');
-    if (!verificationId || otp.trim().length < 6) {
-      setError(language === 'ar' ? 'أدخل رمز التحقق المرسل إليك.' : 'Enter the verification code sent to you.');
+    if (otp.trim().length !== 6) {
+      setError(language === 'ar' ? 'أدخل رمز التحقق المكون من 6 أرقام.' : 'Enter the 6-digit verification code.');
       return;
     }
     if (!auth?.currentUser || !canonical) {
@@ -125,38 +157,57 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
 
     setConfirming(true);
     try {
-      const credential = PhoneAuthProvider.credential(verificationId, otp.trim());
-      const hasPhoneProvider = auth.currentUser.providerData.some((item) => item.providerId === 'phone');
-      if (hasPhoneProvider) {
-        await updatePhoneNumber(auth.currentUser, credential);
-      } else {
-        await linkWithCredential(auth.currentUser, credential);
+      const res = await authFetch('/api/whatsapp/verify/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country: legacyCountryValue(country),
+          number,
+          code: otp.trim()
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          language === 'ar'
+            ? (data.messageAr || 'رمز التحقق غير صالح أو منتهي الصلاحية.')
+            : (data.messageEn || 'Invalid or expired verification code.')
+        );
+        return;
       }
-      await auth.currentUser.reload();
-      onVerified(auth.currentUser.phoneNumber || canonical);
-      setVerificationId(null);
-      setOtp('');
-      clearVerifier();
-    } catch (err) {
-      setError(readableError(err, language));
+
+      if (data.success && data.whatsappTrusted) {
+        onVerified(canonical);
+        setCodeSent(false);
+        setOtp('');
+      } else {
+        setError(language === 'ar' ? 'فشل التحقق من الرمز.' : 'Verification check failed.');
+      }
+    } catch {
+      setError(language === 'ar' ? 'حدث خطأ في الاتصال أثناء التحقق من الرمز.' : 'Network error while verifying code.');
     } finally {
       setConfirming(false);
     }
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`${id}-number`} className="block text-[11px] font-medium text-[#C9CCE4]">
-          {label || (language === 'ar' ? 'رقم الجوال' : 'Mobile Number')}
+        <label htmlFor={`${id}-number`} className="block text-sm font-medium text-[#C9CCE4]">
+          {label || (language === 'ar' ? 'رقم الهاتف المحمول' : 'Mobile Phone Number')}
         </label>
         {isVerified ? (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#C1C3E6]/25 border border-[#C1C3E6]/50 text-[#C1C3E6] inline-flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" />
-            {language === 'ar' ? 'تم التحقق' : 'Verified'}
+          <span className="text-sm px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 inline-flex items-center gap-1 font-medium">
+            <CheckCircle className="w-3.5 h-3.5" />
+            {isWhatsappVerified
+              ? (language === 'ar' ? 'موثوق عبر واتساب ✓' : 'Verified via WhatsApp ✓')
+              : (language === 'ar' ? 'رقم موثوق ✓' : 'Verified Phone ✓')}
           </span>
         ) : (
-          <span className="text-[10px] text-[#C9CCE4]/60">{language === 'ar' ? 'غير متحقق' : 'Not verified'}</span>
+          <span className="text-sm text-[#C9CCE4]/70 font-medium">
+            {language === 'ar' ? 'غير موثوق' : 'Not verified'}
+          </span>
         )}
       </div>
 
@@ -164,8 +215,8 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
         <select
           aria-label={language === 'ar' ? 'رمز الدولة' : 'Country code'}
           value={country}
-          onChange={(event) => changeCountry(event.target.value)}
-          className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-2.5 text-[11px] outline-none focus:border-[#C1C3E6]"
+          onChange={(event) => handleCountryChange(event.target.value)}
+          className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#C1C3E6]"
         >
           {supportedCountries.map((item) => (
             <option key={item.iso} value={item.iso}>
@@ -179,7 +230,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           inputMode="tel"
           required={required}
           value={number}
-          onChange={(event) => changeNumber(event.target.value)}
+          onChange={(event) => handleNumberChange(event.target.value)}
           className={`${styles.inputControl} col-span-7`}
           dir="ltr"
           autoComplete="tel-national"
@@ -190,49 +241,66 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          disabled={sending || confirming || isVerified}
+          disabled={sending || confirming || isVerified || resendCooldown > 0}
           onClick={sendCode}
-          className="flex-1 py-2 rounded-lg bg-[#202B52] border border-[#C1C3E6]/40 text-[#C1C3E6] text-[11px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+          className="flex-1 py-2.5 px-3 rounded-xl bg-[#202B52] border border-[#C1C3E6]/40 text-[#C1C3E6] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-[#283564] transition min-h-[40px]"
         >
-          {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+          {sending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : isVerified ? (
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <MessageSquare className="w-4 h-4" />
+          )}
           {isVerified
-            ? (language === 'ar' ? 'تم التحقق' : 'Verified')
-            : (language === 'ar' ? 'تحقق من الجوال' : 'Verify Mobile')}
+            ? (isWhatsappVerified
+                ? (language === 'ar' ? 'تم التحقق عبر واتساب ✓' : 'Verified via WhatsApp ✓')
+                : (language === 'ar' ? 'تم التحقق من الرقم ✓' : 'Verified Phone ✓'))
+            : (codeSent
+              ? (resendCooldown > 0
+                ? (language === 'ar' ? `إعادة الإرسال بعد ${resendCooldown} ث` : `Resend in ${resendCooldown}s`)
+                : (language === 'ar' ? 'إعادة إرسال رمز واتساب' : 'Resend WhatsApp code'))
+              : (language === 'ar' ? 'التحقق عبر واتساب' : 'Verify via WhatsApp'))}
         </button>
         {canonical && (
-          <span className="text-[9px] text-[#C9CCE4]/60 font-mono" dir="ltr">
+          <span className="text-sm text-[#C9CCE4]/70 font-mono shrink-0" dir="ltr">
             {legacyCountryValue(country).split(' ')[1]}…{canonical.slice(-4)}
           </span>
         )}
       </div>
 
-      {verificationId && !isVerified && (
-        <div className="flex gap-2" dir="ltr">
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={otp}
-            onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder={language === 'ar' ? 'رمز SMS' : 'SMS code'}
-            className={`${styles.inputControl} flex-1`}
-          />
-          <button
-            type="button"
-            onClick={confirmCode}
-            disabled={confirming || otp.length < 6}
-            className="px-3 rounded-xl bg-[#C1C3E6] hover:bg-[#A9AFD7] text-[#242C55] text-[11px] font-semibold disabled:opacity-50 cursor-pointer"
-          >
-            {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'تأكيد' : 'Confirm')}
-          </button>
+      {codeSent && !isVerified && (
+        <div className="space-y-1.5">
+          <div className="flex gap-2" dir="ltr">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder={language === 'ar' ? 'رمز واتساب (6 أرقام)' : '6-digit WhatsApp code'}
+              className={`${styles.inputControl} flex-1`}
+            />
+            <button
+              type="button"
+              onClick={confirmCode}
+              disabled={confirming || otp.trim().length !== 6}
+              className="px-4 py-2.5 rounded-xl bg-[#C1C3E6] hover:bg-[#A9AFD7] text-[#242C55] text-sm font-semibold disabled:opacity-50 cursor-pointer min-h-[40px] flex items-center gap-1.5"
+            >
+              {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'تحقق من الرمز' : 'Verify')}
+            </button>
+          </div>
+          <p className="text-xs text-[#C9CCE4]/80">
+            {language === 'ar'
+              ? 'يصلك رمز التحقق المكون من 6 أرقام في رسالة عبر تطبيق واتساب.'
+              : 'Your 6-digit verification code arrives in a message via WhatsApp.'}
+          </p>
         </div>
       )}
 
-      <div id={`${id}-recaptcha`} />
-
       {error && (
-        <p className="text-[10px] leading-relaxed text-rose-300 break-words" dir="ltr">
+        <p className="text-sm leading-relaxed text-rose-300 break-words" dir={language === 'ar' ? 'rtl' : 'ltr'}>
           {error}
         </p>
       )}

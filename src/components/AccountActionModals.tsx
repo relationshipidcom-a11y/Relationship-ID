@@ -63,7 +63,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
                 <HeartOff className="w-4 h-4" />
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+              <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
                 {t.exitRelationshipTitle}
               </h3>
             </div>
@@ -71,18 +71,19 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseExitModal}
-              className="p-1 text-[#C9CCE4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer disabled:opacity-50"
+              aria-label={t.cancelBtn}
+              className="w-10 h-10 rounded-full bg-[#172244] hover:bg-[#202B52] text-[#C9CCE4] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10 disabled:opacity-50 shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-xs text-[#C9CCE4] leading-relaxed whitespace-pre-line">
+          <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed whitespace-pre-line">
             {t.exitRelationshipDesc}
           </p>
 
           {error && (
-            <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-1.5">
+            <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-sm flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -93,7 +94,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseExitModal}
-              className="flex-1 py-2 px-3 rounded-xl border border-white/20 bg-[#172244] text-xs font-semibold text-[#C9CCE4] hover:text-white transition cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2.5 px-3 rounded-xl border border-white/20 bg-[#172244] text-sm font-semibold text-[#C9CCE4] hover:text-white transition cursor-pointer disabled:opacity-50 min-h-[44px]"
             >
               {t.cancelBtn}
             </button>
@@ -101,7 +102,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={() => void onConfirmExitRelationship()}
-              className="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-sm font-semibold text-white transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>{loading ? t.actionLoadingText : t.confirmExitRelationshipBtn}</span>
@@ -118,7 +119,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
                 <Trash2 className="w-4 h-4" />
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+              <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
                 {t.deleteAccountTitle}
               </h3>
             </div>
@@ -126,23 +127,24 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseDeleteModal}
-              className="p-1 text-[#C9CCE4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer disabled:opacity-50"
+              aria-label={t.cancelBtn}
+              className="w-10 h-10 rounded-full bg-[#172244] hover:bg-[#202B52] text-[#C9CCE4] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10 disabled:opacity-50 shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-xs text-[#C9CCE4] leading-relaxed whitespace-pre-line">
+          <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed whitespace-pre-line">
             {hasActiveRelationship ? t.deleteAccountDesc : t.deleteAccountDescNoRelationship}
           </p>
 
-          <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[11px] flex items-center gap-1.5">
+          <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
             <span className="font-semibold">{language === 'ar' ? 'لا يمكن التراجع عن هذا الإجراء.' : 'This cannot be undone.'}</span>
           </div>
 
           {error && (
-            <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-1.5">
+            <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-sm flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -153,7 +155,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseDeleteModal}
-              className="flex-1 py-2 px-3 rounded-xl border border-white/20 bg-[#172244] text-xs font-semibold text-[#C9CCE4] hover:text-white transition cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2.5 px-3 rounded-xl border border-white/20 bg-[#172244] text-sm font-semibold text-[#C9CCE4] hover:text-white transition cursor-pointer disabled:opacity-50 min-h-[44px]"
             >
               {t.cancelBtn}
             </button>
@@ -161,7 +163,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={() => void onConfirmDeleteAccount()}
-              className="flex-1 py-2 px-3 rounded-xl bg-rose-700 hover:bg-rose-600 text-xs font-semibold text-white transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 py-2.5 px-3 rounded-xl bg-rose-700 hover:bg-rose-600 text-sm font-semibold text-white transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>{loading ? t.actionLoadingText : t.confirmDeleteAccountBtn}</span>

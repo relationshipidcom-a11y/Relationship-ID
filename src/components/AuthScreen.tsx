@@ -24,6 +24,7 @@ import {
 } from '../lib/firebase';
 import styles from '../styles/AuthScreen.module.css';
 import { readableError } from '../utils/authErrors';
+import { BrandMark } from './BrandMark';
 
 export { readableError };
 
@@ -93,6 +94,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setNotice('');
     setLoading(true);
@@ -118,6 +120,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   const handleGoogleAuth = async () => {
+    if (loading) return;
     setError('');
     setNotice('');
     setLoading(true);
@@ -168,6 +171,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   return (
     <main className="px-5 py-4 flex-1 flex flex-col justify-start">
+      <div className="flex justify-center mb-4">
+        <BrandMark size={96} alt="Relationship ID" />
+      </div>
+
       <div className="text-center pt-1 pb-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2C345F]/70 border border-[#4E5A8E] text-sm font-semibold tracking-widest text-[#C1C3E6] uppercase mb-2.5 font-mono">
           <Shield className="w-3.5 h-3.5" />

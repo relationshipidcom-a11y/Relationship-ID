@@ -52,7 +52,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) 
               <h2 className="text-base font-bold text-white">
                 {sec.heading}
               </h2>
-              <p className="text-base text-[#C9CCE4] leading-relaxed">
+              <p className="text-base text-[#C9CCE4] leading-relaxed whitespace-pre-line">
                 {sec.body}
               </p>
             </div>

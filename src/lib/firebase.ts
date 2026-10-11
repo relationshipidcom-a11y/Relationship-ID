@@ -145,9 +145,24 @@ export const firebaseApp = isFirebaseConfigured
   ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
   : null;
 
-if (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.DEV) {
-  if (typeof self !== 'undefined') {
-    (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+if (typeof self !== 'undefined') {
+  const isDev = Boolean((import.meta as any)?.env?.DEV);
+  const isExplicitPreview = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('.run.app')
+  );
+
+  // In production builds, App Check debug provider must NEVER activate on production domains.
+  // It is strictly restricted to explicit development or Cloud Run preview environments.
+  if (isDev || isExplicitPreview) {
+    const envDebugToken = (import.meta as any)?.env?.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+    if (envDebugToken && envDebugToken !== 'false') {
+      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN =
+        envDebugToken === 'true' ? true : envDebugToken;
+    } else if (isDev) {
+      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
   }
 }
 

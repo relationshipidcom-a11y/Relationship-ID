@@ -105,7 +105,7 @@ interface Invitation {
   p2Uid?: string | null;
 }
 
-export const CURRENT_LEGAL_VERSION = '2026-10-01';
+export const CURRENT_LEGAL_VERSION = '2026-10-10';
 
 const USERS_COL = 'users';
 const RELATIONSHIPS_COL = 'relationships';
@@ -1368,8 +1368,40 @@ export async function isRelationshipDeletionPending(
 
 export function createApp(): express.Express {
   const app = express();
+  app.disable('x-powered-by');
   app.set('trust proxy', parseTrustProxyHops(process.env.TRUST_PROXY_HOPS));
   app.use(securityHeadersMiddleware);
+
+  // SECURITY: Prevent direct access to server build artifacts, sourcemaps, environment files, backups, and dotfiles
+  app.use((req, res, next) => {
+    const rawPath = req.path || '';
+    const lower = rawPath.toLowerCase();
+    if (
+      lower.startsWith('/.env') ||
+      lower.startsWith('/.git') ||
+      lower.endsWith('.cjs') ||
+      lower.endsWith('.mjs') ||
+      lower.endsWith('.ts') ||
+      lower.endsWith('.tsx') ||
+      lower.endsWith('.map') ||
+      lower.endsWith('.zip') ||
+      lower.endsWith('.tar') ||
+      lower.endsWith('.gz') ||
+      lower.endsWith('.bak') ||
+      lower.endsWith('.sql') ||
+      lower === '/server.cjs' ||
+      lower === '/server.cjs.map' ||
+      lower === '/package.json' ||
+      lower === '/package-lock.json' ||
+      lower === '/bun.lock' ||
+      lower === '/tsconfig.json' ||
+      lower === '/relationship-id.zip'
+    ) {
+      return res.status(404).end();
+    }
+    next();
+  });
+
   app.use(express.json({ limit: '256kb' }));
   app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err instanceof SyntaxError && (err as any).status === 400 && 'body' in err) {
@@ -1542,6 +1574,11 @@ export function createApp(): express.Express {
       }
 
       const user = userFromResponse(res);
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+      if (!limiter(`whatsapp_check:${user.uid}`, 10, 60000) || !limiter(`whatsapp_check_ip:${ip}`, 20, 60000)) {
+        return respondWithError(res, 429, 'WHATSAPP_VERIFY_RATE_LIMITED');
+      }
+
       const { country, number, code } = (req.body || {}) as { country?: string; number?: string; code?: string };
 
       if (!code || typeof code !== 'string' || !code.trim()) {
@@ -4615,7 +4652,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { dotfiles: 'ignore', index: false }));
     app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 

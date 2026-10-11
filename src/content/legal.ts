@@ -1,4 +1,4 @@
-export const LEGAL_VERSION = '2026-10-01';
+export const LEGAL_VERSION = '2026-10-10';
 
 export interface LegalSection {
   heading: string;
@@ -65,51 +65,51 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
         body: 'This Privacy Policy is versioned (current version: 2026-10-01). We may update this policy periodically to reflect operational, legal, or regulatory requirements. Users will be asked to review and accept materially updated terms before continuing to use the service.'
       }
     ],
-    termsTitle: 'Terms of Service',
+    termsTitle: 'Terms of Use',
     termsSections: [
       {
-        heading: '1. Not an Official Registry or Legal Marriage',
-        body: 'Relationship ID is a private digital record created only when two adults voluntarily confirm a relationship. It is not a government registry, marriage licence, court or notary service, legal contract, or proof of civil status. Relationship ID has no legal, civil, religious, or governmental standing.'
+        heading: '1. About the platform',
+        body: 'Relationship ID records a relationship with the consent of two adults. The relationship is digitally documented with a reference number and barcode.'
       },
       {
-        heading: '2. Eligibility and User Conduct',
-        body: 'You must be at least 18 years of age to register or use this platform. You agree to provide true, accurate, and current information, to safeguard your account credentials, and to initiate invitations only with the knowledge and mutual consent of the other person. Harassment, impersonation, identity theft, fraud, unlawful content, automated scraping, and any attempts to bypass authentication, phone verification, or security controls are strictly prohibited.'
+        heading: '2. Using the platform',
+        body: 'You must be at least 18 years old. Provide accurate information, protect your account, and send invitations only with your partner’s knowledge and consent. Fraud, abuse, impersonation, and bypassing security are prohibited.'
       },
       {
-        heading: '3. Public Display and Mutual Consent',
-        body: 'By jointly creating and confirming a relationship record, both partners explicitly consent to the public display of both partners\' verified legal names, relationship stage (Dating, Engaged, or Married), and relationship start date to anyone holding the certificate link, verification reference, or QR code. Either partner may end the relationship record in the application at any time, which revokes public verification immediately.'
+        heading: '3. Sharing the certificate',
+        body: 'With both partners’ consent, their names, relationship stage, and start date are visible to anyone with the certificate link or QR code. Either partner can end the relationship. The certificate’s public display and verification will then stop immediately.'
       },
       {
-        heading: '4. Invitations and Blocking',
-        body: 'An invitation sent by Partner 1 does not establish any record until voluntarily accepted by Partner 2. Partner 2 may decline an invitation at any time or block the inviter from sending further invitations using the in-app blocking feature.'
+        heading: '4. Invitations',
+        body: 'The relationship is not recorded until the second partner accepts. They can reject the invitation or block the sender.'
       },
       {
-        heading: '5. Account Suspension and Termination',
-        body: 'We reserve the right to suspend, terminate, or delete any account or relationship record immediately without prior notice upon: (a) breach of these Terms of Service; (b) impersonation or submission of fraudulent identity details; (c) harassment or abuse towards another individual; or (d) any attempt to tamper with API security, App Check, or verification controls.'
+        heading: '5. Account suspension',
+        body: 'We may suspend or delete an account or relationship record without notice for violating these Terms or misusing the service.'
       },
       {
-        heading: '6. Intellectual Property',
-        body: 'The Relationship ID platform, source code, visual branding, certificate designs, trademarks, and associated software are the exclusive intellectual property of Ramy Gabriel. Users retain ownership of their personal information and grant Relationship ID the limited license necessary to operate the service and render certificates as directed.'
+        heading: '6. Ownership and your data',
+        body: 'The platform, its design, and its logo belong to Relationship ID . Org. Your data remains yours. You allow us to use it to operate the service and display the certificate with your consent.'
       },
       {
-        heading: '7. Disclaimer of Warranties and Limitation of Liability',
-        body: 'Relationship ID is provided on an "as is" and "as available" basis without warranties of any kind, whether express, implied, statutory, or otherwise, including warranties of merchantability, fitness for a particular purpose, or uninterrupted, error-free operation. To the fullest extent permitted by applicable law, the operator shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages arising out of your access to or use of the platform. Nothing in these terms excludes liability that cannot be excluded under applicable law.'
+        heading: '7. Service availability',
+        body: 'Errors or interruptions may occur. We do not guarantee continuous operation and are not liable for indirect damages to the extent permitted by law.'
       },
       {
-        heading: '8. No Legal or Governmental Effect',
-        body: 'Nothing contained within this application, its certificates, or its verification portal creates a legal marriage, marital status, civil partnership, inheritance right, property entitlement, immigration or visa benefit, or official government record in the Kingdom of Saudi Arabia or any other jurisdiction.'
+        heading: '8. Certificate limits',
+        body: 'The certificate does not grant marriage, alimony, inheritance, immigration, or residency rights, and creates no financial obligations or government registration.'
       },
       {
-        heading: '9. Governing Law and Jurisdiction',
-        body: 'These Terms of Service and any dispute or claim arising out of or related to them shall be governed by and construed in accordance with the laws and regulations of the Kingdom of Saudi Arabia. The competent judicial courts of the Kingdom of Saudi Arabia shall have exclusive jurisdiction over any disputes.'
+        heading: '9. Disputes',
+        body: 'Applicable laws apply, and competent courts will hear any dispute.'
       },
       {
-        heading: '10. Versioning and Re-Acceptance',
-        body: 'These terms are versioned (current version: 2026-10-01). Continued use of the platform following the publication of material modifications constitutes acceptance of the amended terms. When material changes occur, users will be prompted to re-accept the updated terms before proceeding.'
+        heading: '10. Updates to terms',
+        body: 'Current version: 2026-10-10.\nContinued use means acceptance of updates, and we will ask for renewed consent for significant changes.'
       },
       {
-        heading: '11. Contact Information',
-        body: 'For legal notices, terms questions, or inquiries regarding these Terms of Service, please contact customerservices@relationshipid.org.'
+        heading: '11. Contact',
+        body: 'customerservices@relationshipid.org'
       }
     ]
   },
@@ -168,48 +168,48 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     termsTitle: 'شروط الاستخدام',
     termsSections: [
       {
-        heading: '1. ليست سجلاً حكومياً ولا عقد زواج رسمي',
-        body: 'تُعد منصة "Relationship ID" سجلاً رقمياً خاصاً يُنشأ حصرياً بناءً على التأكيد الطوعي والمتبادل بين شخصين بالغين. وهذه المنصة ليست سجلاً حكومياً، ولا عقد أو ترخيص زواج رسمي، ولا وثيقة كاتب عدل أو جهة قضائية، ولا تُعد دليلاً على الحالة المدنية، وليس لها أي صفة أو أثر نظامي أو رسمي أو قضائي.'
+        heading: '1. عن المنصة',
+        body: 'Relationship ID تسجّل علاقة بموافقة شخصين بالغين. تُوثَّق هذه العلاقة رقمياً برقم مرجعي وباركود.'
       },
       {
-        heading: '2. الأهلية وسلوك المستخدم',
-        body: 'يجب ألا يقل عمر المستخدم عن 18 عاماً للتسجيل في المنصة. ويلتزم المستخدم بتقديم معلومات دقيقة وصحيحة، والحفاظ على سرية حسابه، وعدم إرسال دعوات إلا بعلم الشريك وموافقته الصريحة. ويُحظر تماماً انتحال الشخصية، أو تقديم بيانات مضللة، أو التحرش، أو الاحتيال، أو نشر محتوى غير مشروع، أو محاولة تجاوز أنظمة المصادقة أو التحقق من الهاتف أو آليات الأمان البرمجية.'
+        heading: '2. استخدامك للمنصة',
+        body: 'يجب أن يكون عمرك 18 عاماً أو أكثر. استخدم معلومات صحيحة، واحمِ حسابك، ولا ترسل دعوة دون علم الشريك وموافقته. يُمنع الاحتيال والإساءة وانتحال الشخصية وتجاوز الأمان.'
       },
       {
-        heading: '3. الموافقة على العرض العام والإنهاء الفوري',
-        body: 'بإنشاء سجل العلاقة وتأكيده بشكل مشترك، يمنح كِلا الشريكين موافقتهما الصريحة على العرض العام للاسمين القانونيين، ومرحلة العلاقة (تعارف، خطوبة، زواج)، وتاريخ البدء لكل من يملك رابط الشهادة أو رمز التحقق (QR). ويحق لأي من الشريكين إنهاء العلاقة عبر التطبيق في أي وقت، مما يؤدي فوراً إلى إلغاء التحقق العام وسحب الشهادة علناً.'
+        heading: '3. عرض الشهادة',
+        body: 'بموافقة الطرفين، يظهر اسماهما ومرحلة العلاقة وتاريخ بدايتها لمن يملك رابط الشهادة أو رمز QR. يمكن لأي طرف إنهاء العلاقة، وعندها يتوقف عرض الشهادة والتحقق منها فوراً.'
       },
       {
-        heading: '4. الدعوات وخيار الحظر',
-        body: 'لا ترتب الدعوة المرسلة من الشريك الأول أي أثر ما لم يقبلها الشريك الثاني طوعاً. ويحق للشريك الثاني رفض الدعوة أو حظر المرسل من إرسال أي دعوات مستقبلية باستخدام ميزة الحظر المتاحة في التطبيق.'
+        heading: '4. الدعوات',
+        body: 'لا تُسجّل العلاقة حتى يقبل الطرف الثاني. ويمكنه رفض الدعوة أو حظر المرسل.'
       },
       {
-        heading: '5. تعليق الحساب والإنهاء',
-        body: 'نحتفظ بالحق في تعليق أو إنهاء أو حذف أي حساب أو سجل علاقة فوراً ودون إشعار مسبق في الحالات التالية: (أ) مخالفة شروط الاستخدام؛ (ب) انتحال الشخصية أو تزوير البيانات؛ (ج) ممارسة الإساءة أو التحرش تجاه أي شخص؛ (د) محاولة العبث بأنظمة الأمان البرمجية أو واجهات App Check أو تجاوز التحقق.'
+        heading: '5. إيقاف الحساب',
+        body: 'قد نوقف أو نحذف الحساب أو سجل العلاقة دون إشعار عند مخالفة الشروط أو إساءة الاستخدام.'
       },
       {
-        heading: '6. الملكية الفكرية',
-        body: 'تعتبر منصة Relationship ID ورموزها البرمجية وتصميم الشهادات والهوية البصرية والعلامات التجارية ملكية فكرية حصرية لـ رامي جبرائيل (Ramy Gabriel). ويحتفظ المستخدمون ببياناتهم الشخصية ويمنحون المنصة ترخيصاً محدوداً لتشغيل الخدمة وعرض الشهادات وفقاً لإرادتهم.'
+        heading: '6. الملكية والبيانات',
+        body: 'المنصة وتصميمها وشعارها ملك لـ Relationship ID . Org. بياناتك تبقى لك، وتسمح لنا باستخدامها لتشغيل الخدمة وعرض الشهادة بموافقتك.'
       },
       {
-        heading: '7. إخلاء المسؤولية وحدودها',
-        body: 'تُقدّم المنصة "كما هي" و"حسب توفرها" دون أي ضمانات صريحة أو ضمنية أو نظامية، بما في ذلك ضمانات الملاءمة لغرض معين أو الاستمرار دون انقطاع أو خلوها من الأخطاء البرمجية. ولا يتحمل مشغل المنصة أي مسؤولية عن أي أضرار غير مباشرة أو تبعية أو عرضية ناتجة عن استخدام المنصة، وذلك إلى أقصى حد يسمح به النظام المعمول به.'
+        heading: '7. توفر الخدمة',
+        body: 'قد تحدث أخطاء أو انقطاعات. لا نضمن عمل الخدمة دائماً، ولا نتحمل الأضرار غير المباشرة بالقدر الذي يسمح به النظام.'
       },
       {
-        heading: '8. نفي أي أثر قانوني أو حكومي',
-        body: 'لا ينشأ عن استخدام هذا التطبيق أو الشهادات الصادرة عنه أي عقد زواج شرعي أو نظامي، أو مركز مدني، أو حقوق نفقة أو إرث، أو التزامات مالية، أو مزايا هجرة وإقامة، أو أي قيود في السجلات الحكومية الرسمية في المملكة العربية السعودية أو أي دولة أخرى.'
+        heading: '8. حدود الشهادة',
+        body: 'لا تمنح الشهادة حقوق زواج أو نفقة أو إرث أو هجرة أو إقامة، ولا تُنشئ التزامات مالية أو تسجيلاً حكومياً.'
       },
       {
-        heading: '9. النظام الواجب التطبيق والاختصاص القضائي',
-        body: 'تخضع شروط الاستخدام هذه ويُفسّر أي نزاع ينشأ عنها وفقاً للأنظمة واللوائح المعمول بها في المملكة العربية السعودية، وتختص المحاكم القضائية المختصة في المملكة العربية السعودية حصرياً بنظر أي نزاع.'
+        heading: '9. النزاعات',
+        body: 'تطبق الأنظمة المعمول بها، وتنظر المحاكم المختصة في أي نزاع.'
       },
       {
-        heading: '10. تعديل الشروط والموافقة المتجددة',
-        body: 'شروط الاستخدام هذه مرقمة بإصدار معتمد (الإصدار الحالي: 2026-10-01). إن استمرارك في استخدام المنصة بعد نشر أي تعديلات جوهرية يعد موافقة منك عليها. وفي حال إجراء تعديلات جوهرية، سيُطلب من المستخدمين إعادة الموافقة على الشروط المحدثة قبل متابعة الاستخدام.'
+        heading: '10. تحديث الشروط',
+        body: 'الإصدار الحالي: 2026-10-10.\nاستمرار الاستخدام يعني قبول التحديثات، وسنطلب موافقتك مجدداً عند التغييرات المهمة.'
       },
       {
         heading: '11. التواصل',
-        body: 'لأي إشعارات قانونية أو استفسارات تتعلق بشروط الاستخدام، يُرجى التواصل معنا عبر البريد الإلكتروني: customerservices@relationshipid.org.'
+        body: 'customerservices@relationshipid.org'
       }
     ]
   }

@@ -10,7 +10,8 @@ import {
   isWhatsappVerifyEnabled,
   CURRENT_LEGAL_VERSION,
   WHATSAPP_VERIFY_ATTEMPTS_COL,
-  WHATSAPP_VERIFY_LIMITS_COL
+  WHATSAPP_VERIFY_LIMITS_COL,
+  rateLimitMap
 } from '../server';
 import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
 
@@ -119,6 +120,20 @@ test('WhatsApp verification via Twilio Verify test suite', async (t) => {
 
   function resetState() {
     mockDb.reset();
+    mockAuth.reset();
+    rateLimitMap.clear();
+    mockAuth.addUser('token_p1', {
+      uid: 'uid_p1',
+      email: 'p1@example.com',
+      email_verified: true,
+      phone_number: P1_PHONE
+    });
+    mockAuth.addUser('token_p2', {
+      uid: 'uid_p2',
+      email: 'p2@example.com',
+      email_verified: true,
+      phone_number: P2_PHONE
+    });
     mockDb.seed('users', 'uid_p1', {
       uid: 'uid_p1',
       email: 'p1@example.com',
@@ -1633,5 +1648,47 @@ test('WhatsApp verification via Twilio Verify test suite', async (t) => {
     assert.equal(attemptAfter.exists, false);
     const limitAfter = await mockDb.collection(WHATSAPP_VERIFY_LIMITS_COL).doc('uid_p1').get();
     assert.equal(limitAfter.exists, false);
+  });
+
+  // 23. Check endpoint rate limiting (11th check request within 1 minute returns 429)
+  await t.test('23. Check endpoint rate limiting (11th check request returns 429)', async () => {
+    resetState();
+    process.env.TWILIO_ACCOUNT_SID = 'AC_TEST_123';
+    process.env.TWILIO_AUTH_TOKEN = 'AUTH_TEST_123';
+    process.env.TWILIO_VERIFY_SID = 'VA_TEST_123';
+
+    const mockTwilio = createMockTwilio({ checkStatus: 'pending' });
+    __setTwilioClient(mockTwilio);
+
+    // Seed an attempt so check reaches rate limiting and attempt validation
+    mockDb.seed(WHATSAPP_VERIFY_ATTEMPTS_COL, 'uid_p1', {
+      attemptId: 'att_123',
+      uid: 'uid_p1',
+      canonicalPhone: '+966500000001',
+      country: 'SA +966',
+      channel: 'whatsapp',
+      state: 'pending',
+      expiresAtMs: Date.now() + 600000
+    });
+
+    // Make 10 requests (within limit)
+    for (let i = 0; i < 10; i++) {
+      const res = await fetch(`${baseUrl}/api/whatsapp/verify/check`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token_p1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'SA +966', number: '0500000001', code: '000000' })
+      });
+      assert.notEqual(res.status, 429, `Request ${i + 1} should not be rate limited`);
+    }
+
+    // 11th request exceeds limit -> 429
+    const resRateLimited = await fetch(`${baseUrl}/api/whatsapp/verify/check`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token_p1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country: 'SA +966', number: '0500000001', code: '000000' })
+    });
+    assert.equal(resRateLimited.status, 429, '11th check request should be rate limited');
+    const data = (await resRateLimited.json()) as any;
+    assert.equal(data.error, 'WHATSAPP_VERIFY_RATE_LIMITED');
   });
 });

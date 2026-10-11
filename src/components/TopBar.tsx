@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Globe, LogOut, ShieldCheck, MoreVertical, Edit3, HeartOff, Trash2, Home, UserX, Download } from 'lucide-react';
 import { Language, ScreenId } from '../types';
 import { translations } from '../i18n/translations';
+import { BrandMark } from './BrandMark';
 
 interface TopBarProps {
   language: Language;
@@ -90,7 +91,10 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       <div className="text-center flex-1 select-none min-w-0">
-        <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight truncate">{t.appName}</h1>
+        <div className="flex items-center justify-center gap-2">
+          <BrandMark size={30} isDecorative />
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight truncate">{t.appName}</h1>
+        </div>
         <p className="text-sm text-[#C9CCE4] mt-0.5 tracking-tight font-normal truncate">{t.tagline}</p>
       </div>
 

@@ -264,7 +264,7 @@ test('Legal Consent & Terms/Privacy suite', async (t) => {
     // 5. LEGAL_VERSION (client) === CURRENT_LEGAL_VERSION (server)
     await t.test('5. LEGAL_VERSION (client) === CURRENT_LEGAL_VERSION (server)', async () => {
       assert.equal(LEGAL_VERSION, CURRENT_LEGAL_VERSION);
-      assert.equal(CURRENT_LEGAL_VERSION, '2026-10-01');
+      assert.equal(CURRENT_LEGAL_VERSION, '2026-10-10');
     });
   } finally {
     await new Promise<void>((resolve, reject) => {

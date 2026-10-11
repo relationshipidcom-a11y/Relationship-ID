@@ -449,6 +449,35 @@ test('Hardening test suite', async (t) => {
     assert.equal(parseTrustProxyHops(3), 3);
     assert.equal(parseTrustProxyHops(0), 0);
   });
+
+  // Test 9: Sensitive file endpoint blocking (server.cjs, maps, .env, backups, package.json return 404)
+  await t.test('9. Sensitive file endpoint blocking', async () => {
+    const sensitivePaths = [
+      '/server.cjs',
+      '/server.cjs.map',
+      '/.env',
+      '/.env.local',
+      '/.git/config',
+      '/package.json',
+      '/package-lock.json',
+      '/bun.lock',
+      '/tsconfig.json',
+      '/relationship-id.zip',
+      '/some-file.map',
+      '/backend.sql'
+    ];
+
+    for (const p of sensitivePaths) {
+      const res = await fetch(`${baseUrl}${p}`);
+      assert.equal(res.status, 404, `Path ${p} should return 404`);
+    }
+  });
+
+  // Test 10: X-Powered-By header disabled
+  await t.test('10. X-Powered-By header is disabled', async () => {
+    const res = await fetch(`${baseUrl}/api/health`);
+    assert.equal(res.headers.get('x-powered-by'), null, 'X-Powered-By header should not be present');
+  });
 } finally {
   server.closeAllConnections?.();
   await new Promise<void>((resolve, reject) => {

@@ -7,8 +7,11 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
   return {
+    define: command === 'build' ? {
+      'import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN': 'undefined',
+    } : {},
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

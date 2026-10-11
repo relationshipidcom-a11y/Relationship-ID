@@ -8,7 +8,7 @@ test('Legal Content Compliance Suite', async (t) => {
   // 1. LEGAL_VERSION === CURRENT_LEGAL_VERSION
   await t.test('1. LEGAL_VERSION matches CURRENT_LEGAL_VERSION and is updated', () => {
     assert.equal(LEGAL_VERSION, CURRENT_LEGAL_VERSION);
-    assert.equal(LEGAL_VERSION, '2026-10-01');
+    assert.equal(LEGAL_VERSION, '2026-10-10');
   });
 
   // 2. Neither privacySections nor termsSections contains the word "Draft" or "مسودة"
@@ -97,18 +97,30 @@ test('Legal Content Compliance Suite', async (t) => {
     );
   });
 
-  // 6. The terms content contains "not a government registry" (en) and its Arabic equivalent
-  await t.test('6. Terms content contains disclaimer: "not a government registry" and Arabic equivalent', () => {
+  // 6. The terms content contains barcode/reference number and no government registration disclaimer
+  await t.test('6. Terms content contains barcode/reference number and no government registration disclaimer', () => {
     const enTermsCombined = legalContent.en.termsSections.map((s) => `${s.heading} ${s.body}`).join('\n');
     const arTermsCombined = legalContent.ar.termsSections.map((s) => `${s.heading} ${s.body}`).join('\n');
 
     assert.ok(
-      enTermsCombined.toLowerCase().includes('not a government registry'),
-      'English terms must contain "not a government registry"'
+      enTermsCombined.includes('reference number and barcode'),
+      'English terms must state relationship is digitally documented with a reference number and barcode'
     );
     assert.ok(
-      arTermsCombined.includes('ليست سجلاً حكومياً') || arTermsCombined.includes('ليس سجلاً حكومياً'),
-      'Arabic terms must contain the Arabic equivalent of "not a government registry"'
+      arTermsCombined.includes('برقم مرجعي وباركود'),
+      'Arabic terms must state relationship is digitally documented with a reference number and barcode'
+    );
+    assert.ok(
+      enTermsCombined.toLowerCase().includes('government registration'),
+      'English terms must contain "government registration" disclaimer'
+    );
+    assert.ok(
+      arTermsCombined.includes('تسجيلاً حكومياً'),
+      'Arabic terms must contain "تسجيلاً حكومياً" disclaimer'
+    );
+    assert.ok(
+      !enTermsCombined.includes('Saudi') && !arTermsCombined.includes('السعودية'),
+      'Terms of Use must not mention any country'
     );
   });
 
@@ -145,8 +157,8 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.equal(stringified.includes('عبر تطبيق WhatsApp للتحقق من رقم جوال المستخدم'), true, 'New phrase "عبر تطبيق WhatsApp للتحقق من رقم جوال المستخدم" must be present');
     assert.equal(stringified.includes('والسجلات التقنية للخادم'), true, 'New phrase "والسجلات التقنية للخادم" must be present');
 
-    // Version remains 2026-10-01
-    assert.equal(LEGAL_VERSION, '2026-10-01');
+    // Version updated to 2026-10-10
+    assert.equal(LEGAL_VERSION, '2026-10-10');
   });
 
   // 10. Storage and Public Contact Search disclosures

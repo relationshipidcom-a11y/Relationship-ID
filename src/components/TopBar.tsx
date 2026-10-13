@@ -62,7 +62,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     };
   }, [menuOpen]);
 
-  const showHomeButton = signedIn && onHome && !isAtHome;
+  const showHomeButton = Boolean(onHome && !isAtHome && (signedIn || currentScreen === 'not_found'));
 
   return (
     <header className="px-4 pt-4 pb-3 border-b border-white/10 flex items-center justify-between gap-2 relative z-30">
@@ -72,20 +72,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={onHome}
             aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
             title={language === 'ar' ? 'الرئيسية' : 'Home'}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/20 bg-[#202B52] text-sm text-[#C9CCE4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6] min-h-[40px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#51465F] bg-[#30264D] text-sm text-[#B7ACC8] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3] min-h-[40px]"
             type="button"
           >
-            <Home className="w-4 h-4 text-[#C1C3E6]" />
+            <Home className="w-4 h-4 text-[#E7BCD3]" />
             <span className="font-medium hidden sm:inline">{t.homeBtn}</span>
           </button>
         )}
         <button
           onClick={onToggleLanguage}
           aria-label={language === 'ar' ? 'Switch to English' : 'التحويل إلى اللغة العربية'}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/20 bg-[#202B52] text-sm text-[#C9CCE4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6] min-h-[40px]"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#51465F] bg-[#30264D] text-sm text-[#B7ACC8] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3] min-h-[40px]"
           type="button"
         >
-          <Globe className="w-4 h-4 text-[#C1C3E6]" />
+          <Globe className="w-4 h-4 text-[#E7BCD3]" />
           <span className="font-medium">{targetLanguageLabel}</span>
         </button>
       </div>
@@ -95,7 +95,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <BrandMark size={30} isDecorative />
           <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight truncate">{t.appName}</h1>
         </div>
-        <p className="text-sm text-[#C9CCE4] mt-0.5 tracking-tight font-normal truncate">{t.tagline}</p>
+        <p className="text-sm text-[#B7ACC8] mt-0.5 tracking-tight font-normal truncate">{t.tagline}</p>
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -107,7 +107,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               aria-haspopup="menu"
               aria-label={t.accountMenuLabel}
               title={t.accountMenuLabel}
-              className="w-10 h-10 rounded-full bg-[#202B52] border border-white/20 flex items-center justify-center text-[#C9CCE4] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6]"
+              className="w-10 h-10 rounded-full bg-[#30264D] border border-[#51465F] flex items-center justify-center text-[#B7ACC8] hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
               type="button"
             >
               <MoreVertical className="w-5 h-5" />
@@ -117,7 +117,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <div
                 role="menu"
                 aria-label={t.accountMenuLabel}
-                className="absolute top-full mt-2 ltr:right-0 rtl:left-0 w-64 sm:w-72 py-2 rounded-2xl bg-[#202B52] border border-white/20 shadow-2xl z-50 overflow-hidden flex flex-col text-start animate-in fade-in zoom-in-95 duration-100"
+                className="absolute top-full mt-2 ltr:right-0 rtl:left-0 w-64 sm:w-72 py-2 rounded-2xl bg-[#30264D] border border-[#51465F] shadow-2xl z-50 overflow-hidden flex flex-col text-start animate-in fade-in zoom-in-95 duration-100"
               >
                 {/* 1. Adjust My Information */}
                 {onAdjustInfo && (
@@ -130,7 +130,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     }}
                     className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <Edit3 className="w-4 h-4 text-[#C1C3E6] shrink-0" />
+                    <Edit3 className="w-4 h-4 text-[#E7BCD3] shrink-0" />
                     <span className="font-medium">{t.adjustMyInfoMenu}</span>
                   </button>
                 )}
@@ -146,7 +146,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     }}
                     className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <ShieldCheck className="w-4 h-4 text-[#C1C3E6] shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-[#E7BCD3] shrink-0" />
                     <span className="font-medium">{t.verifyRelationshipMenu}</span>
                   </button>
                 )}
@@ -160,9 +160,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       setMenuOpen(false);
                       onOpenBlockedModal();
                     }}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                    className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-[#B7ACC8] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <UserX className="w-4 h-4 text-[#9FA5C7] shrink-0" />
+                    <UserX className="w-4 h-4 text-[#8E82A3] shrink-0" />
                     <span className="font-medium">{t.blockedPeopleMenu}</span>
                   </button>
                 )}
@@ -176,9 +176,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       setMenuOpen(false);
                       onDownloadMyData();
                     }}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                    className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-[#B7ACC8] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <Download className="w-4 h-4 text-[#9FA5C7] shrink-0" />
+                    <Download className="w-4 h-4 text-[#8E82A3] shrink-0" />
                     <span className="font-medium">{t.downloadMyDataMenu}</span>
                   </button>
                 )}
@@ -192,9 +192,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       setMenuOpen(false);
                       onSignOut();
                     }}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-[#C9CCE4] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
+                    className="w-full px-4 py-3 flex items-center gap-3 text-sm sm:text-base text-[#B7ACC8] hover:text-white hover:bg-white/10 transition-colors text-start cursor-pointer focus:outline-none focus:bg-white/15"
                   >
-                    <LogOut className="w-4 h-4 text-[#9FA5C7] shrink-0" />
+                    <LogOut className="w-4 h-4 text-[#8E82A3] shrink-0" />
                     <span className="font-medium">{t.signOutMenu}</span>
                   </button>
                 )}

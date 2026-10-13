@@ -1,8 +1,24 @@
 import { Language } from '../types';
 
+export function getAuthErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object') {
+    const rawCode = 'code' in error && typeof (error as any).code === 'string' ? (error as any).code.trim() : '';
+    if (/^auth\/[a-z0-9.-]+$/i.test(rawCode)) {
+      return rawCode;
+    }
+    if ('message' in error && typeof (error as any).message === 'string') {
+      const match = (error as any).message.match(/\b(auth\/[a-z0-9.-]+)\b/i);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  return null;
+}
+
 export const readableError = (error: unknown, language: Language = 'ar'): string => {
   if (error instanceof Error) {
-    const code = String(Reflect.get(error, 'code') || '');
+    const code = getAuthErrorCode(error) || String(Reflect.get(error, 'code') || '');
     if (
       code.startsWith('auth/api-key-not-valid') ||
       code === 'auth/invalid-api-key' ||
@@ -99,13 +115,61 @@ export const readableError = (error: unknown, language: Language = 'ar'): string
         ? 'فشل التحقق الأمني. يرجى إعادة تحميل الصفحة والمحاولة مجدداً.'
         : 'Security check failed. Please reload the page and try again.';
     }
+    if (
+      code === 'auth/invalid-persistence-type' ||
+      code === 'auth/unsupported-persistence-type' ||
+      /indexeddb|storage|persistence/i.test(error.message)
+    ) {
+      return language === 'ar'
+        ? 'تعذر تطبيق تفضيل الجلسة المحدد. يرجى إعادة المحاولة.'
+        : 'Unable to apply selected session preference. Please try again.';
+    }
+    if (/Firebase Auth is not initialized/i.test(error.message)) {
+      return language === 'ar'
+        ? 'تعذر تهيئة جلسة تسجيل الدخول. يرجى إعادة المحاولة.'
+        : 'Authentication service is not initialized. Please try again.';
+    }
+    if (code === 'app/not-configured') {
+      return language === 'ar'
+        ? 'خدمة المصادقة غير مهيأة. يرجى المحاولة لاحقاً.'
+        : 'Authentication service is not configured. Please try again later.';
+    }
     if (typeof code === 'string' && code) {
       console.error('[auth]', code, error.message);
       return language === 'ar'
         ? 'حدث خطأ. يرجى المحاولة مرة أخرى.'
         : 'Something went wrong. Please try again.';
     }
-    return error.message;
+    console.error('[auth]', error.message);
+    if (language === 'ar') {
+      if (/[\u0600-\u06FF]/.test(error.message)) {
+        const arabicText = error.message;
+        return arabicText;
+      }
+      return 'حدث خطأ. يرجى المحاولة مرة أخرى.';
+    }
+    return 'Something went wrong. Please try again.';
   }
-  return 'Unknown authentication error';
+  return language === 'ar'
+    ? 'حدث خطأ غير معروف في تسجيل الدخول.'
+    : 'Something went wrong. Please try again.';
 };
+
+export function authAttemptFailureMessage(
+  reason: 'busy' | 'not-ready' | 'no-auth',
+  language: 'en' | 'ar'
+): string {
+  if (reason === 'busy') {
+    return language === 'ar'
+      ? 'هناك عملية جارية بالفعل. يرجى الانتظار.'
+      : 'An authentication operation is already in progress. Please wait.';
+  }
+  if (reason === 'not-ready') {
+    return language === 'ar'
+      ? 'جاري تهيئة جلسة تسجيل الدخول، يرجى الانتظار والمحاولة مجدداً.'
+      : 'Session initialization is in progress. Please wait and try again.';
+  }
+  return language === 'ar'
+    ? 'تعذر تهيئة جلسة تسجيل الدخول. يرجى إعادة المحاولة.'
+    : 'Authentication service is not initialized. Please try again.';
+}

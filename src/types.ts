@@ -150,4 +150,5 @@ export type ScreenId =
   | 'official_certificate'
   | 'verify_portal'
   | 'privacy'
-  | 'terms';
+  | 'terms'
+  | 'not_found';

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readableError } from '../src/utils/authErrors';
+import { getAuthErrorCode, readableError } from '../src/utils/authErrors';
 
 test('Authentication readableError unit tests', async (t) => {
   await t.test('handles auth/popup-blocked in en and ar', () => {
@@ -77,8 +77,8 @@ test('Authentication readableError unit tests', async (t) => {
 
   await t.test('handles generic errors gracefully', () => {
     const error = new Error('Network offline');
-    assert.equal(readableError(error, 'en'), 'Network offline');
-    assert.equal(readableError('Unknown string', 'en'), 'Unknown authentication error');
+    assert.equal(readableError(error, 'en'), 'Something went wrong. Please try again.');
+    assert.equal(readableError('Unknown string', 'en'), 'Something went wrong. Please try again.');
   });
 
   // Step 3 additional credential and validation tests
@@ -211,5 +211,89 @@ test('Authentication readableError unit tests', async (t) => {
     assert.equal(ar, 'حدث خطأ. يرجى المحاولة مرة أخرى.');
     assert.equal(en.includes('auth/'), false);
     assert.equal(ar.includes('auth/'), false);
+  });
+
+  // d) getAuthErrorCode extracts valid codes safely and rejects invalid/non-auth values
+  await t.test('getAuthErrorCode extracts valid auth codes and rejects non-auth', () => {
+    assert.equal(getAuthErrorCode({ code: 'auth/unauthorized-domain' }), 'auth/unauthorized-domain');
+    assert.equal(getAuthErrorCode({ code: 'auth/invalid-api-key' }), 'auth/invalid-api-key');
+    assert.equal(getAuthErrorCode({ code: 'auth/operation-not-allowed' }), 'auth/operation-not-allowed');
+    assert.equal(getAuthErrorCode({ code: 'auth/api-key-not-valid' }), 'auth/api-key-not-valid');
+    assert.equal(getAuthErrorCode(Object.assign(new Error('Firebase: Error (auth/unauthorized-domain).'), { code: 'auth/unauthorized-domain' })), 'auth/unauthorized-domain');
+    assert.equal(getAuthErrorCode(new Error('Firebase: Error (auth/unauthorized-domain).')), 'auth/unauthorized-domain');
+    assert.equal(getAuthErrorCode(new Error('Something else happened')), null);
+    assert.equal(getAuthErrorCode({ code: 'not-an-auth-code' }), null);
+    assert.equal(getAuthErrorCode(null), null);
+    assert.equal(getAuthErrorCode('string-error'), null);
+  });
+
+  await t.test('handles persistence errors with Arabic and English parity without English leakage', () => {
+    const uninitErr = new Error('Firebase Auth is not initialized');
+    assert.equal(
+      readableError(uninitErr, 'en'),
+      'Authentication service is not initialized. Please try again.'
+    );
+    assert.equal(
+      readableError(uninitErr, 'ar'),
+      'تعذر تهيئة جلسة تسجيل الدخول. يرجى إعادة المحاولة.'
+    );
+
+    const storageErr = new Error('IndexedDB storage unavailable');
+    assert.equal(
+      readableError(storageErr, 'en'),
+      'Unable to apply selected session preference. Please try again.'
+    );
+    assert.equal(
+      readableError(storageErr, 'ar'),
+      'تعذر تطبيق تفضيل الجلسة المحدد. يرجى إعادة المحاولة.'
+    );
+
+    const invalidPersistence = Object.assign(new Error('Invalid persistence'), {
+      code: 'auth/invalid-persistence-type',
+    });
+    assert.equal(
+      readableError(invalidPersistence, 'en'),
+      'Unable to apply selected session preference. Please try again.'
+    );
+    assert.equal(
+      readableError(invalidPersistence, 'ar'),
+      'تعذر تطبيق تفضيل الجلسة المحدد. يرجى إعادة المحاولة.'
+    );
+  });
+
+  await t.test('generic errors in Arabic mode do not leak raw English messages', () => {
+    const rawEnglishErr = new Error('Critical internal timeout occurred on socket 8080');
+    const arMsg = readableError(rawEnglishErr, 'ar');
+    assert.equal(arMsg, 'حدث خطأ. يرجى المحاولة مرة أخرى.');
+    assert.equal(/[a-zA-Z]/.test(arMsg), false, 'Arabic error message must not contain English characters');
+
+    const nonErrorAr = readableError({ custom: 'failure' }, 'ar');
+    assert.equal(nonErrorAr, 'حدث خطأ غير معروف في تسجيل الدخول.');
+    assert.equal(/[a-zA-Z]/.test(nonErrorAr), false, 'Arabic error message must not contain English characters');
+  });
+
+  await t.test('internal secrets and unconfigured service errors never leak raw details', () => {
+    // new Error('Internal xyz secret') -> generic text in en AND ar
+    const secretErr = new Error('Internal xyz secret');
+    const enSecret = readableError(secretErr, 'en');
+    const arSecret = readableError(secretErr, 'ar');
+    assert.equal(enSecret, 'Something went wrong. Please try again.');
+    assert.equal(arSecret, 'حدث خطأ. يرجى المحاولة مرة أخرى.');
+    assert.equal(enSecret.includes('xyz secret'), false);
+    assert.equal(arSecret.includes('xyz secret'), false);
+
+    // A not-configured error's text contains none of the missing key names
+    const notConfiguredErr = Object.assign(new Error('Authentication service is not configured'), {
+      code: 'app/not-configured',
+    });
+    const enConfig = readableError(notConfiguredErr, 'en');
+    const arConfig = readableError(notConfiguredErr, 'ar');
+    assert.equal(enConfig, 'Authentication service is not configured. Please try again later.');
+    assert.equal(arConfig, 'خدمة المصادقة غير مهيأة. يرجى المحاولة لاحقاً.');
+    const missingKeys = ['apiKey', 'authDomain', 'projectId', 'appId', 'storageBucket'];
+    for (const key of missingKeys) {
+      assert.equal(enConfig.includes(key), false, `English text must not contain config key: ${key}`);
+      assert.equal(arConfig.includes(key), false, `Arabic text must not contain config key: ${key}`);
+    }
   });
 });

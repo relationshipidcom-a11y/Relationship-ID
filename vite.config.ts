@@ -13,6 +13,10 @@ export default defineConfig(({ command }) => {
       'import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN': 'undefined',
     } : {},
     plugins: [react(), tailwindcss()],
+    build: {
+      outDir: 'dist/client',
+      emptyOutDir: true,
+    },
     resolve: {
       alias: {
         '@': path.resolve(process.cwd(), '.'),

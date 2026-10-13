@@ -1,30 +1,30 @@
 :root {
-  --rid-gradient: linear-gradient(135deg, #182849 0%, #2C345F 52%, #414A78 100%);
-  --rid-velvet-bg: #182849;
-  --rid-canvas: #131F3B;
-  --rid-surface: #1B264A;
-  --rid-surface-low: #1F2B52;
-  --rid-surface-container: #24305B;
-  --rid-surface-high: #2B3868;
-  --rid-surface-highest: #334175;
-  --rid-cert-surface: #202B52;
-  --rid-cert-elevated: #283564;
-  --rid-cert-border: rgba(255, 255, 255, 0.18);
-  --rid-pill: #C1C3E6;
-  --rid-pill-gradient: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
-  --rid-pill-hover: #D0D2ED;
-  --rid-pill-border: #9EA4CC;
-  --rid-pill-text: #242C55;
-  --rid-accent: #C1C3E6;
-  --rid-text-bright: #F6F5FF;
-  --rid-text-muted: #C9CCE4;
-  --rid-text-subtle: #9FA5C7;
-  --rid-action-secondary: #252F5A;
-  --rid-action-secondary-hover: #323D6E;
-  --rid-border-subtle: rgba(255, 255, 255, 0.18);
-  --rid-border-light: rgba(255, 255, 255, 0.10);
-  --rid-input-bg: rgba(193, 195, 230, 0.08);
-  --rid-input-border: rgba(255, 255, 255, 0.18);
+  --rid-gradient: linear-gradient(135deg, #19142F 0%, #261E3E 52%, #30264D 100%);
+  --rid-velvet-bg: #19142F;
+  --rid-canvas: #141023;
+  --rid-surface: #30264D;
+  --rid-surface-low: #221B38;
+  --rid-surface-container: #30264D;
+  --rid-surface-high: #392D5A;
+  --rid-surface-highest: #433568;
+  --rid-cert-surface: #30264D;
+  --rid-cert-elevated: #392D5A;
+  --rid-cert-border: #51465F;
+  --rid-pill: #85516F;
+  --rid-pill-gradient: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
+  --rid-pill-hover: #8E5876;
+  --rid-pill-border: #804E6A;
+  --rid-pill-text: #F7F4FA;
+  --rid-accent: #E7BCD3;
+  --rid-text-bright: #F7F4FA;
+  --rid-text-muted: #B7ACC8;
+  --rid-text-subtle: #8E82A3;
+  --rid-action-secondary: #3D305A;
+  --rid-action-secondary-hover: #4D3E70;
+  --rid-border-subtle: #51465F;
+  --rid-border-light: rgba(81, 70, 95, 0.5);
+  --rid-input-bg: #141023;
+  --rid-input-border: #51465F;
   --rid-gold: #e2bd59;
   --rid-gold-muted: #9a7b2c;
   --rid-success: #10b981;
@@ -112,18 +112,18 @@ label,
 /* Custom Guilloche Radial Pattern */
 .bg-guilloche-velvet {
   background-image: 
-    radial-gradient(ellipse 90% 70% at 85% 15%, rgba(193, 195, 230, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 50% at 10% 85%, rgba(169, 175, 215, 0.14) 0%, transparent 70%),
-    linear-gradient(160deg, #202B52 0%, #182849 100%);
+    radial-gradient(ellipse 90% 70% at 85% 15%, rgba(231, 188, 211, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 10% 85%, rgba(157, 107, 135, 0.14) 0%, transparent 70%),
+    linear-gradient(160deg, #30264D 0%, #19142F 100%);
 }
 
 .security-concentric-velvet {
   box-shadow: 
-    0 0 0 1px rgba(246, 245, 255, 0.22),
+    0 0 0 1px rgba(247, 244, 250, 0.22),
     0 0 0 6px transparent,
-    0 0 0 7px rgba(246, 245, 255, 0.14),
+    0 0 0 7px rgba(247, 244, 250, 0.14),
     0 0 0 12px transparent,
-    0 0 0 13px rgba(246, 245, 255, 0.07);
+    0 0 0 13px rgba(247, 244, 250, 0.07);
 }
 
 /* Print Styles */
@@ -151,11 +151,8 @@ input[type="date"] {
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  /* Ensure bright lavender/white calendar icon across dark theme inputs:
-     Using brightness(0) normalizes any base user-agent icon to black,
-     then invert(88%) with soft lavender hue tint guarantees a crisp,
-     high-contrast light lavender/white icon (WCAG AA > 8:1 contrast against navy). */
-  filter: brightness(0) saturate(100%) invert(88%) sepia(16%) saturate(300%) hue-rotate(195deg) brightness(105%);
+  /* Ensure bright pale pink/white calendar icon across dark theme inputs */
+  filter: brightness(0) saturate(100%) invert(88%) sepia(16%) saturate(300%) hue-rotate(280deg) brightness(105%);
   opacity: 0.95;
   transition: opacity 0.2s ease, transform 0.15s ease;
 }

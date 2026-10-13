@@ -20,7 +20,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
   return (
     <footer
       dir={isAr ? 'rtl' : 'ltr'}
-      className="print:hidden w-full px-4 py-3.5 bg-[#131F3B] border-t border-white/10 text-center text-sm text-[#C9CCE4] space-y-2 shrink-0 select-none"
+      className="print:hidden w-full px-4 py-3.5 bg-[#141023] border-t border-white/10 text-center text-sm text-[#B7ACC8] space-y-2 shrink-0 select-none"
     >
       <div className="flex flex-wrap items-center justify-center gap-3 font-medium text-sm">
         <a
@@ -29,7 +29,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
             e.preventDefault();
             onNavigate?.('privacy');
           }}
-          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer"
+          className="text-[#B7ACC8] hover:text-white transition-colors underline cursor-pointer"
         >
           {t.privacyPolicy}
         </a>
@@ -40,14 +40,14 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
             e.preventDefault();
             onNavigate?.('terms');
           }}
-          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer"
+          className="text-[#B7ACC8] hover:text-white transition-colors underline cursor-pointer"
         >
           {t.termsOfUse}
         </a>
         <span className="text-white/20">•</span>
         <a
           href="mailto:customerservices@relationshipid.org"
-          className="text-[#C9CCE4] hover:text-white transition-colors underline cursor-pointer break-all"
+          className="text-[#B7ACC8] hover:text-white transition-colors underline cursor-pointer break-all"
         >
           customerservices@relationshipid.org
         </a>
@@ -59,7 +59,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
             href="https://www.google.com/preferences/source?q=relationshipid.org"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#202B52] hover:bg-[#252F5A] text-[#C9CCE4] hover:text-white border border-white/15 hover:border-white/25 text-xs sm:text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#C1C3E6] focus:ring-offset-1 focus:ring-offset-[#131F3B] cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#30264D] hover:bg-[#3D305A] text-[#B7ACC8] hover:text-white border border-[#51465F] text-xs sm:text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#E7BCD3] focus:ring-offset-1 focus:ring-offset-[#141023] cursor-pointer"
           >
             <span>{t.addPreferredSource}</span>
             <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -67,7 +67,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
         </div>
       )}
 
-      <p className="text-sm text-[#C9CCE4]/90 leading-relaxed max-w-sm mx-auto">
+      <p className="text-sm text-[#B7ACC8]/90 leading-relaxed max-w-sm mx-auto">
         {isAr ? (
           <>
             هذا الموقع محمي بواسطة reCAPTCHA وتُطبق{' '}
@@ -75,7 +75,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
               href="https://policies.google.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#C9CCE4] underline hover:text-white transition-colors"
+              className="text-[#B7ACC8] underline hover:text-white transition-colors"
             >
               سياسة الخصوصية
             </a>{' '}
@@ -84,7 +84,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
               href="https://policies.google.com/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#C9CCE4] underline hover:text-white transition-colors"
+              className="text-[#B7ACC8] underline hover:text-white transition-colors"
             >
               بنود الخدمة
             </a>{' '}
@@ -97,7 +97,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
               href="https://policies.google.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#C9CCE4] underline hover:text-white transition-colors"
+              className="text-[#B7ACC8] underline hover:text-white transition-colors"
             >
               Privacy Policy
             </a>{' '}
@@ -106,7 +106,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
               href="https://policies.google.com/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#C9CCE4] underline hover:text-white transition-colors"
+              className="text-[#B7ACC8] underline hover:text-white transition-colors"
             >
               Terms of Service
             </a>{' '}
@@ -115,7 +115,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
         )}
       </p>
 
-      <p className="text-sm text-[#C9CCE4]/70">
+      <p className="text-sm text-[#B7ACC8]/70">
         {isAr
           ? 'Relationship ID — سجل رقمي خاص للعلاقات'
           : 'Relationship ID — Private Relationship Registry'}

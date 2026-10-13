@@ -20,13 +20,13 @@
 .modalSheet {
   width: 100%;
   max-width: 420px;
-  background-color: #202B52;
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  background-color: #30264D;
+  border: 1px solid #51465F;
   border-top-left-radius: 28px;
   border-top-right-radius: 28px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   padding: 20px;
-  color: #F6F5FF;
+  color: #F7F4FA;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -52,16 +52,16 @@
   gap: 6px;
   padding: 8px;
   border-radius: 14px;
-  background-color: #252F5A;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #F6F5FF;
+  background-color: #3D305A;
+  border: 1px solid #51465F;
+  color: #F7F4FA;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .channelBtn:hover {
-  background-color: #2C345F;
-  border-color: rgba(193, 195, 230, 0.4);
+  background-color: #4D3E70;
+  border-color: rgba(231, 188, 211, 0.4);
 }
 
 .channelBtn:active {

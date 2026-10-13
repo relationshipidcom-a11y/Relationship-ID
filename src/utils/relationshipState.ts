@@ -278,6 +278,20 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
     return data;
   } catch (error) {
     if (isCurrent()) {
+      setInvitation({
+        id: '',
+        recordId: '',
+        inviterName: '',
+        partner2Name: '',
+        relationshipType: 'dating',
+        startDate: '',
+        startDateAr: '',
+        startDateIso: '',
+        status: 'cancelled',
+        createdAt: '',
+        expiresAt: '',
+        reminderCount: 0
+      });
       setInvitationAuth(null);
       setAppError(formatErrorMessage(error));
     }

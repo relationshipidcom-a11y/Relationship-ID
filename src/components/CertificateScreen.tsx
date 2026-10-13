@@ -31,7 +31,7 @@ const getMonthName = (monthStr: string, lang: Language): string => {
 
 const QrMatrixBlock: React.FC<{ value: string }> = ({ value }) => (
   <div className="bg-white p-2 rounded-lg shadow-sm flex items-center justify-center shrink-0">
-    <QRCodeSVG value={value} size={68} level="M" bgColor="#ffffff" fgColor="#182849" includeMargin={false} />
+    <QRCodeSVG value={value} size={68} level="M" bgColor="#ffffff" fgColor="#141023" includeMargin={false} />
   </div>
 );
 
@@ -81,9 +81,9 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
           type="button"
           onClick={onHome}
           aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202B52] hover:bg-[#252F5A] border border-white/15 text-sm text-[#C9CCE4] hover:text-white transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6] min-h-[40px]"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#30264D] hover:bg-[#3D305A] border border-[#51465F] text-sm text-[#B7ACC8] hover:text-white transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9D6B87] min-h-[40px]"
         >
-          <Home className="w-3.5 h-3.5 text-[#C1C3E6]" />
+          <Home className="w-3.5 h-3.5 text-[#E7BCD3]" />
           <span>{t.homeBtn}</span>
         </button>
 
@@ -121,7 +121,7 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
                 <span className="text-white font-extrabold text-sm sm:text-base tracking-[0.22em] leading-tight uppercase mt-0.5">
                   ID
                 </span>
-                <span className="text-[#C9CCE4] text-sm sm:text-[10px] tracking-[0.18em] font-medium uppercase mt-1">
+                <span className="text-[#B7ACC8] text-sm sm:text-[10px] tracking-[0.18em] font-medium uppercase mt-1">
                   {t.privateRecordRegistry}
                 </span>
               </div>
@@ -134,11 +134,11 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
 
           {/* Section 2: Solemn Commitment Declaration */}
           <div className="text-center pt-1">
-            <p className="text-sm sm:text-[11px] text-[#C9CCE4] tracking-[0.18em] uppercase font-medium">
+            <p className="text-sm sm:text-[11px] text-[#B7ACC8] tracking-[0.18em] uppercase font-medium">
               {t.commitmentStatement}
             </p>
             {language === 'ar' && (
-              <p className="text-sm sm:text-[11px] text-[#C1C3E6] mt-0.5 font-medium">
+              <p className="text-sm sm:text-[11px] text-[#E7BCD3] mt-0.5 font-medium">
                 {t.commitmentStatementAr}
               </p>
             )}
@@ -147,11 +147,11 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
             <div className="my-2.5">
               <h2 className="text-xl sm:text-2xl text-white font-serif tracking-wide font-normal break-words">
                 {partner1DisplayName}
-                <span className="font-serif italic text-[#C1C3E6] mx-2 text-lg sm:text-xl">&</span>
+                <span className="font-serif italic text-[#E7BCD3] mx-2 text-lg sm:text-xl">&</span>
                 {partner2DisplayName}
               </h2>
               {language === 'ar' && (record.partner1.fullNameEn || record.partner2.fullNameEn) && (
-                <p className="text-sm sm:text-[11px] text-[#C9CCE4] font-serif tracking-wider mt-0.5 break-words" dir="ltr">
+                <p className="text-sm sm:text-[11px] text-[#B7ACC8] font-serif tracking-wider mt-0.5 break-words" dir="ltr">
                   {record.partner1.fullNameEn || record.partner1.fullName} <span className="italic">&</span> {record.partner2.fullNameEn || record.partner2.fullName}
                 </p>
               )}
@@ -159,7 +159,7 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
 
             {/* Badges: Relationship Type & Record ID */}
             <div className="flex items-center justify-center gap-2.5 mt-2 mb-1 flex-wrap">
-              <span className="bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] font-bold text-sm sm:text-[10px] px-3.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
+              <span className="bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] font-bold text-sm sm:text-[10px] px-3.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
                 {record.type === 'marriage' ? 'MARRIAGE' : record.type === 'engagement' ? 'ENGAGEMENT' : 'COUPLES'}
               </span>
               <span className="bg-white/10 border border-white/25 text-white font-mono font-medium text-sm sm:text-[10px] px-3.5 py-1 rounded-full uppercase tracking-wider">
@@ -185,7 +185,7 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
             </div>
           </div>
 
-          {/* Connected Profiles Row */}
+            {/* Connected Profiles Row */}
           {(() => {
             const p1Accounts = getDisplaySocialAccounts(record.partner1);
             const p2Accounts = getDisplaySocialAccounts(record.partner2);
@@ -193,8 +193,8 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
             if (!record.settings.showSocialHandles || !hasSocial) return null;
 
             return (
-              <div className="flex flex-wrap items-center justify-center gap-2.5 text-sm sm:text-[10px] text-[#C9CCE4] font-medium tracking-wider pt-0.5" dir="ltr">
-                <span className="uppercase text-[#C9CCE4] font-bold text-sm sm:text-[9px] tracking-widest">
+              <div className="flex flex-wrap items-center justify-center gap-2.5 text-sm sm:text-[10px] text-[#B7ACC8] font-medium tracking-wider pt-0.5" dir="ltr">
+                <span className="uppercase text-[#B7ACC8] font-bold text-sm sm:text-[9px] tracking-widest">
                   {t.connectedProfiles}
                 </span>
                 {p1Accounts.map((acc, i) => (
@@ -220,13 +220,13 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
 
             {/* Right: Verification Details */}
             <div className="flex-1 text-left" dir="ltr">
-              <div className="text-sm sm:text-[10px] font-bold tracking-[0.16em] uppercase text-[#C9CCE4]">
+              <div className="text-sm sm:text-[10px] font-bold tracking-[0.16em] uppercase text-[#B7ACC8]">
                 {t.verificationRefLabel}
               </div>
               <div className="text-sm sm:text-base font-mono font-bold text-white tracking-widest mt-0.5 break-all">
                 {record.verificationRef}
               </div>
-              <div className="text-sm sm:text-[9.5px] text-[#C9CCE4] mt-0.5">
+              <div className="text-sm sm:text-[9.5px] text-[#B7ACC8] mt-0.5">
                 {t.issuedDateLabel} {language === 'ar' ? record.issuedDateAr : record.issuedDate}
               </div>
             </div>
@@ -236,21 +236,21 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
           <div className="pt-2 border-t border-white/20 flex items-center justify-between gap-4">
             <div className="text-left" dir="ltr">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <div className="text-sm sm:text-[10px] font-bold tracking-[0.16em] uppercase text-[#C9CCE4]">
+                <div className="text-sm sm:text-[10px] font-bold tracking-[0.16em] uppercase text-[#B7ACC8]">
                   {t.scanRefTitle}
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowDetails((prev) => !prev)}
-                  className="inline-flex items-center gap-1 text-sm sm:text-[11px] text-[#C1C3E6] hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded-full border border-white/20 transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#C1C3E6] print:hidden"
+                  className="inline-flex items-center gap-1 text-sm sm:text-[11px] text-[#E7BCD3] hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded-full border border-[#51465F] transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#9D6B87] print:hidden"
                   aria-label={t.certDetailsToggleBtn}
                   aria-expanded={showDetails}
                 >
-                  <Info className="w-3.5 h-3.5 text-[#C1C3E6]" />
+                  <Info className="w-3.5 h-3.5 text-[#E7BCD3]" />
                   <span>{t.certDetailsToggleBtn}</span>
                 </button>
               </div>
-              <p className="text-sm sm:text-[10.5px] text-[#C9CCE4]/90 mt-1 max-w-full sm:max-w-[220px] leading-relaxed">
+              <p className="text-sm sm:text-[10.5px] text-[#B7ACC8]/90 mt-1 max-w-full sm:max-w-[220px] leading-relaxed">
                 {t.scanRefDesc}
               </p>
             </div>
@@ -264,13 +264,13 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
       {showDetails && (
         <section
           aria-label={t.certDetailsTitle}
-          className="mt-3 p-4 sm:p-5 rounded-2xl bg-[#1B264A] border border-[#C1C3E6]/25 shadow-xl space-y-3.5 print:hidden transition-all duration-200"
+          className="mt-3 p-4 sm:p-5 rounded-2xl bg-[#30264D] border border-[#51465F] shadow-xl space-y-3.5 print:hidden transition-all duration-200"
           dir={language === 'ar' ? 'rtl' : 'ltr'}
         >
           <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#2C345F] text-[#C1C3E6] flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-4 h-4 text-[#C1C3E6]" />
+              <div className="w-7 h-7 rounded-lg bg-[#392D5A] text-[#E7BCD3] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4 text-[#E7BCD3]" />
               </div>
               <h3 className="text-sm sm:text-base font-bold text-white">
                 {t.certDetailsTitle}
@@ -279,20 +279,20 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
             <button
               type="button"
               onClick={() => setShowDetails(false)}
-              className="w-10 h-10 rounded-full bg-[#172244] hover:bg-[#202B52] text-[#C9CCE4] hover:text-white flex items-center justify-center border border-white/10 cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-[#C1C3E6] shrink-0"
+              className="w-10 h-10 rounded-full bg-[#141023] hover:bg-[#30264D] text-[#B7ACC8] hover:text-white flex items-center justify-center border border-[#51465F] cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-[#9D6B87] shrink-0"
               aria-label={t.certDetailsCloseBtn}
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed">
+          <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed">
             {t.certDetailsIntro}
           </p>
 
           <div className="space-y-2.5 text-start">
             {/* 1. Cryptographically Unique */}
-            <div className="p-3 rounded-xl bg-[#202B52] border border-white/10 flex items-start gap-3">
+            <div className="p-3 rounded-xl bg-[#392D5A] border border-[#51465F] flex items-start gap-3">
               <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                 <Fingerprint className="w-4 h-4" />
               </div>
@@ -300,29 +300,29 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
                 <h4 className="text-sm sm:text-base font-bold text-white">
                   {t.certDetailsUniqueTitle}
                 </h4>
-                <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed">
+                <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed">
                   {t.certDetailsUniqueDesc}
                 </p>
               </div>
             </div>
 
             {/* 2. Permanent & Static Lifespan */}
-            <div className="p-3 rounded-xl bg-[#202B52] border border-white/10 flex items-start gap-3">
-              <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="p-3 rounded-xl bg-[#392D5A] border border-[#51465F] flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-[#85516F]/20 text-[#E7BCD3] flex items-center justify-center shrink-0 mt-0.5">
                 <Lock className="w-4 h-4" />
               </div>
               <div className="space-y-0.5">
                 <h4 className="text-sm sm:text-base font-bold text-white">
                   {t.certDetailsStaticTitle}
                 </h4>
-                <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed">
+                <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed">
                   {t.certDetailsStaticDesc}
                 </p>
               </div>
             </div>
 
             {/* 3. Live Real-Time Dynamic Verification */}
-            <div className="p-3 rounded-xl bg-[#202B52] border border-white/10 flex items-start gap-3">
+            <div className="p-3 rounded-xl bg-[#392D5A] border border-[#51465F] flex items-start gap-3">
               <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
                 <QrCode className="w-4 h-4" />
               </div>
@@ -330,7 +330,7 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
                 <h4 className="text-sm sm:text-base font-bold text-white">
                   {t.certDetailsDynamicVerifyTitle}
                 </h4>
-                <p className="text-base sm:text-sm text-[#C9CCE4] leading-relaxed">
+                <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed">
                   {t.certDetailsDynamicVerifyDesc}
                 </p>
               </div>
@@ -351,7 +351,7 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
         <button
           type="button"
           onClick={() => setIsShareModalOpen(true)}
-          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#D0D2ED] hover:to-[#B5BBE2] text-[#242C55] font-bold text-sm shadow-lg transition-all active:scale-95 cursor-pointer border border-white/20 min-h-[44px]"
+          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-bold text-sm shadow-lg transition-all active:scale-95 cursor-pointer border border-[#51465F] min-h-[44px]"
         >
           <Share2 className="w-4 h-4 shrink-0" />
           <span className="truncate">{t.shareCertActionBtn}</span>
@@ -360,9 +360,9 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
         <button
           type="button"
           onClick={handleDownload}
-          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-[#202B52] hover:bg-[#252F5A] text-white font-medium text-sm border border-white/15 transition-all active:scale-95 cursor-pointer min-h-[44px]"
+          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-[#30264D] hover:bg-[#3D305A] text-white font-medium text-sm border border-[#51465F] transition-all active:scale-95 cursor-pointer min-h-[44px]"
         >
-          <Download className="w-4 h-4 text-[#C1C3E6] shrink-0" />
+          <Download className="w-4 h-4 text-[#E7BCD3] shrink-0" />
           <span className="truncate">{t.downloadCertBtn}</span>
         </button>
 
@@ -370,9 +370,9 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
           type="button"
           onClick={onHome}
           aria-label={language === 'ar' ? 'الرئيسية' : 'Home'}
-          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-[#202B52] hover:bg-[#252F5A] text-[#C9CCE4] hover:text-white font-medium text-sm border border-white/15 transition-all active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#C1C3E6] min-h-[44px]"
+          className="flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl bg-[#30264D] hover:bg-[#3D305A] text-[#B7ACC8] hover:text-white font-medium text-sm border border-[#51465F] transition-all active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9D6B87] min-h-[44px]"
         >
-          <Home className="w-4 h-4 text-[#C1C3E6] shrink-0" />
+          <Home className="w-4 h-4 text-[#E7BCD3] shrink-0" />
           <span className="truncate">{t.homeBtn}</span>
         </button>
       </div>

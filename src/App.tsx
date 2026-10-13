@@ -44,7 +44,8 @@ import { LegalPage } from './components/LegalPage';
 import { LegalFooter } from './components/LegalFooter';
 import { LEGAL_VERSION } from './content/legal';
 import { ChangeRequest, AppNotification, SocialAccount } from './types';
-import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X, Loader2 } from 'lucide-react';
+import { getRouteState } from './utils/routing';
+import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X, Loader2, Home } from 'lucide-react';
 
 const emptyPartner = (): PartnerData => ({
   fullName: '',
@@ -95,26 +96,7 @@ const initialInvitation: Invitation = {
   reminderCount: 0
 };
 
-const getRouteState = (): { screen: ScreenId; inviteId?: string; certRef?: string } => {
-  if (typeof window === 'undefined') return { screen: 'auth' };
-  const path = window.location.pathname;
-  const inviteAuthMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)\/auth/);
-  if (inviteAuthMatch && inviteAuthMatch[1] !== 'current') return { screen: 'p2_auth', inviteId: inviteAuthMatch[1] };
-  const inviteDetailsMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)\/(?:details|complete)/);
-  if (inviteDetailsMatch && inviteDetailsMatch[1] !== 'current') return { screen: 'p2_details', inviteId: inviteDetailsMatch[1] };
-  const inviteLandingMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)/);
-  if (inviteLandingMatch && inviteLandingMatch[1] !== 'current') return { screen: 'p2_landing', inviteId: inviteLandingMatch[1] };
-  const certMatch = path.match(/^\/(?:cert|certificate)(?:\/([a-zA-Z0-9_-]+))?/);
-  if (certMatch) return { screen: 'official_certificate', certRef: certMatch[1] };
-  const verifyMatch = path.match(/^\/verify(?:\/([a-zA-Z0-9_-]+))?/);
-  if (verifyMatch) return { screen: 'verify_portal', certRef: verifyMatch[1] };
-  if (path === '/review') return { screen: 'review_controls' };
-  if (path === '/waiting') return { screen: 'p1_waiting' };
-  if (path === '/p2') return { screen: 'p2_details' };
-  if (path === '/privacy') return { screen: 'privacy' };
-  if (path === '/terms') return { screen: 'terms' };
-  return { screen: 'auth' };
-};
+export { getRouteState };
 
 const toAuthUser = (uid: string, email: string | null, displayName: string | null): AuthUser => ({
   id: uid,
@@ -238,14 +220,14 @@ export default function App() {
 
   const renderLoadingScreen = (title: string, subtitle: string) => (
     <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-      <div className="w-12 h-12 rounded-2xl bg-[#2C345F]/60 border border-[#C1C3E6]/30 flex items-center justify-center shadow-lg">
-        <Loader2 className="w-6 h-6 animate-spin text-[#C1C3E6]" />
+      <div className="w-12 h-12 rounded-2xl bg-[#392D5A]/60 border border-[#9D6B87]/40 flex items-center justify-center shadow-lg">
+        <Loader2 className="w-6 h-6 animate-spin text-[#E7BCD3]" />
       </div>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-white">
           {title}
         </p>
-        <p className="text-xs text-[#C9CCE4]">
+        <p className="text-xs text-[#B7ACC8]">
           {subtitle}
         </p>
       </div>
@@ -1036,8 +1018,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#182849] via-[#2C345F] to-[#414A78] text-[#F6F5FF] flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#C1C3E6] selection:text-[#242C55]">
-      <div className="w-full max-w-[430px] min-h-[844px] bg-[#202B52] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-white/15">
+    <div className="min-h-screen bg-[#19142F] text-[#F7F4FA] flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#9D6B87] selection:text-[#F7F4FA]">
+      <div className="w-full max-w-[430px] min-h-[844px] bg-[#141023] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-[#51465F]">
         <TopBar
           language={language}
           onToggleLanguage={handleToggleLanguage}
@@ -1048,7 +1030,7 @@ export default function App() {
           signedIn={Boolean(authUser)}
           onSignOut={() => void handleSignOut()}
           onAdjustInfo={handleAdjustInfo}
-          onHome={authUser ? handleGoHome : undefined}
+          onHome={authUser ? handleGoHome : (currentScreen === 'not_found' ? () => navigateTo('auth', '/') : undefined)}
           isAtHome={isAtHome}
           onExitRelationship={accountMenuItems.endRelationship ? () => {
             setAccountActionError('');
@@ -1124,30 +1106,37 @@ export default function App() {
           )}
 
           {currentScreen === 'p2_landing' && (
-            <P2LandingScreen
-              language={language}
-              invitation={invitation}
-              authUser={authUser}
-              invitationAuthorization={invitationAuth}
-              onAccept={() => {
-                setP2PendingAction('accept');
-                if (!auth?.currentUser) {
-                  navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
-                } else if (invitationAuth?.isP1 || authUser?.id === invitation.p1Uid) {
-                  setAppError(getLocalizedErrorMessage(new Error('CANNOT_ACCEPT_OWN_INVITATION'), language));
-                } else if (!invitationAuth) {
-                  setAppError(getLocalizedErrorMessage(new Error('INVITATION_NOT_LOADED'), language));
-                } else if (!invitationAuth.authorized) {
-                  setAppError(getLocalizedErrorMessage(new Error(invitationAuth.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
-                } else {
-                  navigateTo('p2_details', `/invite/${invitation.id}/complete`);
-                }
-              }}
-              onSwitchAccount={() => void handleSwitchAccount(invitation.id)}
-              onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
-              onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
-              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
-            />
+            invitationLoading ? (
+              renderLoadingScreen(
+                language === 'ar' ? 'جاري التحقق من تفاصيل الدعوة...' : 'Verifying invitation authorization...',
+                language === 'ar' ? 'يرجى الانتظار بينما نتحقق من صلاحية الدعوة...' : 'Please wait while we verify invitation access...'
+              )
+            ) : (
+              <P2LandingScreen
+                language={language}
+                invitation={invitation}
+                authUser={authUser}
+                invitationAuthorization={invitationAuth}
+                onAccept={() => {
+                  setP2PendingAction('accept');
+                  if (!auth?.currentUser) {
+                    navigateTo('p2_auth', `/invite/${invitation.id}/auth`);
+                  } else if (invitationAuth?.isP1 || authUser?.id === invitation.p1Uid) {
+                    setAppError(getLocalizedErrorMessage(new Error('CANNOT_ACCEPT_OWN_INVITATION'), language));
+                  } else if (!invitationAuth) {
+                    setAppError(getLocalizedErrorMessage(new Error('INVITATION_NOT_LOADED'), language));
+                  } else if (!invitationAuth.authorized) {
+                    setAppError(getLocalizedErrorMessage(new Error(invitationAuth.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                  } else {
+                    navigateTo('p2_details', `/invite/${invitation.id}/complete`);
+                  }
+                }}
+                onSwitchAccount={() => void handleSwitchAccount(invitation.id)}
+                onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
+                onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
+                onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
+              />
+            )
           )}
 
           {currentScreen === 'p2_auth' && (
@@ -1251,13 +1240,13 @@ export default function App() {
               <CertificateScreen language={language} record={record} onHome={handleGoHome} />
             ) : (
               <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                <p className="text-sm sm:text-base text-[#C9CCE4]">
+                <p className="text-sm sm:text-base text-[#B7ACC8]">
                   {language === 'ar' ? 'لا توجد شهادة نشطة لعرضها.' : 'No active certificate to display.'}
                 </p>
                 <button
                   type="button"
                   onClick={handleGoHome}
-                  className="mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] text-sm font-semibold cursor-pointer"
+                  className="mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] text-sm font-semibold cursor-pointer"
                 >
                   {language === 'ar' ? 'الرئيسية' : 'Home'}
                 </button>
@@ -1267,7 +1256,7 @@ export default function App() {
 
           {currentScreen === 'verify_portal' && (
             <div className="flex-1 p-4 flex flex-col items-center justify-center">
-              <button type="button" onClick={() => setShowVerifyModal(true)} className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-[#242C55] font-bold text-sm shadow-lg border border-white/20 cursor-pointer">
+              <button type="button" onClick={() => setShowVerifyModal(true)} className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-bold text-sm shadow-lg border border-[#51465F] cursor-pointer">
                 {language === 'ar' ? 'فتح بوابة التحقق' : 'Open Verification Portal'}
               </button>
             </div>
@@ -1286,6 +1275,38 @@ export default function App() {
               }}
             />
           )}
+
+          {currentScreen === 'not_found' && (
+            <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4" role="main">
+              <div className="w-16 h-16 rounded-2xl bg-[#392D5A]/80 border border-[#51465F] flex items-center justify-center text-[#E7BCD3] mb-1 shadow-lg">
+                <span className="text-2xl font-bold font-mono">404</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                {language === 'ar' ? 'الصفحة غير موجودة' : 'Page Not Found'}
+              </h2>
+              <p className="text-base text-[#B7ACC8] max-w-sm leading-relaxed">
+                {language === 'ar'
+                  ? 'عذراً، العنوان المطلوب غير موجود أو تم نقله.'
+                  : 'Sorry, the requested address does not exist or has been moved.'}
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (authUser) {
+                      handleGoHome();
+                    } else {
+                      navigateTo('auth', '/');
+                    }
+                  }}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] text-base font-bold transition shadow-lg inline-flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
+                >
+                  <Home className="w-5 h-5" />
+                  <span>{language === 'ar' ? 'العودة إلى الرئيسية' : 'Return Home'}</span>
+                </button>
+              </div>
+            </main>
+          )}
         </div>
 
         <LegalFooter
@@ -1295,10 +1316,10 @@ export default function App() {
         />
 
         {allowScreenExplorer && showScreenSwitcher && (
-          <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#182849]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
+          <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#19142F]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
             <div className="grid grid-cols-1 gap-1.5">
               {screensOrder.map((s, idx) => (
-                <button key={s.id} type="button" onClick={() => { navigateTo(s.id); setShowScreenSwitcher(false); }} className={`flex items-center justify-between p-2.5 rounded-xl text-xs border ${currentScreen === s.id ? 'bg-[#C1C3E6] text-[#242C55] font-semibold border-white/30' : 'bg-[#202B52] text-[#C9CCE4] border-white/5'}`}>
+                <button key={s.id} type="button" onClick={() => { navigateTo(s.id); setShowScreenSwitcher(false); }} className={`flex items-center justify-between p-2.5 rounded-xl text-xs border ${currentScreen === s.id ? 'bg-[#85516F] text-[#F7F4FA] font-semibold border-[#51465F]' : 'bg-[#30264D] text-[#B7ACC8] border-white/5'}`}>
                   <span>{language === 'ar' ? s.labelAr : s.labelEn}</span><span>#{idx + 1}</span>
                 </button>
               ))}
@@ -1307,8 +1328,8 @@ export default function App() {
         )}
 
         {allowScreenExplorer && (
-          <div className="px-4 py-2.5 bg-[#182849] border-t border-white/10 flex items-center justify-between text-[10px] text-[#C9CCE4]">
-            <button type="button" onClick={() => setShowScreenSwitcher(!showScreenSwitcher)} className="flex items-center gap-1.5 text-[#C1C3E6] bg-transparent border-none cursor-pointer"><LayoutGrid className="w-3.5 h-3.5" /> Screen Index</button>
+          <div className="px-4 py-2.5 bg-[#141023] border-t border-white/10 flex items-center justify-between text-[10px] text-[#B7ACC8]">
+            <button type="button" onClick={() => setShowScreenSwitcher(!showScreenSwitcher)} className="flex items-center gap-1.5 text-[#E7BCD3] bg-transparent border-none cursor-pointer"><LayoutGrid className="w-3.5 h-3.5" /> Screen Index</button>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => { setRecord(initialRecord); setInvitation(initialInvitation); navigateTo('auth', '/'); }} className="p-1 rounded text-white bg-transparent border-none"><RefreshCw className="w-3.5 h-3.5" /></button>
               <ChevronRight className="w-3.5 h-3.5" /><ChevronLeft className="w-3.5 h-3.5" />
@@ -1377,7 +1398,7 @@ export default function App() {
             aria-modal="true"
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           >
-            <div className="w-full max-w-sm rounded-2xl bg-[#202B52] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
+            <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
@@ -1390,7 +1411,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="p-1 text-[#C9CCE4] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
+                  className="p-1 text-[#B7ACC8] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1401,7 +1422,7 @@ export default function App() {
                   {language === 'ar' ? activeNotification.messageAr : activeNotification.messageEn}
                 </p>
                 {activeNotification.secondaryAr && (
-                  <p className="text-xs text-[#C9CCE4]">
+                  <p className="text-xs text-[#B7ACC8]">
                     {language === 'ar' ? activeNotification.secondaryAr : activeNotification.secondaryEn}
                   </p>
                 )}
@@ -1411,7 +1432,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] text-sm font-semibold text-[#242C55] transition shadow-sm cursor-pointer hover:opacity-95 active:scale-[0.98]"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-sm font-semibold text-[#F7F4FA] transition shadow-sm cursor-pointer active:scale-[0.98]"
                 >
                   {language === 'ar' ? 'فهمت ذلك ومتابعة' : 'Understood'}
                 </button>

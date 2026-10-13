@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
@@ -1366,7 +1367,53 @@ export async function isRelationshipDeletionPending(
   return doc.exists;
 }
 
-export function createApp(): express.Express {
+export interface CreateAppOptions {
+  staticDir?: string;
+}
+
+export const getPublicStaticDir = (): string => {
+  const clientDir = path.join(process.cwd(), 'dist', 'client');
+  if (fs.existsSync(clientDir)) return clientDir;
+  return path.join(process.cwd(), 'dist');
+};
+
+export function mountProductionStatic(app: express.Express, staticDir: string): void {
+  // Public static asset serving
+  app.use(express.static(staticDir, { dotfiles: 'ignore', index: false }));
+
+  // SPA fallback for HTML page routing
+  app.get('*', (req, res) => {
+    let decoded = '';
+    try {
+      decoded = decodeURIComponent(req.path || '');
+    } catch {
+      return res.status(400).end();
+    }
+    const normalized = path.posix.normalize(decoded);
+    const lower = normalized.toLowerCase();
+    const baseName = path.posix.basename(normalized);
+
+    // Missing assets, sourcemaps, auth helper paths, or non-html file extensions must return 404, never index.html
+    if (
+      lower.startsWith('/assets/') ||
+      lower.startsWith('/brand/') ||
+      lower.startsWith('/__/') ||
+      lower === '/__/auth' ||
+      lower === '/__/firebase' ||
+      (baseName.includes('.') && !baseName.endsWith('.html'))
+    ) {
+      return res.status(404).end();
+    }
+
+    const indexPath = path.join(staticDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    return res.status(404).end();
+  });
+}
+
+export function createApp(options?: CreateAppOptions): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', parseTrustProxyHops(process.env.TRUST_PROXY_HOPS));
@@ -1374,15 +1421,30 @@ export function createApp(): express.Express {
 
   // SECURITY: Prevent direct access to server build artifacts, sourcemaps, environment files, backups, and dotfiles
   app.use((req, res, next) => {
-    const rawPath = req.path || '';
-    const lower = rawPath.toLowerCase();
+    let decodedPath = req.path || '';
+    try {
+      let prev = '';
+      let iterations = 0;
+      while (decodedPath !== prev && iterations < 3) {
+        prev = decodedPath;
+        decodedPath = decodeURIComponent(decodedPath);
+        iterations++;
+      }
+    } catch {
+      return res.status(400).end();
+    }
+
+    const normalized = path.posix.normalize(decodedPath);
+    const lower = normalized.toLowerCase();
+
     if (
       lower.startsWith('/.env') ||
       lower.startsWith('/.git') ||
       lower.endsWith('.cjs') ||
       lower.endsWith('.mjs') ||
-      lower.endsWith('.ts') ||
-      lower.endsWith('.tsx') ||
+      lower === '/server.ts' ||
+      lower.endsWith('/server.ts') ||
+      ((process.env.NODE_ENV === 'production' || !lower.startsWith('/src/')) && (lower.endsWith('.ts') || lower.endsWith('.tsx'))) ||
       lower.endsWith('.map') ||
       lower.endsWith('.zip') ||
       lower.endsWith('.tar') ||
@@ -1395,7 +1457,10 @@ export function createApp(): express.Express {
       lower === '/package-lock.json' ||
       lower === '/bun.lock' ||
       lower === '/tsconfig.json' ||
-      lower === '/relationship-id.zip'
+      lower === '/relationship-id.zip' ||
+      normalized.includes('/../server.cjs') ||
+      normalized.endsWith('/server.cjs') ||
+      normalized.endsWith('/server.cjs.map')
     ) {
       return res.status(404).end();
     }
@@ -1495,37 +1560,78 @@ export function createApp(): express.Express {
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
 
       // Max 5 starts per user per hour (counter in Firestore) -> 429 when exceeded
-      const limitRef = adminDb.collection('whatsapp_verify_limits').doc(user.uid);
-      const limitDoc = await limitRef.get();
+      // Enforced atomically in a Firestore transaction to prevent concurrent race conditions
+      const limitRef = adminDb.collection(WHATSAPP_VERIFY_LIMITS_COL).doc(user.uid);
       const nowMs = Date.now();
       const ONE_HOUR_MS = 60 * 60 * 1000;
-      let currentCount = 0;
-      let windowStartMs = nowMs;
 
-      if (limitDoc.exists) {
-        const data = limitDoc.data() || {};
-        const savedWindowStart = typeof data.windowStartMs === 'number' ? data.windowStartMs : 0;
-        if (nowMs - savedWindowStart < ONE_HOUR_MS) {
-          currentCount = typeof data.count === 'number' ? data.count : 0;
-          windowStartMs = savedWindowStart;
+      let quotaReserved = false;
+      let rateLimitRetryAfter = 0;
+
+      await adminDb.runTransaction(async (transaction) => {
+        const limitDoc = await transaction.get(limitRef);
+        let currentCount = 0;
+        let windowStartMs = nowMs;
+
+        if (limitDoc.exists) {
+          const data = limitDoc.data() || {};
+          const savedWindowStart = typeof data.windowStartMs === 'number' ? data.windowStartMs : 0;
+          if (nowMs - savedWindowStart < ONE_HOUR_MS) {
+            currentCount = typeof data.count === 'number' ? data.count : 0;
+            windowStartMs = savedWindowStart;
+          }
         }
-      }
 
-      if (currentCount >= 5) {
-        const retryAfterSeconds = Math.max(1, Math.ceil((windowStartMs + ONE_HOUR_MS - nowMs) / 1000));
-        return respondWithError(res, 429, 'WHATSAPP_VERIFY_RATE_LIMITED', retryAfterSeconds);
+        if (currentCount >= 5) {
+          rateLimitRetryAfter = Math.max(1, Math.ceil((windowStartMs + ONE_HOUR_MS - nowMs) / 1000));
+          return;
+        }
+
+        transaction.set(limitRef, {
+          count: currentCount + 1,
+          windowStartMs,
+          updatedAt: new Date(nowMs).toISOString()
+        }, { merge: true });
+        quotaReserved = true;
+      });
+
+      if (!quotaReserved) {
+        return respondWithError(res, 429, 'WHATSAPP_VERIFY_RATE_LIMITED', rateLimitRetryAfter);
       }
 
       const client = getTwilioClient();
       if (!client) {
+        // Rollback quota reservation if provider is unavailable
+        await adminDb.runTransaction(async (transaction) => {
+          const limitDoc = await transaction.get(limitRef);
+          if (limitDoc.exists) {
+            const data = limitDoc.data() || {};
+            const count = Math.max(0, (typeof data.count === 'number' ? data.count : 1) - 1);
+            transaction.update(limitRef, { count, updatedAt: new Date().toISOString() });
+          }
+        }).catch(() => {});
         return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');
       }
 
       const verifyServiceSid = process.env.TWILIO_VERIFY_SID!;
-      const verification = await client.verify.v2.services(verifyServiceSid).verifications.create({
-        to: norm.canonical,
-        channel: 'whatsapp'
-      });
+      let verification: any;
+      try {
+        verification = await client.verify.v2.services(verifyServiceSid).verifications.create({
+          to: norm.canonical,
+          channel: 'whatsapp'
+        });
+      } catch (twilioErr) {
+        // Rollback quota reservation on provider error
+        await adminDb.runTransaction(async (transaction) => {
+          const limitDoc = await transaction.get(limitRef);
+          if (limitDoc.exists) {
+            const data = limitDoc.data() || {};
+            const count = Math.max(0, (typeof data.count === 'number' ? data.count : 1) - 1);
+            transaction.update(limitRef, { count, updatedAt: new Date().toISOString() });
+          }
+        }).catch(() => {});
+        throw twilioErr;
+      }
 
       const attemptId = crypto.randomUUID();
       const now = Date.now();
@@ -1545,13 +1651,6 @@ export function createApp(): express.Express {
 
       const attemptRef = adminDb.collection(WHATSAPP_VERIFY_ATTEMPTS_COL).doc(user.uid);
       await attemptRef.set(newAttempt);
-
-      // Increment Firestore counter
-      await limitRef.set({
-        count: currentCount + 1,
-        windowStartMs,
-        updatedAt: new Date().toISOString()
-      });
 
       return res.json({ success: true });
     } catch (err: any) {
@@ -1604,6 +1703,18 @@ export function createApp(): express.Express {
       if (!attempt || attempt.uid !== user.uid) {
         return respondWithError(res, 400, 'INVALID_VERIFICATION_ATTEMPT');
       }
+
+      // Check persistent verification attempt check counter in Firestore (Issue 6)
+      const checkAttempts = typeof (attempt as any).checkAttempts === 'number' ? (attempt as any).checkAttempts : 0;
+      if (checkAttempts >= 10) {
+        return respondWithError(res, 429, 'WHATSAPP_VERIFY_RATE_LIMITED');
+      }
+
+      // Record verification check attempt persistently in Firestore
+      await attemptRef.update({
+        checkAttempts: checkAttempts + 1,
+        updatedAt: new Date().toISOString()
+      }).catch(() => {});
 
       if (attempt.canonicalPhone !== norm.canonical) {
         return respondWithError(res, 400, 'PHONE_NUMBER_MISMATCH');
@@ -4627,6 +4738,15 @@ export function createApp(): express.Express {
     }
   });
 
+  // Unsupported app-host Firebase auth helper routes must return 404 rather than proxying or serving SPA
+  app.all(['/__/auth', '/__/auth/*', '/__/firebase', '/__/firebase/*'], (_req, res) => {
+    res.status(404).json({ error: 'NOT_FOUND' });
+  });
+
+  if (options?.staticDir) {
+    mountProductionStatic(app, options.staticDir);
+  }
+
   // Global safe error handler: never leak stack traces, private data, or internal credentials
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('Unhandled server error:', err?.message || err);
@@ -4644,16 +4764,13 @@ async function startServer() {
       throw new Error('CONTACT_HASH_SECRET environment variable is missing or shorter than 32 characters');
     }
   }
-  const app = createApp();
+  const isProd = process.env.NODE_ENV === 'production';
+  const app = createApp(isProd ? { staticDir: getPublicStaticDir() } : undefined);
   const PORT = Number(process.env.PORT || 3000);
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProd) {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath, { dotfiles: 'ignore', index: false }));
-    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
   app.listen(PORT, '0.0.0.0', () => {

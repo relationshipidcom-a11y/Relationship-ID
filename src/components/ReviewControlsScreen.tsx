@@ -117,8 +117,8 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
     <div className="flex-1 flex flex-col justify-between px-4 py-3">
       {/* Stepper Navigation */}
       <nav aria-label="Step Navigation" className="my-2 flex items-center justify-end">
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C1C3E6]/20 text-[#C1C3E6] border border-[#C1C3E6]/40 font-semibold w-fit">
-          <span className="w-4 h-4 rounded-full bg-[#C1C3E6] text-xs flex items-center justify-center text-[#242C55] font-bold">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#392D5A] text-[#E7BCD3] border border-[#51465F] font-semibold w-fit">
+          <span className="w-4 h-4 rounded-full bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-xs flex items-center justify-center text-[#F7F4FA] font-bold">
             3
           </span>
           <span className="text-sm">{t.step3Tab}</span>
@@ -128,7 +128,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
       {/* Page Header */}
       <section className="text-center my-1.5">
         <h2 className="text-lg font-bold text-white tracking-wide">{t.reviewHeaderTitle}</h2>
-        <p className="text-base sm:text-sm text-[#C9CCE4] mt-0.5">{t.reviewHeaderDesc}</p>
+        <p className="text-base sm:text-sm text-[#B7ACC8] mt-0.5">{t.reviewHeaderDesc}</p>
       </section>
 
       {/* Certificate Preview Card */}
@@ -153,7 +153,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
                 <span className="text-white font-extrabold text-sm sm:text-sm tracking-[0.22em] leading-tight uppercase mt-0.5">
                   ID
                 </span>
-                <span className="text-[#C9CCE4] text-sm sm:text-[9.5px] tracking-[0.18em] font-medium uppercase mt-0.5">
+                <span className="text-[#B7ACC8] text-sm sm:text-[9.5px] tracking-[0.18em] font-medium uppercase mt-0.5">
                   {t.privateRecordRegistry}
                 </span>
               </div>
@@ -166,11 +166,11 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
 
           {/* Section 2: Statement & Names */}
           <div className="text-center pt-0.5">
-            <p className="text-sm sm:text-[10px] text-[#C9CCE4] tracking-[0.16em] uppercase font-medium">
+            <p className="text-sm sm:text-[10px] text-[#B7ACC8] tracking-[0.16em] uppercase font-medium">
               {t.commitmentStatement}
             </p>
             {language === 'ar' && (
-              <p className="text-sm sm:text-[10px] text-[#C1C3E6] mt-0.5 font-medium">
+              <p className="text-sm sm:text-[10px] text-[#E7BCD3] mt-0.5 font-medium">
                 {t.commitmentStatementAr}
               </p>
             )}
@@ -178,18 +178,18 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
             <div className="my-2">
               <h3 className="text-lg sm:text-xl text-white font-serif tracking-wide font-normal break-words">
                 {language === 'ar' ? record.partner1.fullName : (record.partner1.fullNameEn || record.partner1.fullName)}
-                <span className="font-serif italic text-[#C1C3E6] mx-1.5 text-base sm:text-lg">&</span>
+                <span className="font-serif italic text-[#E7BCD3] mx-1.5 text-base sm:text-lg">&</span>
                 {language === 'ar' ? record.partner2.fullName : (record.partner2.fullNameEn || record.partner2.fullName)}
               </h3>
               {language === 'ar' && (record.partner1.fullNameEn || record.partner2.fullNameEn) && (
-                <p className="text-sm sm:text-[10px] text-[#C9CCE4] font-serif tracking-wider mt-0.5 break-words" dir="ltr">
+                <p className="text-sm sm:text-[10px] text-[#B7ACC8] font-serif tracking-wider mt-0.5 break-words" dir="ltr">
                   {record.partner1.fullNameEn || record.partner1.fullName} <span className="italic">&</span> {record.partner2.fullNameEn || record.partner2.fullName}
                 </p>
               )}
             </div>
 
             <div className="flex items-center justify-center gap-2 mt-1.5 mb-1 flex-wrap">
-              <span className="bg-[#2C345F] border border-[#C1C3E6]/40 text-[#C1C3E6] font-bold text-sm sm:text-[9.5px] px-3 py-0.5 rounded-full uppercase tracking-widest shadow-sm">
+              <span className="bg-[#392D5A] border border-[#51465F] text-[#E7BCD3] font-bold text-sm sm:text-[9.5px] px-3 py-0.5 rounded-full uppercase tracking-widest shadow-sm">
                 {record.type === 'marriage' ? 'MARRIAGE' : record.type === 'engagement' ? 'ENGAGEMENT' : 'COUPLES'}
               </span>
               <span className="bg-white/10 border border-white/25 text-white font-mono font-medium text-sm sm:text-[9.5px] px-3 py-0.5 rounded-full uppercase tracking-wider">
@@ -204,7 +204,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
               <div className="text-sm sm:text-[9.5px] font-bold tracking-wider text-white uppercase break-words" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 {language === 'ar' ? `${record.partner1.fullName} • ${t.sharedDetailsLabel}` : `${(record.partner1.fullNameEn || record.partner1.fullName).toUpperCase()} · ${t.sharedDetailsLabel}`}
               </div>
-              <div className="text-sm sm:text-[9px] text-[#C9CCE4] font-mono mt-0.5 leading-relaxed" dir="ltr">
+              <div className="text-sm sm:text-[9px] text-[#B7ACC8] font-mono mt-0.5 leading-relaxed" dir="ltr">
                 <span>{language === 'ar' ? 'تفاصيل الاتصال خاصة' : 'Contact details private'}</span>
               </div>
             </div>
@@ -213,7 +213,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
               <div className="text-sm sm:text-[9.5px] font-bold tracking-wider text-white uppercase break-words" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 {language === 'ar' ? `${record.partner2.fullName} • ${t.sharedDetailsLabel}` : `${(record.partner2.fullNameEn || record.partner2.fullName).toUpperCase()} · ${t.sharedDetailsLabel}`}
               </div>
-              <div className="text-sm sm:text-[9px] text-[#C9CCE4] font-mono mt-0.5 leading-relaxed" dir="ltr">
+              <div className="text-sm sm:text-[9px] text-[#B7ACC8] font-mono mt-0.5 leading-relaxed" dir="ltr">
                 <span>{language === 'ar' ? 'تفاصيل الاتصال خاصة' : 'Contact details private'}</span>
               </div>
             </div>
@@ -227,8 +227,8 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
             if (!record.settings.showSocialHandles || !hasSocial) return null;
 
             return (
-              <div className="flex flex-wrap items-center justify-center gap-2 text-sm sm:text-[9.5px] text-[#C9CCE4] font-medium tracking-wider pt-0.5" dir="ltr">
-                <span className="uppercase text-[#C9CCE4] font-bold text-sm sm:text-[8.5px] tracking-widest">{t.connectedProfiles}</span>
+              <div className="flex flex-wrap items-center justify-center gap-2 text-sm sm:text-[9.5px] text-[#B7ACC8] font-medium tracking-wider pt-0.5" dir="ltr">
+                <span className="uppercase text-[#B7ACC8] font-bold text-sm sm:text-[8.5px] tracking-widest">{t.connectedProfiles}</span>
                 {p1Accounts.map((acc, i) => (
                   <span key={`p1-${i}`} className="text-white font-mono">{acc.display}</span>
                 ))}
@@ -250,13 +250,13 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
             </div>
 
             <div className="flex-1 text-left" dir="ltr">
-              <div className="text-sm sm:text-[9px] font-bold tracking-[0.16em] uppercase text-[#C9CCE4]">
+              <div className="text-sm sm:text-[9px] font-bold tracking-[0.16em] uppercase text-[#B7ACC8]">
                 {t.verificationRefLabel}
               </div>
               <div className="text-sm sm:text-sm font-mono font-bold text-white tracking-widest mt-0.5 break-all">
                 {record.verificationRef}
               </div>
-              <div className="text-sm sm:text-[8.5px] text-[#C9CCE4] mt-0.5">
+              <div className="text-sm sm:text-[8.5px] text-[#B7ACC8] mt-0.5">
                 {t.issuedDateLabel} {language === 'ar' ? record.issuedDateAr : record.issuedDate}
               </div>
             </div>
@@ -266,16 +266,16 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           {record.settings.showQrMatrix && (
             <div className="pt-2 border-t border-white/20 flex items-center justify-between gap-3">
               <div className="text-left" dir="ltr">
-                <div className="text-sm sm:text-[9px] font-bold tracking-[0.16em] uppercase text-[#C9CCE4]">
+                <div className="text-sm sm:text-[9px] font-bold tracking-[0.16em] uppercase text-[#B7ACC8]">
                   {t.scanRefTitle}
                 </div>
-                <p className="text-sm sm:text-[9px] text-[#C9CCE4]/90 mt-0.5 max-w-[200px] leading-relaxed">
+                <p className="text-sm sm:text-[9px] text-[#B7ACC8]/90 mt-0.5 max-w-[200px] leading-relaxed">
                   {t.scanRefDesc}
                 </p>
               </div>
 
               <div className="shrink-0 bg-white p-1 rounded-md shadow-sm">
-                <QRCodeSVG value={`${window.location.origin}/verify/${encodeURIComponent(record.verificationRef)}`} size={32} bgColor="#ffffff" fgColor="#182849" />
+                <QRCodeSVG value={`${window.location.origin}/verify/${encodeURIComponent(record.verificationRef)}`} size={32} bgColor="#ffffff" fgColor="#141023" />
               </div>
             </div>
           )}
@@ -283,18 +283,18 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
       </div>
 
       {/* Control Dashboard Panel with Live Toggles */}
-      <div className="my-2 w-full rounded-xl border border-white/20 p-3.5 bg-[#202B52] shadow-xl text-right">
+      <div className="my-2 w-full rounded-xl border border-[#51465F] p-3.5 bg-[#30264D] shadow-xl text-right">
         {/* Header */}
         <div className="flex items-center pb-2 mb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#2C345F] border border-[#C1C3E6]/30 flex items-center justify-center text-[#C1C3E6]">
+            <div className="w-7 h-7 rounded-lg bg-[#392D5A] border border-[#51465F] flex items-center justify-center text-[#E7BCD3]">
               <Settings className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white tracking-wide">
                 {t.dashboardPanelTitle}
               </h3>
-              <span className="text-sm text-[#C9CCE4] block font-normal">
+              <span className="text-sm text-[#B7ACC8] block font-normal">
                 {t.dashboardPanelDesc}
               </span>
             </div>
@@ -306,14 +306,14 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           {/* Toggle 1: Social Accounts */}
           <div className={styles.toggleRow}>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#2C345F] flex items-center justify-center text-[#C1C3E6] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#392D5A] flex items-center justify-center text-[#E7BCD3] shrink-0">
                 <AtSign className="w-4 h-4" />
               </div>
               <div className="flex flex-col text-right">
                 <span className="text-sm font-semibold text-white">
                   {t.toggleSocialTitle}
                 </span>
-                <span className="text-sm text-[#C9CCE4]">
+                <span className="text-sm text-[#B7ACC8]">
                   {t.toggleSocialDesc}
                 </span>
               </div>
@@ -325,21 +325,21 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
                 onChange={(e) => onUpdateSettings({ showSocialHandles: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4 rounded-full bg-[#172244] peer-checked:bg-[#C1C3E6] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
+              <div className="w-8 h-4 rounded-full bg-[#141023] border border-[#51465F] peer-checked:bg-[#85516F] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
             </label>
           </div>
 
           {/* Toggle: Public Contact Search Consent */}
           <div className={styles.toggleRow}>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#2C345F] flex items-center justify-center text-[#C1C3E6] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#392D5A] flex items-center justify-center text-[#E7BCD3] shrink-0">
                 <Settings className="w-4 h-4" />
               </div>
               <div className="flex flex-col text-right">
                 <span className="text-sm font-semibold text-white">
                   {t.toggleContactSearchTitle}
                 </span>
-                <span className="text-sm text-[#C9CCE4]">
+                <span className="text-sm text-[#B7ACC8]">
                   {t.toggleContactSearchDesc}
                 </span>
               </div>
@@ -362,21 +362,21 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
                 }}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4 rounded-full bg-[#172244] peer-checked:bg-[#C1C3E6] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
+              <div className="w-8 h-4 rounded-full bg-[#141023] border border-[#51465F] peer-checked:bg-[#85516F] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
             </label>
           </div>
 
           {/* Toggle 3: QR Code Matrix */}
           <div className={styles.toggleRow}>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#2C345F] flex items-center justify-center text-[#C1C3E6] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#392D5A] flex items-center justify-center text-[#E7BCD3] shrink-0">
                 <QrCode className="w-4 h-4" />
               </div>
               <div className="flex flex-col text-right">
                 <span className="text-sm font-semibold text-white">
                   {t.toggleQrTitle}
                 </span>
-                <span className="text-sm text-[#C9CCE4]">
+                <span className="text-sm text-[#B7ACC8]">
                   {t.toggleQrDesc}
                 </span>
               </div>
@@ -388,7 +388,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
                 onChange={(e) => onUpdateSettings({ showQrMatrix: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4 rounded-full bg-[#172244] peer-checked:bg-[#C1C3E6] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
+              <div className="w-8 h-4 rounded-full bg-[#141023] border border-[#51465F] peer-checked:bg-[#85516F] transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] peer-checked:after:left-[18px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
             </label>
           </div>
         </div>
@@ -398,7 +398,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           <button
             type="button"
             onClick={() => setShowChangeModal(true)}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-sm font-semibold text-[#C1C3E6] transition-colors border border-[#C1C3E6]/35 bg-[#C1C3E6]/15 hover:bg-[#C1C3E6]/25 active:scale-[0.98] cursor-pointer relative"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-sm font-semibold text-[#F7F4FA] transition-colors border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] active:scale-[0.98] cursor-pointer relative"
           >
             <Edit3 className="w-4 h-4" />
             <span>{t.requestChangeBtn}</span>
@@ -410,9 +410,9 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           <button
             type="button"
             onClick={onViewCertificate}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-sm font-semibold text-slate-200 transition-colors border border-white/20 bg-[#172244] hover:bg-white/5 active:scale-[0.98] cursor-pointer"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-sm font-semibold text-slate-200 transition-colors border border-[#51465F] bg-[#141023] hover:bg-white/5 active:scale-[0.98] cursor-pointer"
           >
-            <Eye className="w-4 h-4 text-[#C9CCE4]" />
+            <Eye className="w-4 h-4 text-[#B7ACC8]" />
             <span>{t.previewPrintBtn}</span>
           </button>
         </div>
@@ -456,9 +456,9 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
       )}
 
       {pendingRequestsByMe.length > 0 && pendingRequestsForMe.length === 0 && (
-        <div className="my-1.5 p-2.5 rounded-xl bg-[#202B52] border border-white/10 flex items-center justify-between gap-2 text-right">
-          <div className="flex items-center gap-2 text-sm text-[#C9CCE4]">
-            <Clock className="w-3.5 h-3.5 text-[#C1C3E6] shrink-0" />
+        <div className="my-1.5 p-2.5 rounded-xl bg-[#30264D] border border-[#51465F] flex items-center justify-between gap-2 text-right">
+          <div className="flex items-center gap-2 text-sm text-[#B7ACC8]">
+            <Clock className="w-3.5 h-3.5 text-[#E7BCD3] shrink-0" />
             <span>
               {language === 'ar'
                 ? 'تم إرسال طلب التعديل وهو بانتظار موافقة الشريك.'
@@ -468,7 +468,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
           <button
             type="button"
             onClick={() => setShowChangeModal(true)}
-            className="text-sm text-[#C1C3E6] underline hover:text-white cursor-pointer bg-transparent border-none p-0 shrink-0"
+            className="text-sm text-[#E7BCD3] underline hover:text-white cursor-pointer bg-transparent border-none p-0 shrink-0"
           >
             {language === 'ar' ? 'عرض السجل' : 'View'}
           </button>
@@ -480,7 +480,7 @@ export const ReviewControlsScreen: React.FC<ReviewControlsScreenProps> = ({
         <button
           type="button"
           onClick={onViewCertificate}
-          className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl text-[#242C55] font-bold text-sm shadow-lg active:scale-[0.98] transition-all bg-gradient-to-r from-[#C1C3E6] to-[#A9AFD7] hover:from-[#d0d2f0] hover:to-[#b7bddf] border border-white/20 cursor-pointer min-h-[44px]"
+          className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl text-[#F7F4FA] font-bold text-sm shadow-lg active:scale-[0.98] transition-all bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] border border-[#51465F] cursor-pointer min-h-[44px]"
         >
           <Eye className="w-4 h-4" />
           <span>{t.previewAndShareCertBtn}</span>

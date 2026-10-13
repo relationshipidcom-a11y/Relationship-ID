@@ -1,6 +1,6 @@
 .cardSection {
-  background-color: #202B52;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: #30264D;
+  border: 1px solid #51465F;
   border-radius: 16px;
   padding: 14px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
@@ -14,14 +14,14 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  border-bottom: 1px solid rgba(81, 70, 95, 0.6);
 }
 
 .inputControl {
   width: 100%;
-  background-color: rgba(193, 195, 230, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #F6F5FF;
+  background-color: #141023;
+  border: 1px solid #51465F;
+  color: #F7F4FA;
   font-size: 16px;
   border-radius: 12px;
   padding: 12px 14px;
@@ -31,15 +31,15 @@
 }
 
 .inputControl:focus {
-  border-color: #C1C3E6;
-  box-shadow: 0 0 0 2px rgba(193, 195, 230, 0.35);
+  border-color: #E7BCD3;
+  box-shadow: 0 0 0 2px rgba(231, 188, 211, 0.35);
 }
 
 .selectControl {
   width: 100%;
-  background-color: rgba(193, 195, 230, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #F6F5FF;
+  background-color: #141023;
+  border: 1px solid #51465F;
+  color: #F7F4FA;
   font-size: 16px;
   border-radius: 12px;
   padding: 12px 14px;
@@ -56,10 +56,10 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  background: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #242C55;
-  box-shadow: 0 4px 12px rgba(169, 175, 215, 0.35);
+  background: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
+  border: 1px solid rgba(231, 188, 211, 0.35);
+  color: #F7F4FA;
+  box-shadow: 0 4px 12px rgba(128, 78, 106, 0.35);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -73,21 +73,21 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
-  background-color: #202B52;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #C9CCE4;
+  background-color: #30264D;
+  border: 1px solid #51465F;
+  color: #B7ACC8;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .inactiveTypeBtn:hover {
-  color: #F6F5FF;
+  color: #F7F4FA;
 }
 
 .primaryCta {
   width: 100%;
-  background: linear-gradient(135deg, #C1C3E6 0%, #A9AFD7 100%);
-  color: #242C55;
+  background: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
+  color: #F7F4FA;
   padding: 14px 16px;
   border-radius: 12px;
   font-weight: 700;
@@ -96,14 +96,14 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 8px 20px rgba(169, 175, 215, 0.35);
+  border: 1px solid rgba(231, 188, 211, 0.25);
+  box-shadow: 0 8px 20px rgba(128, 78, 106, 0.35);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .primaryCta:hover {
-  background: linear-gradient(135deg, #D0D2ED 0%, #B5BBE2 100%);
+  background: linear-gradient(135deg, #895472 0%, #945E7D 100%);
 }
 
 .primaryCta:active {

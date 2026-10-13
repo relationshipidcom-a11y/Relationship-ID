@@ -1,12 +1,12 @@
 .certificateCard {
   position: relative;
-  background: linear-gradient(155deg, #182849 0%, #2C345F 52%, #414A78 100%);
+  background: linear-gradient(155deg, #19142F 0%, #2A2045 52%, #382A55 100%);
   border-radius: 20px;
   overflow: hidden;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid #51465F;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
-  color: #F6F5FF;
+  color: #F7F4FA;
 }
 
 @media (min-width: 640px) {
@@ -18,12 +18,12 @@
 
 .draftingGridFrame {
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid #51465F;
   padding: 18px 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background-color: rgba(24, 40, 73, 0.45);
+  background-color: rgba(25, 20, 47, 0.65);
   backdrop-filter: blur(4px);
 }
 
@@ -41,8 +41,8 @@
   left: -8px;
   width: 16px;
   height: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.28);
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
+  border-top: 1px solid rgba(231, 188, 211, 0.35);
+  border-left: 1px solid rgba(231, 188, 211, 0.35);
   pointer-events: none;
 }
 
@@ -52,8 +52,8 @@
   right: -8px;
   width: 16px;
   height: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.28);
-  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  border-top: 1px solid rgba(231, 188, 211, 0.35);
+  border-right: 1px solid rgba(231, 188, 211, 0.35);
   pointer-events: none;
 }
 
@@ -63,8 +63,8 @@
   left: -8px;
   width: 16px;
   height: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
+  border-bottom: 1px solid rgba(231, 188, 211, 0.35);
+  border-left: 1px solid rgba(231, 188, 211, 0.35);
   pointer-events: none;
 }
 
@@ -74,14 +74,14 @@
   right: -8px;
   width: 16px;
   height: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
-  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  border-bottom: 1px solid rgba(231, 188, 211, 0.35);
+  border-right: 1px solid rgba(231, 188, 211, 0.35);
   pointer-events: none;
 }
 
 .partnerBox {
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid #51465F;
+  background-color: rgba(231, 188, 211, 0.04);
   border-radius: 10px;
   padding: 12px 14px;
   display: flex;
@@ -100,14 +100,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: rgba(44, 52, 95, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.40);
+  background-color: rgba(48, 38, 77, 0.75);
+  border: 1px solid rgba(231, 188, 211, 0.40);
   box-shadow: 
-    0 0 0 1px rgba(246, 245, 255, 0.22),
+    0 0 0 1px rgba(247, 244, 250, 0.22),
     0 0 0 5px transparent,
-    0 0 0 6px rgba(246, 245, 255, 0.16),
+    0 0 0 6px rgba(247, 244, 250, 0.16),
     0 0 0 10px transparent,
-    0 0 0 11px rgba(246, 245, 255, 0.08);
+    0 0 0 11px rgba(247, 244, 250, 0.08);
 }
 
 @media (min-width: 640px) {

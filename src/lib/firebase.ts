@@ -62,7 +62,9 @@ export const maskedApiKey = (() => {
   return `${key.slice(0, 6)}…${key.slice(-4)} (${key.length} chars)`;
 })();
 
-console.info(`[Firebase Config] projectId: "${firebaseConfig.projectId}", apiKey: ${maskedApiKey}`);
+if ((import.meta as any)?.env?.DEV) {
+  console.info(`[Firebase Config] projectId: "${firebaseConfig.projectId}", apiKey: ${maskedApiKey}`);
+}
 
 export async function testFirebaseApiKey(): Promise<{ ok: boolean; message: string }> {
   const key = firebaseConfig.apiKey;
@@ -150,7 +152,8 @@ if (typeof self !== 'undefined') {
   const isExplicitPreview = typeof window !== 'undefined' && (
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.endsWith('.run.app')
+    window.location.hostname.endsWith('.run.app') ||
+    window.location.hostname.endsWith('.ai.studio')
   );
 
   // In production builds, App Check debug provider must NEVER activate on production domains.

@@ -38,7 +38,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '6. Where Data Is Processed',
-        body: 'Application data stored in Cloud Firestore is hosted in europe-west2 (London). Application server operations in server.ts are hosted in europe-west1 (Belgium).\n\nFirebase Authentication is a global Google service holding account email addresses and phone numbers, and cannot be restricted to a single region, so those authentication identifiers may be processed outside Saudi Arabia and outside the regions listed above across Google infrastructure.'
+        body: 'Application data stored in Cloud Firestore is hosted in europe-west2 (London). Application server operations are hosted on secure cloud infrastructure.\n\nFirebase Authentication is a global Google service holding account email addresses and phone numbers, and cannot be restricted to a single region, so those authentication identifiers may be processed outside Saudi Arabia and outside the regions listed above across Google infrastructure.'
       },
       {
         heading: '7. Processors and Third Parties',
@@ -138,7 +138,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '6. أين تتم معالجة البيانات',
-        body: 'يتم استضافة بيانات التطبيق المخزنة في قاعدة Cloud Firestore في منطقة europe-west2 (لندن). وتتم استضافة عمليات خادم التطبيق (server.ts) في منطقة europe-west1 (بلجيكا).\n\nتُعد خدمة Firebase Authentication خدمة عالمية تابعة لشركة Google وتتولى حفظ عناوين البريد الإلكتروني وأرقام الهواتف الخاصة بالحسابات، ولا يمكن تقييدها بمنطقة جغرافية واحدة، ولذا فقد تتم معالجة تلك المعرفات الخاصة بالمصادقة خارج المملكة العربية السعودية وخارج المناطق المذكورة أعلاه عبر البنية التحتية لشركة Google.'
+        body: 'يتم استضافة بيانات التطبيق المخزنة في قاعدة Cloud Firestore في منطقة europe-west2 (لندن). وتتم استضافة عمليات خادم التطبيق عبر بنية تحتية سحابية آمنة.\n\nتُعد خدمة Firebase Authentication خدمة عالمية تابعة لشركة Google وتتولى حفظ عناوين البريد الإلكتروني وأرقام الهواتف الخاصة بالحسابات، ولا يمكن تقييدها بمنطقة جغرافية واحدة، ولذا فقد تتم معالجة تلك المعرفات الخاصة بالمصادقة خارج المملكة العربية السعودية وخارج المناطق المذكورة أعلاه عبر البنية التحتية لشركة Google.'
       },
       {
         heading: '7. معالجو البيانات والأطراف الثالثة',

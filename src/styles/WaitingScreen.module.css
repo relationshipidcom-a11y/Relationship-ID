@@ -7,8 +7,8 @@
 }
 
 .timerBlock {
-  background-color: #202B52;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: #30264D;
+  border: 1px solid #51465F;
   border-radius: 12px;
   padding: 8px 4px;
   display: flex;
@@ -19,15 +19,15 @@
 }
 
 .timerBlockActive {
-  background-color: #202B52;
-  border: 1px solid #C1C3E6;
+  background-color: #30264D;
+  border: 1px solid #E7BCD3;
   border-radius: 12px;
   padding: 8px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(169, 175, 215, 0.25);
+  box-shadow: 0 4px 12px rgba(157, 107, 135, 0.25);
 }
 
 .infoRow {

@@ -194,7 +194,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`${id}-number`} className="block text-sm font-medium text-[#C9CCE4]">
+        <label htmlFor={`${id}-number`} className="block text-sm font-medium text-[#B7ACC8]">
           {label || (language === 'ar' ? 'رقم الهاتف المحمول' : 'Mobile Phone Number')}
         </label>
         {isVerified ? (
@@ -205,7 +205,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
               : (language === 'ar' ? 'رقم موثوق ✓' : 'Verified Phone ✓')}
           </span>
         ) : (
-          <span className="text-sm text-[#C9CCE4]/70 font-medium">
+          <span className="text-sm text-[#B7ACC8]/70 font-medium">
             {language === 'ar' ? 'غير موثوق' : 'Not verified'}
           </span>
         )}
@@ -216,7 +216,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           aria-label={language === 'ar' ? 'رمز الدولة' : 'Country code'}
           value={country}
           onChange={(event) => handleCountryChange(event.target.value)}
-          className="col-span-5 bg-[#172244] border border-white/20 text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#C1C3E6]"
+          className="col-span-5 bg-[#141023] border border-[#51465F] text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#E7BCD3]"
         >
           {supportedCountries.map((item) => (
             <option key={item.iso} value={item.iso}>
@@ -243,7 +243,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           type="button"
           disabled={sending || confirming || isVerified || resendCooldown > 0}
           onClick={sendCode}
-          className="flex-1 py-2.5 px-3 rounded-xl bg-[#202B52] border border-[#C1C3E6]/40 text-[#C1C3E6] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-[#283564] transition min-h-[40px]"
+          className="flex-1 py-2.5 px-3 rounded-xl bg-[#30264D] border border-[#51465F] text-[#E7BCD3] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-[#3D305A] transition min-h-[40px]"
         >
           {sending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -263,7 +263,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
               : (language === 'ar' ? 'التحقق عبر واتساب' : 'Verify via WhatsApp'))}
         </button>
         {canonical && (
-          <span className="text-sm text-[#C9CCE4]/70 font-mono shrink-0" dir="ltr">
+          <span className="text-sm text-[#B7ACC8]/70 font-mono shrink-0" dir="ltr">
             {legacyCountryValue(country).split(' ')[1]}…{canonical.slice(-4)}
           </span>
         )}
@@ -286,12 +286,12 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
               type="button"
               onClick={confirmCode}
               disabled={confirming || otp.trim().length !== 6}
-              className="px-4 py-2.5 rounded-xl bg-[#C1C3E6] hover:bg-[#A9AFD7] text-[#242C55] text-sm font-semibold disabled:opacity-50 cursor-pointer min-h-[40px] flex items-center gap-1.5"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] text-sm font-semibold disabled:opacity-50 cursor-pointer min-h-[40px] flex items-center gap-1.5"
             >
               {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'تحقق من الرمز' : 'Verify')}
             </button>
           </div>
-          <p className="text-xs text-[#C9CCE4]/80">
+          <p className="text-xs text-[#B7ACC8]/80">
             {language === 'ar'
               ? 'يصلك رمز التحقق المكون من 6 أرقام في رسالة عبر تطبيق واتساب.'
               : 'Your 6-digit verification code arrives in a message via WhatsApp.'}

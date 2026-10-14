@@ -5,9 +5,10 @@ import { Language, PartnerData, RelationshipRecord, RelationshipType, SocialAcco
 import { translations } from '../i18n/translations';
 import { PhoneVerificationField } from './PhoneVerificationField';
 import { SocialAccountsEditor } from './SocialAccountsEditor';
+import { FormSkeleton } from './FormSkeleton';
 import { getDisplaySocialAccounts } from '../utils/social';
 import { auth } from '../lib/firebase';
-import { authFetch, getLocalizedErrorMessage } from '../utils/api';
+import { getLocalizedErrorMessage } from '../utils/api';
 import {
   countryFromLegacyValue,
   legacyCountryValue,
@@ -21,7 +22,7 @@ interface P1RegistrationScreenProps {
   initialData: PartnerData;
   relationshipType: RelationshipType;
   initialStartDate?: string;
-  onSaveAndNext: (p1: PartnerData, type: RelationshipType, startDate: string) => void;
+  onSaveAndNext: (p1: PartnerData, type: RelationshipType, startDate: string) => Promise<void> | void;
   onBack?: () => void;
   isActive?: boolean;
   record?: RelationshipRecord;
@@ -29,6 +30,10 @@ interface P1RegistrationScreenProps {
   onViewControls?: () => void;
   onOpenPrivacy?: () => void;
   onOpenTerms?: () => void;
+  loading?: boolean;
+  loadingError?: string | null;
+  onRetryLoading?: () => void;
+  onDraftChange?: (draft: Partial<PartnerData> & { relationshipType?: RelationshipType; startDate?: string }) => void;
 }
 
 const isoFromParts = (year?: string, month?: string, day?: string) => {
@@ -55,11 +60,195 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   onRequestChange,
   onViewControls,
   onOpenPrivacy,
-  onOpenTerms
+  onOpenTerms,
+  loading = false,
+  loadingError = null,
+  onRetryLoading,
+  onDraftChange
 }) => {
   const t = translations[language];
 
-  // When relationship is active, display both P1 and P2 details as read-only
+  // Unconditional hook declarations at the top of the component
+  const [fullName, setFullName] = useState(initialData.fullName || '');
+  const [birthDate, setBirthDate] = useState(isoFromParts(initialData.birthYear, initialData.birthMonth, initialData.birthDay));
+  const [email, setEmail] = useState(initialData.email || auth?.currentUser?.email || '');
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.phoneCountry));
+  const [phoneNumber, setPhoneNumber] = useState(initialData.phoneNumber || '');
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(
+    initialData.whatsappTrusted && initialData.whatsappE164
+      ? initialData.whatsappE164
+      : (initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null)
+  );
+  const [isWhatsappVerified, setIsWhatsappVerified] = useState<boolean>(
+    Boolean(initialData.whatsappTrusted && initialData.whatsappE164)
+  );
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>(() => {
+    if (Array.isArray(initialData.socialAccounts) && initialData.socialAccounts.length > 0) {
+      return initialData.socialAccounts;
+    }
+    if (initialData.socialHandle && initialData.socialHandle.trim()) {
+      return [{ platform: 'instagram', handle: initialData.socialHandle.trim().replace(/^@/, '') }];
+    }
+    return [];
+  });
+  const [relType, setRelType] = useState<RelationshipType>(initialRelType || 'dating');
+  const [startDate, setStartDate] = useState(initialStartDate.match(/^\d{4}-\d{2}-\d{2}$/) ? initialStartDate : '');
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const editedFieldsRef = useRef<Set<string>>(new Set());
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (initialData.fullName && !editedFieldsRef.current.has('fullName')) {
+      setFullName(initialData.fullName);
+    }
+    const dob = isoFromParts(initialData.birthYear, initialData.birthMonth, initialData.birthDay);
+    if (dob && !editedFieldsRef.current.has('birthDate')) {
+      setBirthDate(dob);
+    }
+    if (initialData.email && !editedFieldsRef.current.has('email')) {
+      setEmail(initialData.email);
+    }
+    if (initialData.phoneCountry && !editedFieldsRef.current.has('phoneCountry')) {
+      setPhoneCountry(countryFromLegacyValue(initialData.phoneCountry));
+    }
+    if (initialData.phoneNumber && !editedFieldsRef.current.has('phoneNumber')) {
+      setPhoneNumber(initialData.phoneNumber);
+    }
+    const preverified = (initialData.whatsappTrusted && initialData.whatsappE164)
+      ? initialData.whatsappE164
+      : (initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null);
+    if (preverified && !editedFieldsRef.current.has('verifiedPhone')) {
+      setVerifiedPhone(preverified);
+    }
+    if (initialData.whatsappTrusted && initialData.whatsappE164 && !editedFieldsRef.current.has('isWhatsappVerified')) {
+      setIsWhatsappVerified(true);
+    }
+    if (!editedFieldsRef.current.has('socialAccounts')) {
+      if (Array.isArray(initialData.socialAccounts) && initialData.socialAccounts.length > 0) {
+        setSocialAccounts(initialData.socialAccounts);
+      } else if (initialData.socialHandle && initialData.socialHandle.trim()) {
+        setSocialAccounts([{ platform: 'instagram', handle: initialData.socialHandle.trim().replace(/^@/, '') }]);
+      }
+    }
+  }, [initialData]);
+
+  // Keep parent draft updated for seamless Back/Forward and Terms/Privacy navigation
+  useEffect(() => {
+    onDraftChange?.({
+      fullName,
+      birthDay: birthDate.split('-')[2] || '',
+      birthMonth: birthDate.split('-')[1] || '',
+      birthYear: birthDate.split('-')[0] || '',
+      email,
+      phoneCountry: legacyCountryValue(phoneCountry),
+      phoneNumber,
+      socialAccounts,
+      relationshipType: relType,
+      startDate
+    });
+  }, [fullName, birthDate, email, phoneCountry, phoneNumber, socialAccounts, relType, startDate, onDraftChange]);
+
+  const canonicalPhone = useMemo(() => normalizePhoneNumber(phoneCountry, phoneNumber), [phoneCountry, phoneNumber]);
+  const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const handlePhoneVerified = (e164: string | null) => {
+    editedFieldsRef.current.add('verifiedPhone');
+    editedFieldsRef.current.add('isWhatsappVerified');
+    setVerifiedPhone(e164);
+    setIsWhatsappVerified(Boolean(e164));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmittingRef.current || submitting) return;
+
+    setError('');
+    if (!acceptedLegal) {
+      setError(language === 'ar' ? 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.' : 'Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
+    if (!birthDate || !isAtLeast18(birthDate)) {
+      setError(language === 'ar' ? 'يجب أن يكون العمر 18 سنة أو أكثر.' : 'You must be at least 18 years old.');
+      return;
+    }
+    if (!startDate || startDate > todayIso) {
+      setError(language === 'ar' ? 'اختر تاريخ بداية صالحاً وليس في المستقبل.' : 'Choose a valid relationship start date that is not in the future.');
+      return;
+    }
+    if (!canonicalPhone || !phoneIsVerified) {
+      setError(language === 'ar' ? 'يجب التحقق من رقم الجوال عبر واتساب أولاً.' : 'Verify your mobile number via WhatsApp before continuing.');
+      return;
+    }
+
+    const [birthYear, birthMonth, birthDay] = birthDate.split('-');
+    const cleanedSocialAccounts = socialAccounts
+      .map((a) => ({ platform: a.platform, handle: a.handle.trim() }))
+      .filter((a) => a.handle.length > 0);
+
+    isSubmittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await onSaveAndNext(
+        {
+          fullName: fullName.trim(),
+          birthDay,
+          birthMonth,
+          birthYear,
+          email: email.trim(),
+          phoneCountry: legacyCountryValue(phoneCountry),
+          phoneNumber,
+          phoneE164: canonicalPhone,
+          phoneVerified: true,
+          sameWhatsapp: true,
+          whatsappCountry: legacyCountryValue(phoneCountry),
+          whatsappNumber: phoneNumber,
+          whatsappE164: canonicalPhone,
+          whatsappTrusted: isWhatsappVerified,
+          whatsappVerifiedAt: isWhatsappVerified ? new Date().toISOString() : undefined,
+          socialAccounts: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts : undefined,
+          socialHandle: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts[0].handle.replace(/^@/, '') : undefined
+        },
+        relType,
+        startDate
+      );
+    } catch (err) {
+      setError(getLocalizedErrorMessage(err, language));
+    } finally {
+      isSubmittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  // State 1: Loading error -> display actionable error with Retry
+  if (loadingError) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="p-5 max-w-md w-full rounded-2xl bg-[#30264D] border border-rose-500/40 text-center space-y-4 shadow-xl">
+          <p className="text-sm sm:text-base text-rose-200 font-semibold leading-relaxed">{loadingError}</p>
+          {onRetryLoading && (
+            <button
+              type="button"
+              onClick={onRetryLoading}
+              className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
+            >
+              {language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // State 2: Genuinely loading -> render loading skeleton
+  if (loading) {
+    return <FormSkeleton type="p1" language={language} />;
+  }
+
+  // State 3: Active relationship -> display both P1 and P2 details as read-only
   if (isActive && record) {
     const stageLabel = record.type === 'marriage' ? t.marriage : record.type === 'engagement' ? t.engagement : t.dating;
     const p1BirthDate = isoFromParts(record.partner1.birthYear, record.partner1.birthMonth, record.partner1.birthDay);
@@ -97,7 +286,6 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                 <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
               </span>
             </div>
-
             <div className="grid grid-cols-2 gap-2.5 text-start">
               <div>
                 <p className="text-sm text-[#B7ACC8]">{t.fullNameLabel}</p>
@@ -147,7 +335,6 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                 <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
               </span>
             </div>
-
             <div className="grid grid-cols-2 gap-2.5 text-start">
               <div>
                 <p className="text-sm text-[#B7ACC8]">{t.fullNameLabel}</p>
@@ -236,139 +423,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
     );
   }
 
-  const [fullName, setFullName] = useState(initialData.fullName || '');
-  const [birthDate, setBirthDate] = useState(isoFromParts(initialData.birthYear, initialData.birthMonth, initialData.birthDay));
-  const [email, setEmail] = useState(initialData.email || auth?.currentUser?.email || '');
-  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.phoneCountry));
-  const [phoneNumber, setPhoneNumber] = useState(initialData.phoneNumber || '');
-  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(
-    initialData.whatsappTrusted && initialData.whatsappE164
-      ? initialData.whatsappE164
-      : (initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null)
-  );
-  const [isWhatsappVerified, setIsWhatsappVerified] = useState<boolean>(
-    Boolean(initialData.whatsappTrusted && initialData.whatsappE164)
-  );
-  const editedFieldsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (initialData.fullName && !editedFieldsRef.current.has('fullName')) {
-      setFullName(initialData.fullName);
-    }
-    const dob = isoFromParts(initialData.birthYear, initialData.birthMonth, initialData.birthDay);
-    if (dob && !editedFieldsRef.current.has('birthDate')) {
-      setBirthDate(dob);
-    }
-    if (initialData.email && !editedFieldsRef.current.has('email')) {
-      setEmail(initialData.email);
-    }
-    if (initialData.phoneCountry && !editedFieldsRef.current.has('phoneCountry')) {
-      setPhoneCountry(countryFromLegacyValue(initialData.phoneCountry));
-    }
-    if (initialData.phoneNumber && !editedFieldsRef.current.has('phoneNumber')) {
-      setPhoneNumber(initialData.phoneNumber);
-    }
-    const preverified = (initialData.whatsappTrusted && initialData.whatsappE164)
-      ? initialData.whatsappE164
-      : (initialData.phoneVerified && initialData.phoneE164 ? initialData.phoneE164 : auth?.currentUser?.phoneNumber || null);
-    if (preverified && !editedFieldsRef.current.has('verifiedPhone')) {
-      setVerifiedPhone(preverified);
-    }
-    if (initialData.whatsappTrusted && initialData.whatsappE164 && !editedFieldsRef.current.has('isWhatsappVerified')) {
-      setIsWhatsappVerified(true);
-    }
-    if (!editedFieldsRef.current.has('socialAccounts')) {
-      if (Array.isArray(initialData.socialAccounts) && initialData.socialAccounts.length > 0) {
-        setSocialAccounts(initialData.socialAccounts);
-      } else if (initialData.socialHandle && initialData.socialHandle.trim()) {
-        setSocialAccounts([{ platform: 'instagram', handle: initialData.socialHandle.trim().replace(/^@/, '') }]);
-      }
-    }
-  }, [initialData]);
-
-  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>(() => {
-    if (Array.isArray(initialData.socialAccounts) && initialData.socialAccounts.length > 0) {
-      return initialData.socialAccounts;
-    }
-    if (initialData.socialHandle && initialData.socialHandle.trim()) {
-      return [{ platform: 'instagram', handle: initialData.socialHandle.trim().replace(/^@/, '') }];
-    }
-    return [];
-  });
-  const [relType, setRelType] = useState<RelationshipType>(initialRelType || 'dating');
-  const [startDate, setStartDate] = useState(initialStartDate.match(/^\d{4}-\d{2}-\d{2}$/) ? initialStartDate : '');
-  const [acceptedLegal, setAcceptedLegal] = useState(false);
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const canonicalPhone = useMemo(() => normalizePhoneNumber(phoneCountry, phoneNumber), [phoneCountry, phoneNumber]);
-  const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
-  const todayIso = new Date().toISOString().slice(0, 10);
-
-  const handlePhoneVerified = (e164: string | null) => {
-    editedFieldsRef.current.add('verifiedPhone');
-    editedFieldsRef.current.add('isWhatsappVerified');
-    setVerifiedPhone(e164);
-    setIsWhatsappVerified(Boolean(e164));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!acceptedLegal) {
-      setError(language === 'ar' ? 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.' : 'Please accept the Terms of Service and Privacy Policy to continue.');
-      return;
-    }
-    if (!birthDate || !isAtLeast18(birthDate)) {
-      setError(language === 'ar' ? 'يجب أن يكون العمر 18 سنة أو أكثر.' : 'You must be at least 18 years old.');
-      return;
-    }
-    if (!startDate || startDate > todayIso) {
-      setError(language === 'ar' ? 'اختر تاريخ بداية صالحاً وليس في المستقبل.' : 'Choose a valid relationship start date that is not in the future.');
-      return;
-    }
-    if (!canonicalPhone || !phoneIsVerified) {
-      setError(language === 'ar' ? 'يجب التحقق من رقم الجوال عبر واتساب أولاً.' : 'Verify your mobile number via WhatsApp before continuing.');
-      return;
-    }
-
-    const [birthYear, birthMonth, birthDay] = birthDate.split('-');
-    const cleanedSocialAccounts = socialAccounts
-      .map((a) => ({ platform: a.platform, handle: a.handle.trim() }))
-      .filter((a) => a.handle.length > 0);
-
-    setSubmitting(true);
-    try {
-      await onSaveAndNext(
-        {
-          fullName: fullName.trim(),
-          birthDay,
-          birthMonth,
-          birthYear,
-          email: email.trim(),
-          phoneCountry: legacyCountryValue(phoneCountry),
-          phoneNumber,
-          phoneE164: canonicalPhone,
-          phoneVerified: true,
-          sameWhatsapp: true,
-          whatsappCountry: legacyCountryValue(phoneCountry),
-          whatsappNumber: phoneNumber,
-          whatsappE164: canonicalPhone,
-          whatsappTrusted: isWhatsappVerified,
-          whatsappVerifiedAt: isWhatsappVerified ? new Date().toISOString() : undefined,
-          socialAccounts: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts : undefined,
-          socialHandle: cleanedSocialAccounts.length > 0 ? cleanedSocialAccounts[0].handle.replace(/^@/, '') : undefined
-        },
-        relType,
-        startDate
-      );
-    } catch (err) {
-      setError(getLocalizedErrorMessage(err, language));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+  // State 4: Editable Form
   return (
     <div className="flex-1 flex flex-col justify-between px-4 py-3">
       <section className="text-center mb-3 mt-2">
@@ -383,6 +438,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
       </section>
 
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-3.5">
+        {/* Verified Identity Section */}
         <section className={styles.cardSection}>
           <div className={styles.sectionHeader}>
             <div className="flex items-center gap-2 text-[#E7BCD3]">
@@ -396,108 +452,168 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p1-name">{t.fullNameLabel}</label>
-              <input id="p1-name" type="text" required value={fullName} onChange={(e) => { editedFieldsRef.current.add('fullName'); setFullName(e.target.value); }} className={styles.inputControl} placeholder={t.fullNamePlaceholder} />
+              <input
+                id="p1-name"
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => {
+                  editedFieldsRef.current.add('fullName');
+                  setFullName(e.target.value);
+                }}
+                className={styles.inputControl}
+                placeholder={t.fullNamePlaceholder}
+              />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-[#B7ACC8]" htmlFor="p1-dob">{t.birthdateLabel}</label>
                 {birthDate && isAtLeast18(birthDate) && <span className="text-sm text-[#E7BCD3] font-medium">18+ ✓</span>}
               </div>
-              <input id="p1-dob" type="date" required max={todayIso} value={birthDate} onChange={(e) => { editedFieldsRef.current.add('birthDate'); setBirthDate(e.target.value); }} className={styles.inputControl} dir="ltr" />
+              <input
+                id="p1-dob"
+                type="date"
+                required
+                max={todayIso}
+                value={birthDate}
+                onChange={(e) => {
+                  editedFieldsRef.current.add('birthDate');
+                  setBirthDate(e.target.value);
+                }}
+                className={styles.inputControl}
+                dir="ltr"
+              />
             </div>
           </div>
         </section>
 
-        <section className={styles.cardSection}>
-          <div className={styles.sectionHeader}>
-            <div className="flex items-center gap-2.5">
-              <Mail className="w-4 h-4 text-[#E7BCD3]" />
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.contactDetailsTitle}</h3>
-                <p className="text-sm text-[#B7ACC8] mt-0.5">{language === 'ar' ? 'يتم التحقق من رقم الجوال عبر رسالة رمز تحقق في تطبيق واتساب.' : 'Mobile number is verified with a verification code via WhatsApp.'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="p1-email" className="block text-sm font-medium text-[#B7ACC8] mb-1.5">{t.emailLabel}</label>
-              <input id="p1-email" type="email" required value={email} onChange={(e) => { editedFieldsRef.current.add('email'); setEmail(e.target.value); }} className={styles.inputControl} dir="ltr" />
-            </div>
-
-            <PhoneVerificationField
-              id="p1-mobile"
-              language={language}
-              country={phoneCountry}
-              number={phoneNumber}
-              verifiedE164={verifiedPhone}
-              isWhatsappVerified={isWhatsappVerified}
-              onCountryChange={(value) => {
-                editedFieldsRef.current.add('phoneCountry');
-                setPhoneCountry(value);
-              }}
-              onNumberChange={(value) => {
-                editedFieldsRef.current.add('phoneNumber');
-                setPhoneNumber(value);
-              }}
-              onVerified={handlePhoneVerified}
-              label={t.phoneLabel}
-            />
-
-            <SocialAccountsEditor
-              language={language}
-              accounts={socialAccounts}
-              onChange={(accounts) => {
-                editedFieldsRef.current.add('socialAccounts');
-                setSocialAccounts(accounts);
-              }}
-              maxAccounts={6}
-            />
-          </div>
-        </section>
-
+        {/* Contact Details Section */}
         <section className={styles.cardSection}>
           <div className={styles.sectionHeader}>
             <div className="flex items-center gap-2 text-[#E7BCD3]">
-              <Heart className="w-4 h-4 fill-current" />
+              <Mail className="w-4 h-4" />
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-white">{t.relationshipDetailsTitle}</h3>
+                <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.contactDetailsTitle}</h3>
+                <p className="text-sm text-[#B7ACC8] mt-0.5">{language === 'ar' ? 'بيانات التواصل لتأكيد السجل واستلام الإشعارات.' : 'Used to confirm your relationship and deliver updates.'}</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p1-email">{t.emailLabel}</label>
+              <input
+                id="p1-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => {
+                  editedFieldsRef.current.add('email');
+                  setEmail(e.target.value);
+                }}
+                className={styles.inputControl}
+                placeholder="name@example.com"
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <PhoneVerificationField
+                id="p1-mobile"
+                language={language}
+                country={phoneCountry}
+                number={phoneNumber}
+                verifiedE164={verifiedPhone}
+                isWhatsappVerified={isWhatsappVerified}
+                onCountryChange={(code) => {
+                  editedFieldsRef.current.add('phoneCountry');
+                  setPhoneCountry(code);
+                }}
+                onNumberChange={(val) => {
+                  editedFieldsRef.current.add('phoneNumber');
+                  setPhoneNumber(val);
+                }}
+                onVerified={handlePhoneVerified}
+                label={t.phoneLabel}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Social Accounts Section */}
+        <section className={styles.cardSection}>
+          <SocialAccountsEditor
+            language={language}
+            accounts={socialAccounts}
+            onChange={(accs) => {
+              editedFieldsRef.current.add('socialAccounts');
+              setSocialAccounts(accs);
+            }}
+          />
+        </section>
+
+        {/* Relationship Details Section */}
+        <section className={styles.cardSection}>
+          <div className={styles.sectionHeader}>
+            <div className="flex items-center gap-2 text-[#E7BCD3]">
+              <Heart className="w-4 h-4" />
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.relationshipDetailsTitle}</h3>
                 <p className="text-sm text-[#B7ACC8] mt-0.5">{t.relationshipDetailsDesc}</p>
               </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {(['dating', 'engagement', 'marriage'] as RelationshipType[]).map((type) => (
-              <button key={type} type="button" onClick={() => setRelType(type)} className={relType === type ? styles.activeTypeBtn : styles.inactiveTypeBtn}>
-                {relType === type && <CheckCircle className="w-3.5 h-3.5" />}
-                <span>{type === 'marriage' ? t.marriage : type === 'engagement' ? t.engagement : t.dating}</span>
-              </button>
-            ))}
-          </div>
-
-          <div>
-            <label htmlFor="relationship-start" className="flex items-center gap-1.5 text-sm font-medium text-[#B7ACC8] mb-1.5">
-              <Calendar className="w-3.5 h-3.5 text-[#E7BCD3]" />
-              {t.startDateLabel}
-            </label>
-            <input id="relationship-start" type="date" required max={todayIso} value={startDate} onChange={(e) => setStartDate(e.target.value)} className={styles.inputControl} dir="ltr" />
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5">{t.relationshipStage}</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'dating', label: t.dating },
+                  { id: 'engagement', label: t.engagement },
+                  { id: 'marriage', label: t.marriage }
+                ].map((stage) => (
+                  <button
+                    key={stage.id}
+                    type="button"
+                    onClick={() => setRelType(stage.id as RelationshipType)}
+                    className={`py-2 px-3 rounded-xl border text-sm font-semibold transition-all ${
+                      relType === stage.id
+                        ? 'bg-[#804E6A] border-[#E7BCD3] text-[#F7F4FA] shadow-md'
+                        : 'bg-[#221B38] border-[#51465F] text-[#B7ACC8] hover:border-[#8E82A3]'
+                    }`}
+                  >
+                    {stage.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p1-start-date">{t.startDateLabel}</label>
+              <input
+                id="p1-start-date"
+                type="date"
+                required
+                max={todayIso}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className={styles.inputControl}
+                dir="ltr"
+              />
+            </div>
           </div>
         </section>
 
-        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#141023] border border-[#51465F] text-sm text-[#B7ACC8]">
+        {/* Legal Consent Checkbox */}
+        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#30264D]/60 border border-[#51465F]/60">
           <input
-            id="p1-legal-consent"
+            id="p1-terms"
             type="checkbox"
             checked={acceptedLegal}
             onChange={(e) => setAcceptedLegal(e.target.checked)}
-            required
-            className="mt-0.5 rounded border-[#51465F] bg-[#141023] text-[#85516F] focus:ring-[#E7BCD3] cursor-pointer"
+            className="mt-1 w-4 h-4 rounded border-[#51465F] bg-[#221B38] text-[#804E6A] focus:ring-[#E7BCD3] cursor-pointer"
           />
-          <label htmlFor="p1-legal-consent" className="cursor-pointer text-sm leading-relaxed select-none">
+          <label htmlFor="p1-terms" className="text-sm text-[#B7ACC8] leading-relaxed cursor-pointer select-none">
             {language === 'ar' ? (
               <>
-                أؤكد أن عمري 18 سنة أو أكثر، وأوافق على{' '}
+                أوافق على{' '}
                 <a
                   href="/terms"
                   onClick={(e) => {
@@ -506,9 +622,9 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                   }}
                   className="text-[#E7BCD3] underline hover:text-white"
                 >
-                  شروط الاستخدام
+                  شروط الخدمة
                 </a>{' '}
-                و
+                و{' '}
                 <a
                   href="/privacy"
                   onClick={(e) => {
@@ -523,7 +639,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
               </>
             ) : (
               <>
-                I confirm I am 18 or older, and I agree to the{' '}
+                I agree to the{' '}
                 <a
                   href="/terms"
                   onClick={(e) => {
@@ -554,8 +670,16 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         {error && <p className="text-sm text-rose-300 leading-relaxed">{error}</p>}
 
         <div className="pt-2">
-          <button type="submit" disabled={!acceptedLegal || submitting} className={`${styles.primaryCta} disabled:opacity-50`}>
-            <span>{submitting ? '...' : t.continueToPartnerBtn}</span>
+          <button
+            type="submit"
+            disabled={!acceptedLegal || submitting}
+            className={`${styles.primaryCta} disabled:opacity-50`}
+          >
+            <span>
+              {submitting
+                ? (language === 'ar' ? 'جارٍ الحفظ...' : 'Saving...')
+                : t.continueToPartnerBtn}
+            </span>
           </button>
         </div>
       </form>

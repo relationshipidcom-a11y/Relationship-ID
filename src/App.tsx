@@ -45,6 +45,7 @@ import { LegalFooter } from './components/LegalFooter';
 import { LEGAL_VERSION } from './content/legal';
 import { ChangeRequest, AppNotification, SocialAccount } from './types';
 import { getRouteState } from './utils/routing';
+import { initGoogleAnalytics, trackScreenView } from './utils/analytics';
 import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X, Loader2, Home } from 'lucide-react';
 
 const emptyPartner = (): PartnerData => ({
@@ -140,6 +141,21 @@ export default function App() {
   const changeRequestsRequestIdRef = useRef(0);
   const notificationsRequestIdRef = useRef(0);
   const isSubmittingRef = useRef(false);
+  const [privateRecordLoading, setPrivateRecordLoading] = useState(false);
+  const [privateRecordError, setPrivateRecordError] = useState<string | null>(null);
+  const [p2Profile, setP2Profile] = useState<PartnerData | null>(null);
+  const [p2ProfileLoading, setP2ProfileLoading] = useState(false);
+  const p1DraftRef = useRef<{
+    uid: string;
+    partner1: Partial<PartnerData>;
+    relationshipType?: RelationshipType;
+    startDate?: string;
+  } | null>(null);
+  const p2DraftRef = useRef<{
+    uid: string;
+    inviteId?: string;
+    partner2: Partial<PartnerData>;
+  } | null>(null);
 
   const allowScreenExplorer = useMemo(
     () => import.meta.env.DEV && import.meta.env.VITE_ENABLE_SCREEN_EXPLORER === 'true',
@@ -198,25 +214,65 @@ export default function App() {
     const requestUid = auth.currentUser.uid;
     const requestId = ++privateRecordRequestIdRef.current;
     activeAuthUidRef.current = requestUid;
-    return executePrivateRecordLoad({
-      requestUid,
-      requestId,
-      getCurrentRequestId: () => privateRecordRequestIdRef.current,
-      getActiveAuthUid: () => activeAuthUidRef.current,
-      getCurrentAuthUid: () => auth?.currentUser?.uid || null,
-      fetchRecord: async () => {
-        const response = await authFetch('/api/record');
-        return parseApiError(response);
-      },
-      setRecord,
-      setInvitation,
-      setAppError,
-      formatErrorMessage: (err) => getLocalizedErrorMessage(err, language),
-      routeAfterLoad,
-      onNavigate: navigateTo,
-      initialRecord,
-      initialInvitation
-    });
+    setPrivateRecordLoading(true);
+    setPrivateRecordError(null);
+    try {
+      const res = await executePrivateRecordLoad({
+        requestUid,
+        requestId,
+        getCurrentRequestId: () => privateRecordRequestIdRef.current,
+        getActiveAuthUid: () => activeAuthUidRef.current,
+        getCurrentAuthUid: () => auth?.currentUser?.uid || null,
+        fetchRecord: async () => {
+          const response = await authFetch('/api/record');
+          return parseApiError(response);
+        },
+        setRecord,
+        setInvitation,
+        setAppError: (msg) => {
+          setAppError(msg);
+          if (msg) setPrivateRecordError(msg);
+        },
+        formatErrorMessage: (err) => getLocalizedErrorMessage(err, language),
+        routeAfterLoad,
+        onNavigate: navigateTo,
+        initialRecord,
+        initialInvitation
+      });
+      return res;
+    } catch (err) {
+      if (privateRecordRequestIdRef.current === requestId && activeAuthUidRef.current === requestUid) {
+        const localized = getLocalizedErrorMessage(err, language);
+        setPrivateRecordError(localized);
+        setAppError(localized);
+      }
+      return null;
+    } finally {
+      if (privateRecordRequestIdRef.current === requestId && activeAuthUidRef.current === requestUid) {
+        setPrivateRecordLoading(false);
+      }
+    }
+  };
+
+  const loadP2Profile = async () => {
+    if (!auth?.currentUser) return;
+    const requestUid = auth.currentUser.uid;
+    setP2ProfileLoading(true);
+    try {
+      const res = await authFetch('/api/profile');
+      const data = await parseApiError(res);
+      if (auth?.currentUser?.uid === requestUid && activeAuthUidRef.current === requestUid) {
+        if (data?.profile) {
+          setP2Profile(data.profile);
+        }
+      }
+    } catch {
+      // Non-blocking fallback
+    } finally {
+      if (auth?.currentUser?.uid === requestUid && activeAuthUidRef.current === requestUid) {
+        setP2ProfileLoading(false);
+      }
+    }
   };
 
   const renderLoadingScreen = (title: string, subtitle: string) => (
@@ -306,9 +362,16 @@ export default function App() {
         if (route.inviteId && route.inviteId !== 'current') {
           const isAlreadyActive = Boolean(activeRecord && activeRecord.status === 'active');
           void loadInvitation(route.inviteId, isAlreadyActive);
+          void loadP2Profile();
         }
       } else {
         activeAuthUidRef.current = null;
+        p1DraftRef.current = null;
+        p2DraftRef.current = null;
+        setP2Profile(null);
+        setPrivateRecordLoading(false);
+        setPrivateRecordError(null);
+        setP2ProfileLoading(false);
         privateRecordRequestIdRef.current += 1;
         invitationRequestIdRef.current += 1;
         changeRequestsRequestIdRef.current += 1;
@@ -329,6 +392,16 @@ export default function App() {
       }
     });
   }, []);
+
+  // Initialize Google Analytics once per document
+  useEffect(() => {
+    initGoogleAnalytics();
+  }, []);
+
+  // Track screen transitions, Back/Forward navigation, and initial screen
+  useEffect(() => {
+    trackScreenView(currentScreen);
+  }, [currentScreen]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -542,6 +615,11 @@ export default function App() {
     if (!auth) return;
     setAppError('');
     activeAuthUidRef.current = null;
+    p1DraftRef.current = null;
+    p2DraftRef.current = null;
+    setP2Profile(null);
+    setPrivateRecordLoading(false);
+    setPrivateRecordError(null);
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
@@ -563,6 +641,11 @@ export default function App() {
 
   const handleSwitchAccount = async (targetInviteId?: string) => {
     activeAuthUidRef.current = null;
+    p1DraftRef.current = null;
+    p2DraftRef.current = null;
+    setP2Profile(null);
+    setPrivateRecordLoading(false);
+    setPrivateRecordError(null);
     privateRecordRequestIdRef.current += 1;
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
@@ -791,9 +874,19 @@ export default function App() {
         }));
       }
 
+      if (activeAuthUidRef.current) {
+        p1DraftRef.current = {
+          uid: activeAuthUidRef.current,
+          partner1: profileData?.profile || p1Data,
+          relationshipType: relType,
+          startDate: startDateIso
+        };
+      }
+
       navigateTo('p1_invite_create');
     } catch (err) {
       setAppError(getLocalizedErrorMessage(err, language));
+      throw err;
     } finally {
       isSubmittingRef.current = false;
     }
@@ -1062,21 +1155,45 @@ export default function App() {
             />
           )}
 
-          {currentScreen === 'p1_details' && (
-            <P1RegistrationScreen
-              language={language}
-              initialData={{ ...record.partner1, email: record.partner1.email || authUser?.email || '' }}
-              relationshipType={record.type}
-              initialStartDate={record.startDateIso || ''}
-              onSaveAndNext={handleP1SaveAndNext}
-              isActive={hasActiveRelationship}
-              record={record}
-              onRequestChange={handleAdjustInfo}
-              onViewControls={() => navigateTo('review_controls', '/review')}
-              onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
-              onOpenTerms={() => navigateTo('terms', '/terms')}
-            />
-          )}
+          {currentScreen === 'p1_details' && (() => {
+            const currentP1Draft = p1DraftRef.current?.uid === authUser?.id ? p1DraftRef.current : null;
+            return (
+              <P1RegistrationScreen
+                language={language}
+                initialData={
+                  currentP1Draft
+                    ? { ...record.partner1, ...currentP1Draft.partner1, email: currentP1Draft.partner1.email || record.partner1.email || authUser?.email || '' }
+                    : { ...record.partner1, email: record.partner1.email || authUser?.email || '' }
+                }
+                relationshipType={
+                  currentP1Draft?.relationshipType || record.type
+                }
+                initialStartDate={
+                  currentP1Draft?.startDate || record.startDateIso || ''
+                }
+                onSaveAndNext={handleP1SaveAndNext}
+                isActive={hasActiveRelationship}
+                record={record}
+                loading={privateRecordLoading && !record.id && !record.partner1.fullName}
+                loadingError={privateRecordError}
+                onRetryLoading={() => void loadPrivateRecord(false)}
+                onDraftChange={(draft) => {
+                  if (activeAuthUidRef.current) {
+                    p1DraftRef.current = {
+                      uid: activeAuthUidRef.current,
+                      partner1: { ...(p1DraftRef.current?.partner1 || {}), ...draft },
+                      relationshipType: draft.relationshipType,
+                      startDate: draft.startDate
+                    };
+                  }
+                }}
+                onRequestChange={handleAdjustInfo}
+                onViewControls={() => navigateTo('review_controls', '/review')}
+                onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
+                onOpenTerms={() => navigateTo('terms', '/terms')}
+              />
+            );
+          })()}
 
           {currentScreen === 'p1_invite_create' && (
             <P1InviteScreen
@@ -1185,10 +1302,34 @@ export default function App() {
               }
 
               if (shouldRenderP2RegistrationScreen(decision)) {
+                const currentP2Draft = (authUser?.id && p2DraftRef.current?.uid === authUser.id) ? p2DraftRef.current?.partner2 : null;
                 return (
                   <P2RegistrationScreen
                     language={language}
-                    record={{ ...record, partner2: { ...record.partner2, email: record.partner2.email || authUser?.email || '' } }}
+                    record={{
+                      ...record,
+                      partner2: {
+                        ...record.partner2,
+                        ...(currentP2Draft || {}),
+                        email: currentP2Draft?.email || record.partner2.email || p2Profile?.email || authUser?.email || ''
+                      }
+                    }}
+                    initialProfile={p2Profile}
+                    loading={p2ProfileLoading}
+                    loadingError={appError && !invitation.id ? appError : null}
+                    onRetryLoading={() => {
+                      if (targetInviteId) void loadInvitation(targetInviteId);
+                      void loadP2Profile();
+                    }}
+                    onDraftChange={(draft) => {
+                      if (activeAuthUidRef.current) {
+                        p2DraftRef.current = {
+                          uid: activeAuthUidRef.current,
+                          inviteId: targetInviteId,
+                          partner2: { ...(p2DraftRef.current?.partner2 || {}), ...draft }
+                        };
+                      }
+                    }}
                     onAcceptRelationship={handleAcceptRelationship}
                     onRequestChange={handleAdjustInfo}
                     onViewControls={() => navigateTo('review_controls', '/review')}

@@ -45,6 +45,7 @@ test('Production Invitation Loading Race & Concurrency Guard Suite', async (t) =
         getCurrentAuthUid: () => this.currentUserUid,
         fetchInvitation: fetchFn,
         setInvitation: (inv) => { this.invitation = inv; },
+        resetInvitation: () => { this.invitation = null; },
         setInvitationAuth: (auth) => { this.invitationAuth = auth; },
         setRecord: (updater) => { this.record = typeof updater === 'function' ? updater(this.record) : updater; },
         setAppError: (err) => { this.appError = err; },
@@ -322,6 +323,7 @@ test('Production Invitation Loading Race & Concurrency Guard Suite', async (t) =
         invitation: { id: 'invite_stale' }
       }),
       setInvitation: (inv) => { mutatedInvitation = inv; },
+      resetInvitation: () => { mutatedInvitation = null; },
       setInvitationAuth: () => {},
       setRecord: () => {},
       setAppError: () => {},

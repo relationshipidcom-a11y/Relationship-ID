@@ -58,10 +58,30 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
           console.error('Verification response was not JSON', parseError);
         }
         if (!response.ok || !data.found) {
-          if (response.status !== 404) {
-            setError(data.message || data.error || `HTTP_${response.status}`);
+          if (response.status === 429) {
+            setError(
+              language === 'ar'
+                ? 'طلبات كثيرة جداً. يرجى المحاولة لاحقاً.'
+                : 'Too many requests. Please try again later.'
+            );
+          } else if (response.status === 503 || response.status >= 500) {
+            setError(
+              language === 'ar'
+                ? 'الخدمة غير متوفرة مؤقتاً. يرجى المحاولة لاحقاً.'
+                : 'Service temporarily unavailable. Please try again later.'
+            );
+          } else if (response.status === 404 || !data.found) {
+            setError(
+              language === 'ar'
+                ? 'لا يوجد سجل نشط متاح للبحث العام'
+                : 'No publicly searchable active record'
+            );
           } else {
-            setError(language === 'ar' ? 'لا يوجد سجل نشط متاح للبحث العام' : 'No publicly searchable active record');
+            setError(
+              language === 'ar'
+                ? 'تعذر التحقق من السجل حالياً. يرجى إعادة المحاولة.'
+                : 'Unable to verify record at this time. Please try again.'
+            );
           }
           return;
         }
@@ -223,7 +243,7 @@ export const VerifyPortalModal: React.FC<VerifyPortalModalProps> = ({ language, 
             value={searchRef}
             onChange={(e) => setSearchRef(e.target.value)}
             placeholder={searchMode === 'ref' ? t.verifyInputPlaceholder : t.verifyContactInputPlaceholder}
-            className={`flex-1 bg-[#141023] border border-[#51465F] text-white rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-[#9D6B87] placeholder:font-['Tajawal',sans-serif] placeholder:tracking-normal ${searchRef ? 'font-mono' : (language === 'ar' ? 'font-sans' : 'font-mono')}`}
+            className={`min-w-0 flex-1 bg-[#141023] border border-[#51465F] text-white rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-[#9D6B87] placeholder:font-['Tajawal',sans-serif] placeholder:tracking-normal ${searchRef ? 'font-mono' : (language === 'ar' ? 'font-sans tracking-normal' : 'font-mono')}`}
             dir={searchRef ? (searchMode === 'ref' ? 'ltr' : 'auto') : (language === 'ar' ? 'rtl' : 'ltr')}
             disabled={loading}
           />

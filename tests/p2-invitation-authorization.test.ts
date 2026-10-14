@@ -343,6 +343,24 @@ test('P2 Invitation Authorization & Fail-Closed Protection Suite', async (t) => 
     assert.equal(navDecision.redirectScreen, 'p2_landing');
   });
 
+  await t.test('9b. invitationNotFound in evaluateP2Authorization returns unauthorized with INVITATION_NOT_FOUND', () => {
+    const decision = evaluateP2Authorization({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: null,
+      invitation: null,
+      record: { status: 'pending_partner' },
+      invitationLoading: false,
+      invitationNotFound: true,
+      hasAppError: false
+    });
+
+    assert.equal(decision.state, 'unauthorized');
+    assert.equal(decision.reason, 'INVITATION_NOT_FOUND');
+    assert.equal(shouldRenderP2RegistrationScreen(decision), false);
+  });
+
   // 5. Pending authorization loading states
   await t.test('10. Pending auth initialization returns loading state and never renders registration form', () => {
     const decision = evaluateP2Authorization({

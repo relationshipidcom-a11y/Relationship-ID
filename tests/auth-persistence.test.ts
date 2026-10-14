@@ -263,23 +263,21 @@ test('AuthPersistenceController regression test suite', async (t) => {
     assert.equal(redirectCalls, 0, 'Did not redirect on success');
     assert.equal(setPersistenceCallCount, 1, 'No redundant setPersistence call in handler');
 
-    // C. Popup blocked: falls back to redirect
-    const blockedResult = await runGoogleSignIn(controller, {
-      popup: async () => {
-        popupCalls++;
-        throw Object.assign(new Error('Blocked'), { code: 'auth/popup-blocked' });
-      },
-      redirect: async () => {
-        redirectCalls++;
-      },
-    });
-
-    assert.equal(blockedResult.started, true);
-    if (blockedResult.started) {
-      assert.equal(blockedResult.redirected, true);
-    }
+    // C. Popup blocked: does NOT redirect, rethrows error for localized display
+    await assert.rejects(
+      runGoogleSignIn(controller, {
+        popup: async () => {
+          popupCalls++;
+          throw Object.assign(new Error('Blocked'), { code: 'auth/popup-blocked' });
+        },
+        redirect: async () => {
+          redirectCalls++;
+        },
+      }),
+      (err: any) => err.code === 'auth/popup-blocked'
+    );
     assert.equal(popupCalls, 2);
-    assert.equal(redirectCalls, 1, 'Fell back to redirect when popup blocked');
+    assert.equal(redirectCalls, 0, 'Must NOT redirect when popup blocked');
 
     // D. Popup closed by user: rethrows error and does NOT redirect
     await assert.rejects(
@@ -295,23 +293,23 @@ test('AuthPersistenceController regression test suite', async (t) => {
       (err: any) => err.code === 'auth/popup-closed-by-user'
     );
     assert.equal(popupCalls, 3);
-    assert.equal(redirectCalls, 1, 'Must NOT redirect on user cancellation');
+    assert.equal(redirectCalls, 0, 'Must NOT redirect on user cancellation');
 
-    // E. Operation not supported in this environment: falls back to redirect
-    const unsupportedResult = await runGoogleSignIn(controller, {
-      popup: async () => {
-        popupCalls++;
-        throw Object.assign(new Error('Unsupported'), { code: 'auth/operation-not-supported-in-this-environment' });
-      },
-      redirect: async () => {
-        redirectCalls++;
-      },
-    });
-    assert.equal(unsupportedResult.started, true);
-    if (unsupportedResult.started) {
-      assert.equal(unsupportedResult.redirected, true);
-    }
-    assert.equal(redirectCalls, 2);
+    // E. Operation not supported in this environment: does NOT redirect, rethrows error
+    await assert.rejects(
+      runGoogleSignIn(controller, {
+        popup: async () => {
+          popupCalls++;
+          throw Object.assign(new Error('Unsupported'), { code: 'auth/operation-not-supported-in-this-environment' });
+        },
+        redirect: async () => {
+          redirectCalls++;
+        },
+      }),
+      (err: any) => err.code === 'auth/operation-not-supported-in-this-environment'
+    );
+    assert.equal(popupCalls, 4);
+    assert.equal(redirectCalls, 0, 'Must NOT redirect when environment unsupported');
 
     // F. Concurrent auth attempt is locked out (busy reason)
     let resolveActiveAttempt: () => void = () => {};
@@ -461,10 +459,25 @@ test('AuthPersistenceController regression test suite', async (t) => {
     };
 
     const controller = new AuthPersistenceController(mockAuth, true, adapter);
-    // Call 1: rememberMe = true
+    // Call 1: select remember (rememberMe = true)
     const p1 = controller.apply(true);
-    // Call 2: rememberMe = false
+    // Call 2: don't-remember quickly (rememberMe = false)
     const p2 = controller.apply(false);
+
+    // While persistence is pending, both email/password and Google sign-in must wait (report not-ready)
+    const emailWhilePending = await controller.runAuthAttempt(async () => 'never');
+    assert.equal(emailWhilePending.started, false);
+    if (!emailWhilePending.started) {
+      assert.equal(emailWhilePending.reason, 'not-ready');
+    }
+
+    const googleWhilePending = await runGoogleSignIn(controller, {
+      popup: async () => ({ user: { uid: 'never' } }),
+    });
+    assert.equal(googleWhilePending.started, false);
+    if (!googleWhilePending.started) {
+      assert.equal(googleWhilePending.reason, 'not-ready');
+    }
 
     // Resolve second (session) FIRST
     resolveSecond();
@@ -480,15 +493,33 @@ test('AuthPersistenceController regression test suite', async (t) => {
     assert.equal(controller.getState().rememberMe, false);
     assert.equal(lastAppliedPersistence, mockSessionPersistence);
 
-    // Now runAuthAttempt (email stand-in) runs
-    let statusWhenAuthRan = '';
+    // Now email/password runs successfully
+    let statusWhenEmailRan = '';
     const emailAttempt = await controller.runAuthAttempt(async () => {
-      statusWhenAuthRan = controller.getState().status;
+      statusWhenEmailRan = controller.getState().status;
       return { emailUser: 'user@example.com' };
     });
 
     assert.equal(emailAttempt.started, true);
-    assert.equal(statusWhenAuthRan, 'ready');
+    assert.equal(statusWhenEmailRan, 'ready');
+
+    // And Google sign-in runs successfully
+    let statusWhenGoogleRan = '';
+    let googlePopupCalled = false;
+    const googleAttempt = await runGoogleSignIn(controller, {
+      popup: async () => {
+        statusWhenGoogleRan = controller.getState().status;
+        googlePopupCalled = true;
+        return { user: { uid: 'google-user-session' } };
+      },
+    });
+
+    assert.equal(googleAttempt.started, true);
+    assert.equal(statusWhenGoogleRan, 'ready');
+    assert.equal(googlePopupCalled, true);
+    if (googleAttempt.started) {
+      assert.equal(googleAttempt.result?.user?.uid, 'google-user-session');
+    }
   });
 
   await t.test('12. runAuthAttempt error propagation cleans up authInFlight and unlocks setRememberMe', async () => {

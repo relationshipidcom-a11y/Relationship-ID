@@ -296,4 +296,25 @@ test('Authentication readableError unit tests', async (t) => {
       assert.equal(arConfig.includes(key), false, `Arabic text must not contain config key: ${key}`);
     }
   });
+
+  await t.test('unknown English error "Something internal xyz" and arbitrary Arabic errors never leak', () => {
+    const internalErr = new Error('Something internal xyz');
+    const enResult = readableError(internalErr, 'en');
+    const arResult = readableError(internalErr, 'ar');
+    assert.equal(enResult, 'Something went wrong. Please try again.');
+    assert.equal(arResult, 'حدث خطأ. يرجى المحاولة مرة أخرى.');
+    assert.equal(enResult.includes('Something internal xyz'), false);
+    assert.equal(arResult.includes('Something internal xyz'), false);
+
+    // Arbitrary Arabic error text not from our translations must not pass through
+    const arbitraryArErr = new Error('خطأ داخلي غير معروف 888');
+    const arArbitraryResult = readableError(arbitraryArErr, 'ar');
+    assert.equal(arArbitraryResult, 'حدث خطأ. يرجى المحاولة مرة أخرى.');
+    assert.equal(arArbitraryResult.includes('888'), false);
+
+    // Known translation Arabic error IS allowed
+    const knownTranslationErr = new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+    const arKnownResult = readableError(knownTranslationErr, 'ar');
+    assert.equal(arKnownResult, 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+  });
 });

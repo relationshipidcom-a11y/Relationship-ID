@@ -8,6 +8,7 @@ interface P2LandingScreenProps {
   invitation: Invitation;
   authUser?: AuthUser | null;
   invitationAuthorization?: InvitationAuthorization | null;
+  invitationNotFound?: boolean;
   onAccept: () => void;
   onDecline: (block?: boolean) => void;
   onSwitchAccount?: () => void;
@@ -20,6 +21,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   invitation,
   authUser,
   invitationAuthorization,
+  invitationNotFound = false,
   onAccept,
   onDecline,
   onSwitchAccount,
@@ -45,8 +47,8 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     (!invitationAuthorization || invitationAuthorization.authorized)
   );
 
-  // If invalid, missing, or not found
-  if (!invitation.id) {
+  // Server confirmed the invitation does not exist
+  if (invitationNotFound) {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
         <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
@@ -65,6 +67,35 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <Shield className="w-3.5 h-3.5 text-[#E7BCD3]" />
             <span>{t.dataPrivacyAssurance}</span>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Invitation could not be loaded (network or server problem) — never show stale or empty invitation details
+  if (!invitation.id) {
+    return (
+      <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
+        <div role="alert" className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+          <h1 className="text-lg font-bold text-white mb-2">
+            {language === 'ar' ? 'تعذر تحميل الدعوة' : 'Could Not Load Invitation'}
+          </h1>
+          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+            {language === 'ar'
+              ? 'تحقق من اتصالك بالإنترنت ثم أعد المحاولة.'
+              : 'Check your internet connection and try again.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#804E6A] hover:bg-[#8D5775] text-white text-sm font-bold min-h-[44px] cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>{language === 'ar' ? 'إعادة المحاولة' : 'Try Again'}</span>
+          </button>
         </div>
       </main>
     );

@@ -108,6 +108,7 @@ test('Bugfix Re-Test Suite (Comprehensive Verification of Known Issues)', async 
           React.createElement(P2LandingScreen, {
             language: 'en',
             invitation: notFoundInv,
+            invitationNotFound: true,
             onAccept: () => {},
             onDecline: () => {},
           })
@@ -124,6 +125,7 @@ test('Bugfix Re-Test Suite (Comprehensive Verification of Known Issues)', async 
           React.createElement(P2LandingScreen, {
             language: 'ar',
             invitation: notFoundInv,
+            invitationNotFound: true,
             onAccept: () => {},
             onDecline: () => {},
           })
@@ -134,36 +136,80 @@ test('Bugfix Re-Test Suite (Comprehensive Verification of Known Issues)', async 
       await cleanup();
     });
 
-    // 2b. executeInvitationLoad clears invitation state on fetch failure
-    await t.test('2b. executeInvitationLoad resets invitation to not_found state when fetch throws', async () => {
-      let stateInvitation: any = { id: 'old_pending_id', inviterName: 'Stale Inviter', status: 'pending' };
-      let stateError: any = null;
-
+    // Shared harness for executeInvitationLoad error handling
+    async function runLoadWithError(thrown: Error) {
+      const calls = { setInvitation: [] as any[], resets: 0, notFound: [] as boolean[], appError: null as any };
       await executeInvitationLoad({
-        inviteId: 'bad_invite_token',
+        inviteId: 'some_invite_token',
         requestUid: null,
         requestId: 1,
         getCurrentRequestId: () => 1,
         getActiveAuthUid: () => null,
         getCurrentAuthUid: () => null,
         fetchInvitation: async () => {
-          throw new Error('INVITATION_NOT_FOUND');
+          throw thrown;
         },
         setInvitation: (inv) => {
-          stateInvitation = inv;
+          calls.setInvitation.push(inv);
+        },
+        resetInvitation: () => {
+          calls.resets++;
         },
         setInvitationAuth: () => {},
+        setInvitationNotFound: (nf) => {
+          calls.notFound.push(nf);
+        },
         setRecord: () => {},
         setAppError: (err) => {
-          stateError = err;
+          calls.appError = err;
         },
         setInvitationLoading: () => {},
       });
+      return calls;
+    }
 
-      assert.equal(stateInvitation.status, 'cancelled');
-      assert.equal(stateInvitation.id, '');
-      assert.equal(stateInvitation.inviterName, '');
-      assert.ok(stateError);
+    // 2b. Server says INVITATION_NOT_FOUND -> not-found state, stale invitation cleared, no invented invitation
+    await t.test('2b. INVITATION_NOT_FOUND sets invitationNotFound true and resets invitation without inventing one', async () => {
+      const calls = await runLoadWithError(new Error('INVITATION_NOT_FOUND'));
+      assert.equal(calls.notFound.at(-1), true);
+      assert.equal(calls.resets, 1, 'Stale invitation must be cleared');
+      assert.equal(calls.setInvitation.length, 0, 'setInvitation must never receive an invented invitation');
+      assert.ok(calls.appError);
+    });
+
+    // 2c. Network / timeout / rate-limit / server errors are load failures, never "not found"
+    await t.test('2c. Network, timeout, rate-limit and server errors never set invitationNotFound', async () => {
+      for (const code of ['NETWORK_ERROR', 'NETWORK_TIMEOUT', 'RATE_LIMITED', 'DATABASE_UNAVAILABLE', 'DATABASE_ERROR', 'SERVER_ERROR', 'AUTH_REQUIRED']) {
+        const calls = await runLoadWithError(new Error(code));
+        assert.equal(calls.notFound.at(-1), false, `${code} must not mark the invitation as not found`);
+        assert.equal(calls.resets, 1, `${code} must clear the stale invitation`);
+        assert.equal(calls.setInvitation.length, 0, `${code} must not invent an invitation`);
+        assert.ok(calls.appError, `${code} must surface a localized app error`);
+      }
+    });
+
+    // 2d. Load failure renders "Could Not Load Invitation" with retry, never "Not Found" or an empty invitation card
+    await t.test('2d. Load failure renders Could Not Load Invitation with Try Again, not Invitation Not Found', async () => {
+      const { div, root, cleanup } = createTestContainer();
+      const emptyInv: Invitation = {
+        id: '', recordId: '', inviterName: '', partner2Name: '', relationshipType: 'dating',
+        startDate: '', startDateAr: '', startDateIso: '', status: 'pending', createdAt: '', expiresAt: '', reminderCount: 0,
+      };
+      await act(async () => {
+        root.render(React.createElement(P2LandingScreen, { language: 'en', invitation: emptyInv, invitationNotFound: false, onAccept: () => {}, onDecline: () => {} }));
+      });
+      assert.ok(div.textContent?.includes('Could Not Load Invitation'));
+      assert.ok(div.textContent?.includes('Try Again'));
+      assert.equal(div.textContent?.includes('Invitation Not Found'), false);
+      assert.equal(div.textContent?.includes('Special Invitation'), false, 'Must not render an empty invitation card');
+      assert.equal(Array.from(div.querySelectorAll('button')).some((b) => b.textContent?.includes('Accept')), false);
+
+      await act(async () => {
+        root.render(React.createElement(P2LandingScreen, { language: 'ar', invitation: emptyInv, invitationNotFound: false, onAccept: () => {}, onDecline: () => {} }));
+      });
+      assert.ok(div.textContent?.includes('تعذر تحميل الدعوة'));
+      assert.ok(div.textContent?.includes('إعادة المحاولة'));
+      await cleanup();
     });
 
     // 3. Technical errors and configuration diagnostics never reach normal visitors in AuthScreen

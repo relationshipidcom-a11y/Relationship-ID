@@ -80,7 +80,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   return (
     <div className="px-4 pt-3 pb-4 flex-1 flex flex-col items-center">
       {/* Step Indicator Pill */}
-      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] text-sm font-bold tracking-wider mb-4 shadow-sm">
+      <div className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] text-sm font-bold mb-4 shadow-sm ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider'}`}>
         <span className="w-1.5 h-1.5 rounded-full bg-[#F7F4FA] animate-ping" />
         <span>{t.stepP2Waiting}</span>
       </div>

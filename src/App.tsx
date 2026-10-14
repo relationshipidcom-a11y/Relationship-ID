@@ -116,6 +116,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [invitationLoading, setInvitationLoading] = useState(false);
+  const [invitationNotFound, setInvitationNotFound] = useState(false);
   const [record, setRecord] = useState<RelationshipRecord>(initialRecord);
   const [invitation, setInvitation] = useState<Invitation>(initialInvitation);
   const [invitationAuth, setInvitationAuth] = useState<InvitationAuthorization | null>(null);
@@ -255,6 +256,8 @@ export default function App() {
       },
       setInvitation,
       setInvitationAuth,
+      setInvitationNotFound,
+      resetInvitation: () => setInvitation(initialInvitation),
       setRecord,
       setAppError: (msg) => setAppError(msg),
       setInvitationLoading,
@@ -317,6 +320,7 @@ export default function App() {
         setChangeRequests([]);
         setActiveNotification(null);
         setInvitationLoading(false);
+        setInvitationNotFound(false);
         hasAutoNavigatedRef.current = false;
         const route = getRouteState();
         if (route.inviteId && route.inviteId !== 'current') {
@@ -1117,6 +1121,7 @@ export default function App() {
                 invitation={invitation}
                 authUser={authUser}
                 invitationAuthorization={invitationAuth}
+                invitationNotFound={invitationNotFound}
                 onAccept={() => {
                   setP2PendingAction('accept');
                   if (!auth?.currentUser) {
@@ -1164,6 +1169,7 @@ export default function App() {
                 invitation,
                 record,
                 invitationLoading,
+                invitationNotFound,
                 hasAppError: Boolean(appError)
               });
 
@@ -1200,6 +1206,7 @@ export default function App() {
                   invitation={invitation}
                   authUser={authUser}
                   invitationAuthorization={invitationAuth}
+                  invitationNotFound={invitationNotFound}
                   onAccept={() => {
                     if (decision.state === 'p1_rejected') {
                       setAppError(getLocalizedErrorMessage(new Error('CANNOT_ACCEPT_OWN_INVITATION'), language));

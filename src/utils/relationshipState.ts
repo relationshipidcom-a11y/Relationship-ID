@@ -64,6 +64,7 @@ export interface P2AuthorizationDecisionInput {
     p2Uid?: string | null;
   } | null;
   invitationLoading: boolean;
+  invitationNotFound?: boolean;
   hasAppError?: boolean;
 }
 
@@ -84,6 +85,7 @@ export function evaluateP2Authorization(input: P2AuthorizationDecisionInput): P2
     invitation,
     record,
     invitationLoading,
+    invitationNotFound = false,
     hasAppError = false
   } = input;
 
@@ -103,11 +105,15 @@ export function evaluateP2Authorization(input: P2AuthorizationDecisionInput): P2
   }
 
   // 4. Invitation loading or authorization evaluation in progress
-  if (invitationLoading || (Boolean(targetInviteId) && !invitationAuth && !hasAppError)) {
+  if (invitationLoading || (Boolean(targetInviteId) && !invitationAuth && !hasAppError && !invitationNotFound)) {
     return { state: 'loading', messageKey: 'invitation_verifying' };
   }
 
   // 5. Missing invitation authorization data (e.g. failed load, 404, or network error)
+  if (invitationNotFound || !targetInviteId) {
+    return { state: 'unauthorized', reason: 'INVITATION_NOT_FOUND' };
+  }
+
   if (!invitationAuth) {
     return { state: 'unauthorized', reason: 'INVITATION_NOT_LOADED' };
   }
@@ -214,6 +220,8 @@ export interface InvitationLoadingContext<T = any> {
   setRecord: (updater: (prev: any) => any) => void;
   setAppError: (errorMsg: string) => void;
   setInvitationLoading: (loading: boolean) => void;
+  setInvitationNotFound?: (notFound: boolean) => void;
+  resetInvitation: () => void;
   formatErrorMessage?: (err: any) => string;
 }
 
@@ -234,6 +242,8 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
     setRecord,
     setAppError,
     setInvitationLoading,
+    setInvitationNotFound,
+    resetInvitation,
     formatErrorMessage = (err) => (err instanceof Error ? err.message : String(err))
   } = ctx;
 
@@ -245,6 +255,7 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
     getCurrentAuthUid() === requestUid;
 
   setInvitationLoading(true);
+  setInvitationNotFound?.(false);
 
   try {
     const data = await fetchInvitation();
@@ -254,7 +265,13 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
       return null;
     }
 
-    if (data.invitation) setInvitation(data.invitation);
+    if (data?.invitation?.id) {
+      setInvitationNotFound?.(false);
+      setInvitation(data.invitation);
+    } else {
+      setInvitationNotFound?.(true);
+    }
+
     if (data.authorization) {
       setInvitationAuth({
         ...data.authorization,
@@ -278,20 +295,12 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
     return data;
   } catch (error) {
     if (isCurrent()) {
-      setInvitation({
-        id: '',
-        recordId: '',
-        inviterName: '',
-        partner2Name: '',
-        relationshipType: 'dating',
-        startDate: '',
-        startDateAr: '',
-        startDateIso: '',
-        status: 'cancelled',
-        createdAt: '',
-        expiresAt: '',
-        reminderCount: 0
-      });
+      // Only the server's explicit INVITATION_NOT_FOUND means the invitation does not exist.
+      // Network, timeout, rate-limit and server errors are load failures, not "not found".
+      const errorCode = error instanceof Error ? error.message : '';
+      setInvitationNotFound?.(errorCode === 'INVITATION_NOT_FOUND');
+      // Clear any previously loaded invitation so stale details are never shown under a new link
+      resetInvitation();
       setInvitationAuth(null);
       setAppError(formatErrorMessage(error));
     }

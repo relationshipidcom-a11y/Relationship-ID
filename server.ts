@@ -1609,7 +1609,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
             const count = Math.max(0, (typeof data.count === 'number' ? data.count : 1) - 1);
             transaction.update(limitRef, { count, updatedAt: new Date().toISOString() });
           }
-        }).catch(() => {});
+        }).catch((e) => console.error('[whatsapp] quota rollback failed', e));
         return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');
       }
 
@@ -1629,7 +1629,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
             const count = Math.max(0, (typeof data.count === 'number' ? data.count : 1) - 1);
             transaction.update(limitRef, { count, updatedAt: new Date().toISOString() });
           }
-        }).catch(() => {});
+        }).catch((e) => console.error('[whatsapp] quota rollback failed', e));
         throw twilioErr;
       }
 
@@ -1711,10 +1711,15 @@ export function createApp(options?: CreateAppOptions): express.Express {
       }
 
       // Record verification check attempt persistently in Firestore
-      await attemptRef.update({
-        checkAttempts: checkAttempts + 1,
-        updatedAt: new Date().toISOString()
-      }).catch(() => {});
+      try {
+        await attemptRef.update({
+          checkAttempts: checkAttempts + 1,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (updateErr) {
+        console.error('[whatsapp] checkAttempts write failed', updateErr);
+        return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');
+      }
 
       if (attempt.canonicalPhone !== norm.canonical) {
         return respondWithError(res, 400, 'PHONE_NUMBER_MISMATCH');

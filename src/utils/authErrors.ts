@@ -1,4 +1,50 @@
 import { Language } from '../types';
+import { translations } from '../i18n/translations';
+
+// Extract all Arabic string messages that originate from our application translations
+const knownArabicMessages = new Set<string>([
+  'تسجيل الدخول غير متاح مؤقتاً. يرجى المحاولة لاحقاً.',
+  'هذا البريد الإلكتروني مسجل مسبقاً. يرجى التبديل إلى تبويب "تسجيل الدخول".',
+  'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+  'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يرجى إنشاء حساب أولاً.',
+  'صيغة البريد الإلكتروني غير صحيحة.',
+  'يرجى إدخال عنوان البريد الإلكتروني.',
+  'تم حظر الطلبات مؤقتاً بسبب تكرار المحاولات. يرجى الانتظار بضع دقائق والمحاولة مجدداً.',
+  'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف على الأقل.',
+  'تم حظر النافذة المنبثقة من قِبل المتصفح. يرجى السماح بالنوافذ المنبثقة لهذا الموقع لإتمام تسجيل الدخول عبر Google.',
+  'تم إغلاق نافذة تسجيل الدخول من Google قبل إتمام العملية.',
+  'تم إلغاء عملية تسجيل الدخول السابقة.',
+  'تسجيل الدخول عبر Google غير مدعوم في هذه البيئة. يرجى فتح التطبيق في نافذة متصفح مستقلة أو استخدام البريد الإلكتروني.',
+  'يوجد حساب مسجل مسبقاً بنفس البريد الإلكتروني بطريقة تسجيل دخول مختلفة.',
+  'رمز التحقق غير صحيح. يرجى التأكد منه والمحاولة مجدداً.',
+  'انتهت صلاحية الرمز. يرجى طلب رمز جديد.',
+  'يرجى إدخال رقم جوال صحيح.',
+  'لا يمكن إرسال رموز التحقق حالياً. يرجى المحاولة لاحقاً.',
+  'فشل التحقق الأمني. يرجى إعادة تحميل الصفحة والمحاولة مجدداً.',
+  'تعذر تطبيق تفضيل الجلسة المحدد. يرجى إعادة المحاولة.',
+  'تعذر تهيئة جلسة تسجيل الدخول. يرجى إعادة المحاولة.',
+  'خدمة المصادقة غير مهيأة. يرجى المحاولة لاحقاً.',
+  'حدث خطأ. يرجى المحاولة مرة أخرى.',
+  'حدث خطأ غير معروف في تسجيل الدخول.',
+  'هناك عملية جارية بالفعل. يرجى الانتظار.',
+  'جاري تهيئة جلسة تسجيل الدخول، يرجى الانتظار والمحاولة مجدداً.'
+]);
+
+function extractArabicStrings(obj: unknown) {
+  if (!obj || typeof obj !== 'object') return;
+  for (const value of Object.values(obj)) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (/[\u0600-\u06FF]/.test(trimmed)) {
+        knownArabicMessages.add(trimmed);
+      }
+    } else if (typeof value === 'object') {
+      extractArabicStrings(value);
+    }
+  }
+}
+
+extractArabicStrings(translations.ar);
 
 export function getAuthErrorCode(error: unknown): string | null {
   if (error && typeof error === 'object') {
@@ -134,21 +180,19 @@ export const readableError = (error: unknown, language: Language = 'ar'): string
         ? 'خدمة المصادقة غير مهيأة. يرجى المحاولة لاحقاً.'
         : 'Authentication service is not configured. Please try again later.';
     }
-    if (typeof code === 'string' && code) {
-      console.error('[auth]', code, error.message);
-      return language === 'ar'
-        ? 'حدث خطأ. يرجى المحاولة مرة أخرى.'
-        : 'Something went wrong. Please try again.';
+    console.error('[auth]', code || 'unknown', error.message);
+    if (language === 'ar' && knownArabicMessages.has(error.message.trim())) {
+      return error.message.trim();
     }
-    console.error('[auth]', error.message);
-    if (language === 'ar') {
-      if (/[\u0600-\u06FF]/.test(error.message)) {
-        const arabicText = error.message;
-        return arabicText;
-      }
-      return 'حدث خطأ. يرجى المحاولة مرة أخرى.';
+    return language === 'ar'
+      ? 'حدث خطأ. يرجى المحاولة مرة أخرى.'
+      : 'Something went wrong. Please try again.';
+  }
+  if (typeof error === 'string') {
+    const trimmed = error.trim();
+    if (language === 'ar' && knownArabicMessages.has(trimmed)) {
+      return trimmed;
     }
-    return 'Something went wrong. Please try again.';
   }
   return language === 'ar'
     ? 'حدث خطأ غير معروف في تسجيل الدخول.'

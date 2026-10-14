@@ -78,7 +78,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             </div>
           </div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-            {language === 'ar' ? 'سجل العلاقة المعتمد (الطرف الأول والثاني)' : 'Verified Relationship Record (P1 & P2)'}
+            {language === 'ar' ? 'سجل العلاقة المعتمد (الطرف الأول والثاني)' : 'Verified Relationship Record (Partner 1 & Partner 2)'}
           </h2>
           <p className="text-base sm:text-sm text-[#B7ACC8] mt-1 leading-relaxed">
             {language === 'ar' ? 'بيانات السجل مقفلة للقراءة فقط لحماية موثوقية السجل' : 'Record details are locked as read-only to preserve record integrity'}
@@ -91,7 +91,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2 text-[#E7BCD3]">
                 <User className="w-4 h-4" />
-                <h3 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الأول (P1)' : 'Partner 1 Details (P1)'}</h3>
+                <h3 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الأول' : 'Partner 1 Details'}</h3>
               </div>
               <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#E7BCD3]/15 border border-[#51465F] text-[#E7BCD3] font-medium flex items-center gap-1">
                 <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}

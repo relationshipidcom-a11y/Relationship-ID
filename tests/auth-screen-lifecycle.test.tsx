@@ -389,4 +389,242 @@ test('AuthScreen DOM & lifecycle integration test suite', async (t) => {
       'تعذر تهيئة جلسة تسجيل الدخول. يرجى إعادة المحاولة.'
     );
   });
+
+  // 6. Synchronous duplicate lock
+  await t.test('6. Synchronous duplicate lock: fire Google click 3 times in same tick -> signInWithPopup called exactly once', async () => {
+    const { div, root, cleanup } = createTestContainer();
+    let popupCallCount = 0;
+    let resolvePopup: () => void = () => {};
+    const popupPromise = new Promise<any>((res) => {
+      resolvePopup = () => res({ user: { uid: 'popup-user-123', email: 'test@example.com' } });
+    });
+
+    const mockPopupFn = async () => {
+      popupCallCount++;
+      return popupPromise;
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: workingAuthStandIn,
+          persistenceAdapter: workingAdapter,
+          signInWithPopupFn: mockPopupFn,
+        })
+      );
+    });
+
+    const buttons = Array.from(div.querySelectorAll('button'));
+    const googleBtn = buttons.find((b) => b.textContent?.includes('Google') || b.textContent?.includes('Continue'));
+    assert.ok(googleBtn, 'Google button must be rendered');
+
+    // Fire 3 clicks in the same tick synchronously
+    await act(async () => {
+      googleBtn.click();
+      googleBtn.click();
+      googleBtn.click();
+    });
+
+    assert.equal(popupCallCount, 1, 'signInWithPopup must be called exactly once despite 3 synchronous clicks in same tick');
+
+    // Resolve in-flight attempt to clean up
+    await act(async () => {
+      resolvePopup();
+    });
+
+    await cleanup();
+  });
+
+  // 7. Readiness at call time
+  await t.test('7. Readiness at call time: controller becomes not-ready -> handler called at call time -> no sign-in attempt and Session initialization is in progress shown', async () => {
+    let resolvePersistence: () => void = () => {};
+    let isInitialized = true;
+
+    const adapter: PersistenceAdapter = {
+      localPersistence: {} as any,
+      sessionPersistence: {} as any,
+      setPersistence: async () => {
+        if (isInitialized) return;
+        await new Promise<void>((res) => {
+          resolvePersistence = res;
+        });
+      },
+    };
+
+    const { div, root, cleanup } = createTestContainer();
+
+    await act(async () => {
+      root.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: workingAuthStandIn,
+          persistenceAdapter: adapter,
+        })
+      );
+    });
+
+    const buttons = Array.from(div.querySelectorAll('button'));
+    const googleBtn = buttons.find((b) => b.textContent?.includes('Google') || b.textContent?.includes('Continue'));
+    assert.ok(googleBtn, 'Google button must be rendered');
+    assert.equal(googleBtn?.hasAttribute('disabled'), false, 'Google button must initially be enabled');
+
+    const propsKey = Object.keys(googleBtn).find((k) => k.startsWith('__reactProps$'));
+    assert.ok(propsKey, 'React props key must exist on button DOM node');
+    const googleClick = (googleBtn as any)[propsKey]?.onClick;
+    assert.equal(typeof googleClick, 'function', 'Button onClick handler must exist');
+
+    // Track popup calls through AuthPersistenceController.prototype.runAuthAttempt
+    let popupCalls = 0;
+    const origRunAuthAttempt = AuthPersistenceController.prototype.runAuthAttempt;
+    (AuthPersistenceController.prototype as any).runAuthAttempt = async function (
+      this: any,
+      fn: any
+    ) {
+      return origRunAuthAttempt.call(this, async (auth: any) => {
+        popupCalls++;
+        return fn(auth);
+      });
+    };
+
+    try {
+      // Make controller not-ready by unchecking remember-me while persistence update is held pending
+      isInitialized = false;
+      const rememberCheckbox = div.querySelector('input#auth-remember') as HTMLInputElement | null;
+      assert.ok(rememberCheckbox, 'Remember me checkbox must exist');
+
+      await act(async () => {
+        rememberCheckbox?.click();
+      });
+
+      // Invoke the Google auth handler via the captured onClick while controller is not ready
+      await act(async () => {
+        await googleClick();
+      });
+
+      // Assert popup called 0 times AND "Session initialization is in progress" is shown
+      assert.equal(popupCalls, 0, 'Popup must be called 0 times when controller is not ready');
+      assert.ok(
+        div.textContent?.includes('Session initialization is in progress'),
+        'Must show "Session initialization is in progress"'
+      );
+    } finally {
+      AuthPersistenceController.prototype.runAuthAttempt = origRunAuthAttempt;
+      resolvePersistence();
+      await cleanup();
+    }
+  });
+
+  // 8. No raw English error leakage in DOM
+  await t.test('8. No raw English error leakage: unknown English error "Something internal xyz" shows generic text and appears nowhere in DOM', async () => {
+    const { div, root, cleanup } = createTestContainer();
+
+    const failingPopupFn = async () => {
+      throw new Error('Something internal xyz');
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: workingAuthStandIn,
+          persistenceAdapter: workingAdapter,
+          signInWithPopupFn: failingPopupFn,
+        })
+      );
+    });
+
+    const googleBtn = Array.from(div.querySelectorAll('button')).find((b) => b.textContent?.includes('Google') || b.textContent?.includes('Continue'));
+    assert.ok(googleBtn, 'Google button must exist');
+
+    await act(async () => {
+      googleBtn.click();
+    });
+
+    // Generic error message must be shown
+    assert.ok(
+      div.textContent?.includes('Something went wrong. Please try again.'),
+      'Generic error message must be shown'
+    );
+    // Raw English error must never appear in text content or HTML
+    assert.equal(
+      div.textContent?.includes('Something internal xyz'),
+      false,
+      'Raw English error "Something internal xyz" must never appear in DOM text'
+    );
+    assert.equal(
+      div.innerHTML.includes('Something internal xyz'),
+      false,
+      'Raw English error "Something internal xyz" must never appear in DOM innerHTML'
+    );
+
+    await cleanup();
+  });
+
+  // 9. Missing-auth recovery
+  await t.test('9. Missing-auth recovery: Auth missing -> error banner shown -> Retry -> Auth now available -> Google button becomes enabled', async () => {
+    const { div, root, cleanup } = createTestContainer();
+
+    // 1. Initial render with auth=null (Auth missing)
+    await act(async () => {
+      root.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: null,
+          persistenceAdapter: workingAdapter,
+        })
+      );
+    });
+
+    // Error banner shown
+    const alertEl = div.querySelector('[role="alert"]');
+    assert.ok(alertEl, 'Error banner must be shown when Auth is missing');
+    assert.ok(
+      div.textContent?.includes('Authentication service is not initialized'),
+      'Must show localized service not initialized message'
+    );
+
+    // Google button is disabled
+    let googleBtn = Array.from(div.querySelectorAll('button')).find((b) => b.textContent?.includes('Google') || b.textContent?.includes('Continue'));
+    assert.ok(googleBtn, 'Google button must be present');
+    assert.equal(googleBtn?.hasAttribute('disabled'), true, 'Google button must be disabled when auth is missing');
+
+    // 2. Auth becomes available and rerender occurs with working auth
+    await act(async () => {
+      root.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: workingAuthStandIn,
+          persistenceAdapter: workingAdapter,
+        })
+      );
+    });
+
+    // Find and click the Retry button on the error banner
+    const retryBtn = Array.from(div.querySelectorAll('button')).find((b) => b.textContent?.includes('Retry') || b.getAttribute('aria-label')?.includes('Retry'));
+    if (retryBtn) {
+      await act(async () => {
+        retryBtn.click();
+      });
+    }
+
+    // 3. Error banner is now gone, and Google button becomes enabled
+    // The missing-auth message must be gone. (jsdom cannot run getRedirectResult, so an unrelated
+    // "not supported in this environment" notice may appear; never pass DOM nodes to assert.)
+    assert.equal(
+      div.textContent?.includes('Authentication service is not initialized'),
+      false,
+      'Missing-auth error must disappear after recovery'
+    );
+    googleBtn = Array.from(div.querySelectorAll('button')).find((b) => b.textContent?.includes('Google') || b.textContent?.includes('Continue'));
+    assert.ok(googleBtn, 'Google button must still exist');
+    assert.equal(googleBtn?.hasAttribute('disabled'), false, 'Google button must become enabled after auth recovery');
+
+    await cleanup();
+  });
 });

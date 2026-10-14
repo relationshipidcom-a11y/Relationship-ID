@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, HelpCircle, KeyRound, Lock, Mail, Shield, X } from 'lucide-react';
 import {
   createUserWithEmailAndPassword,
@@ -6,7 +6,6 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   updateProfile
 } from 'firebase/auth';
 import { Language, AuthUser, ScreenId } from '../types';
@@ -39,6 +38,7 @@ interface AuthScreenProps {
   totalSteps?: number;
   auth?: Auth | null;
   persistenceAdapter?: PersistenceAdapter;
+  signInWithPopupFn?: (auth: Auth, provider: any) => Promise<any>;
 }
 
 const toAuthUser = (user: { uid: string; email: string | null; displayName: string | null }): AuthUser => ({
@@ -58,10 +58,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   step,
   totalSteps,
   auth: propAuth,
-  persistenceAdapter
+  persistenceAdapter,
+  signInWithPopupFn
 }) => {
   const effectiveAuth = propAuth !== undefined ? propAuth : defaultAuth;
   const t = translations[language];
+  const googleInFlightRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState(defaultEmail || '');
   const [password, setPassword] = useState('');
@@ -142,22 +144,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   const handleGoogleAuth = async () => {
+    // Synchronous duplicate lock: checked AND set synchronously before first await
+    if (googleInFlightRef.current) return;
+    googleInFlightRef.current = true;
+
     setError('');
     setNotice('');
+
+    // Readiness at call time: re-check from controller's current state, not render-captured isGoogleReady
+    const liveControllerState = controller.getState();
+    const isLiveReady = controller.isGoogleSignInReady(loading);
+    if (!isLiveReady || liveControllerState.status !== 'ready') {
+      const reason = !effectiveAuth
+        ? 'no-auth'
+        : liveControllerState.authInFlight || loading
+        ? 'busy'
+        : 'not-ready';
+      setError(authAttemptFailureMessage(reason, language));
+      googleInFlightRef.current = false;
+      return;
+    }
+
     setLoading(true);
     try {
       requireFirebaseConfig();
       const attempt = await runGoogleSignIn(controller, {
-        popup: (firebaseAuth) => signInWithPopup(firebaseAuth, googleProvider),
-        redirect: (firebaseAuth) => signInWithRedirect(firebaseAuth, googleProvider),
+        popup: (firebaseAuth) => (signInWithPopupFn || signInWithPopup)(firebaseAuth, googleProvider),
       });
 
       if (!attempt.started) {
         setError(authAttemptFailureMessage(attempt.reason, language));
-        return;
-      }
-
-      if (attempt.redirected) {
         return;
       }
 
@@ -167,6 +183,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     } catch (err) {
       setError(readableError(err, language));
     } finally {
+      googleInFlightRef.current = false;
       setLoading(false);
     }
   };

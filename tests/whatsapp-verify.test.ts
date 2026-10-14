@@ -1691,4 +1691,59 @@ test('WhatsApp verification via Twilio Verify test suite', async (t) => {
     const data = (await resRateLimited.json()) as any;
     assert.equal(data.error, 'WHATSAPP_VERIFY_RATE_LIMITED');
   });
+
+  // 24. checkAttempts write fails -> response 503, and the Twilio check is not called
+  await t.test('24. checkAttempts write fails -> response 503, and the Twilio check is not called', async () => {
+    resetState();
+    process.env.TWILIO_ACCOUNT_SID = 'AC_TEST_123';
+    process.env.TWILIO_AUTH_TOKEN = 'AUTH_TEST_123';
+    process.env.TWILIO_VERIFY_SID = 'VA_TEST_123';
+
+    const mockTwilio = createMockTwilio({ checkStatus: 'approved' });
+    __setTwilioClient(mockTwilio);
+
+    mockDb.seed(WHATSAPP_VERIFY_ATTEMPTS_COL, 'uid_p1', {
+      attemptId: 'att_fail_check_write',
+      uid: 'uid_p1',
+      canonicalPhone: '+966500000001',
+      country: 'SA +966',
+      channel: 'whatsapp',
+      state: 'pending',
+      expiresAtMs: Date.now() + 600000
+    });
+
+    // Simulate failure during checkAttempts update
+    mockDb.hooks = {
+      onBeforeUpdate: async (collectionName, id, data) => {
+        if (collectionName === WHATSAPP_VERIFY_ATTEMPTS_COL && typeof data.checkAttempts === 'number') {
+          throw new Error('DATABASE_WRITE_FAILURE');
+        }
+      }
+    };
+
+    const originalConsoleError = console.error;
+    let loggedError: any = null;
+    console.error = (...args: any[]) => {
+      if (typeof args[0] === 'string' && args[0].includes('[whatsapp] checkAttempts write failed')) {
+        loggedError = args;
+      }
+      originalConsoleError(...args);
+    };
+
+    try {
+      const res = await fetch(`${baseUrl}/api/whatsapp/verify/check`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token_p1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'SA +966', number: '0500000001', code: '123456' })
+      });
+
+      assert.equal(res.status, 503, 'Should return 503 when checkAttempts update fails');
+      const data = (await res.json()) as any;
+      assert.equal(data.error, 'WHATSAPP_VERIFY_UNAVAILABLE');
+      assert.equal(mockTwilio.verificationChecksCreated.length, 0, 'Twilio verification check must NOT be called');
+      assert.ok(loggedError, 'checkAttempts write failure must be logged');
+    } finally {
+      console.error = originalConsoleError;
+    }
+  });
 });

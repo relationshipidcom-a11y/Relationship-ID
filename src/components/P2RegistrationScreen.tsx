@@ -133,7 +133,7 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2 text-[#E7BCD3]">
                 <User className="w-4 h-4" />
-                <h2 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك (الطرف الأول - P1)' : 'Partner Details (Partner 1 - P1)'}</h2>
+                <h2 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الأول' : 'Partner 1 Details'}</h2>
               </div>
               <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#E7BCD3]/15 border border-[#51465F] text-[#E7BCD3] font-medium flex items-center gap-1">
                 <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}

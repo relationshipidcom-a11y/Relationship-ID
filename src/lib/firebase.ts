@@ -62,9 +62,6 @@ export const maskedApiKey = (() => {
   return `${key.slice(0, 6)}…${key.slice(-4)} (${key.length} chars)`;
 })();
 
-if ((import.meta as any)?.env?.DEV) {
-  console.info(`[Firebase Config] projectId: "${firebaseConfig.projectId}", apiKey: ${maskedApiKey}`);
-}
 
 export async function testFirebaseApiKey(): Promise<{ ok: boolean; message: string }> {
   const key = firebaseConfig.apiKey;

@@ -216,6 +216,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           aria-label={language === 'ar' ? 'رمز الدولة' : 'Country code'}
           value={country}
           onChange={(event) => handleCountryChange(event.target.value)}
+          onInput={(event: React.FormEvent<HTMLSelectElement>) => handleCountryChange((event.target as HTMLSelectElement).value)}
           className="col-span-5 bg-[#141023] border border-[#51465F] text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#E7BCD3]"
         >
           {supportedCountries.map((item) => (
@@ -231,6 +232,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           required={required}
           value={number}
           onChange={(event) => handleNumberChange(event.target.value)}
+          onInput={(event: React.FormEvent<HTMLInputElement>) => handleNumberChange((event.target as HTMLInputElement).value)}
           className={`${styles.inputControl} col-span-7`}
           dir="ltr"
           autoComplete="tel-national"

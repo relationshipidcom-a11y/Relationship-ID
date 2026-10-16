@@ -1,16 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="1024" height="1024">
   <defs>
-    <linearGradient id="L" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#4285F4"/><stop offset="1" stop-color="#34A853"/></linearGradient>
-    <linearGradient id="R" x1="1" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#EA4335"/><stop offset="1" stop-color="#FBBC05"/></linearGradient>
-    <linearGradient id="C" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient>
-    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#0A0E1E" flood-opacity="0.45"/></filter>
+    <linearGradient id="rid-heart-left-grad" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#FFD600"/>
+      <stop offset="28%" stop-color="#FF6D00"/>
+      <stop offset="62%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="rid-heart-right-grad" x1="1" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#D946EF"/>
+      <stop offset="50%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
   </defs>
-  <g filter="url(#sh)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <!-- partner 1: left lobe down to the point -->
-    <path d="M92 58 C 78 34, 32 32, 30 76 C 29 108, 62 134, 100 168" stroke="url(#L)" stroke-width="20"/>
-    <!-- partner 2: right lobe down to the point -->
-    <path d="M108 58 C 122 34, 168 32, 170 76 C 171 108, 138 134, 100 168" stroke="url(#R)" stroke-width="20"/>
-    <!-- verified check -->
-    <path d="M70 98 L 92 120 L 132 78" stroke="url(#C)" stroke-width="15"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Partner 1: left lobe (yellow -> orange -> red -> pink) -->
+    <path d="M92 58 C 78 34, 32 32, 30 76 C 29 108, 62 134, 100 168" stroke="url(#rid-heart-left-grad)" stroke-width="20"/>
+    <!-- Partner 2: right lobe (magenta -> purple -> blue) -->
+    <path d="M108 58 C 122 34, 168 32, 170 76 C 171 108, 138 134, 100 168" stroke="url(#rid-heart-right-grad)" stroke-width="20"/>
+    <!-- Verified checkmark -->
+    <path d="M70 98 L 92 120 L 132 78" stroke="#FFFFFF" stroke-width="16"/>
   </g>
 </svg>

@@ -45,7 +45,7 @@ import { LegalFooter } from './components/LegalFooter';
 import { LEGAL_VERSION } from './content/legal';
 import { ChangeRequest, AppNotification, SocialAccount } from './types';
 import { getRouteState } from './utils/routing';
-import { initGoogleAnalytics, trackScreenView } from './utils/analytics';
+import { updateSeoMetadata } from './utils/seo';
 import { LayoutGrid, RefreshCw, ChevronLeft, ChevronRight, Bell, HeartOff, X, Loader2, Home } from 'lucide-react';
 
 const emptyPartner = (): PartnerData => ({
@@ -145,6 +145,13 @@ export default function App() {
   const [privateRecordError, setPrivateRecordError] = useState<string | null>(null);
   const [p2Profile, setP2Profile] = useState<PartnerData | null>(null);
   const [p2ProfileLoading, setP2ProfileLoading] = useState(false);
+  const [p2ProfileError, setP2ProfileError] = useState<string | null>(null);
+  const [p2Verification, setP2Verification] = useState<{
+    whatsappTrusted: boolean;
+    whatsappE164: string | null;
+  } | null>(null);
+  const p2ProfileRequestIdRef = useRef(0);
+  const hasAttemptedP2ProfileLoadRef = useRef(false);
   const p1DraftRef = useRef<{
     uid: string;
     partner1: Partial<PartnerData>;
@@ -153,8 +160,9 @@ export default function App() {
   } | null>(null);
   const p2DraftRef = useRef<{
     uid: string;
-    inviteId?: string;
+    contextId: string;
     partner2: Partial<PartnerData>;
+    editedFields: string[];
   } | null>(null);
 
   const allowScreenExplorer = useMemo(
@@ -178,6 +186,10 @@ export default function App() {
       },
       setActiveNotification,
       onRelationshipEnded: (uid) => {
+        p1DraftRef.current = null;
+        p2DraftRef.current = null;
+        setP2Profile(null);
+        setP2ProfileError(null);
         setRecord((prev) => ({
           ...initialRecord,
           partner1: uid === prev.p2Uid ? prev.partner2 : prev.partner1
@@ -257,19 +269,55 @@ export default function App() {
   const loadP2Profile = async () => {
     if (!auth?.currentUser) return;
     const requestUid = auth.currentUser.uid;
+    const requestId = ++p2ProfileRequestIdRef.current;
+    hasAttemptedP2ProfileLoadRef.current = true;
     setP2ProfileLoading(true);
+    setP2ProfileError(null);
     try {
       const res = await authFetch('/api/profile');
       const data = await parseApiError(res);
-      if (auth?.currentUser?.uid === requestUid && activeAuthUidRef.current === requestUid) {
+      if (
+        auth?.currentUser?.uid === requestUid &&
+        activeAuthUidRef.current === requestUid &&
+        p2ProfileRequestIdRef.current === requestId
+      ) {
+        if (data?.verification) {
+          setP2Verification({
+            whatsappTrusted: Boolean(data.verification.whatsappTrusted),
+            whatsappE164: data.verification.whatsappE164 || null
+          });
+        } else if (data?.profile?.whatsappTrusted && data?.profile?.whatsappE164) {
+          setP2Verification({
+            whatsappTrusted: true,
+            whatsappE164: data.profile.whatsappE164
+          });
+        } else {
+          setP2Verification(null);
+        }
+
         if (data?.profile) {
           setP2Profile(data.profile);
+        } else {
+          // A successful "no saved profile" response is a valid empty-profile result
+          setP2Profile(null);
         }
+        setP2ProfileError(null);
       }
-    } catch {
-      // Non-blocking fallback
+    } catch (err) {
+      if (
+        auth?.currentUser?.uid === requestUid &&
+        activeAuthUidRef.current === requestUid &&
+        p2ProfileRequestIdRef.current === requestId
+      ) {
+        const localized = getLocalizedErrorMessage(err, language);
+        setP2ProfileError(localized);
+      }
     } finally {
-      if (auth?.currentUser?.uid === requestUid && activeAuthUidRef.current === requestUid) {
+      if (
+        auth?.currentUser?.uid === requestUid &&
+        activeAuthUidRef.current === requestUid &&
+        p2ProfileRequestIdRef.current === requestId
+      ) {
         setP2ProfileLoading(false);
       }
     }
@@ -322,10 +370,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = language;
+    updateSeoMetadata(currentScreen, language);
     if (auth) auth.languageCode = language;
-  }, [language]);
+  }, [currentScreen, language]);
 
   // Single coordinated authority for initial startup, login, and logout lifecycle
   useEffect(() => {
@@ -341,6 +388,7 @@ export default function App() {
       setAuthInitialized(true);
       if (user) {
         activeAuthUidRef.current = user.uid;
+        hasAttemptedP2ProfileLoadRef.current = false;
         setAuthUser(toAuthUser(user.uid, user.email, user.displayName));
         setInvitationAuth(null);
         const route = getRouteState();
@@ -369,9 +417,13 @@ export default function App() {
         p1DraftRef.current = null;
         p2DraftRef.current = null;
         setP2Profile(null);
+        setP2Verification(null);
+        setP2ProfileError(null);
+        setP2ProfileLoading(false);
+        p2ProfileRequestIdRef.current += 1;
+        hasAttemptedP2ProfileLoadRef.current = false;
         setPrivateRecordLoading(false);
         setPrivateRecordError(null);
-        setP2ProfileLoading(false);
         privateRecordRequestIdRef.current += 1;
         invitationRequestIdRef.current += 1;
         changeRequestsRequestIdRef.current += 1;
@@ -393,15 +445,16 @@ export default function App() {
     });
   }, []);
 
-  // Initialize Google Analytics once per document
+  // One-time cleanup: safely clear obsolete analytics consent key without affecting any other storage
   useEffect(() => {
-    initGoogleAnalytics();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('rid_analytics_consent');
+      }
+    } catch {
+      // safe ignore
+    }
   }, []);
-
-  // Track screen transitions, Back/Forward navigation, and initial screen
-  useEffect(() => {
-    trackScreenView(currentScreen);
-  }, [currentScreen]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -424,6 +477,7 @@ export default function App() {
           const isActive = rec?.status === 'active';
           if (route.inviteId && route.inviteId !== 'current') {
             void loadInvitation(route.inviteId, isActive);
+            void loadP2Profile();
           }
         });
       } else if (route.inviteId && route.inviteId !== 'current') {
@@ -433,6 +487,20 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Ensure Partner 2 profile is loaded when visiting p2_details, and refreshed on return from terms/privacy
+  const prevScreenForP2ProfileRef = useRef<ScreenId>(currentScreen);
+  useEffect(() => {
+    const prev = prevScreenForP2ProfileRef.current;
+    prevScreenForP2ProfileRef.current = currentScreen;
+
+    if (currentScreen === 'p2_details' && auth?.currentUser) {
+      const isReturning = prev === 'terms' || prev === 'privacy' || prev === 'review_controls';
+      if (!hasAttemptedP2ProfileLoadRef.current || isReturning) {
+        void loadP2Profile();
+      }
+    }
+  }, [currentScreen, auth?.currentUser?.uid]);
 
   // Real-time listener for current user document (/users/{uid})
   useEffect(() => {
@@ -709,6 +777,10 @@ export default function App() {
       changeRequestsRequestIdRef.current += 1;
       notificationsRequestIdRef.current += 1;
       setShowExitModal(false);
+      p1DraftRef.current = null;
+      p2DraftRef.current = null;
+      setP2Profile(null);
+      setP2ProfileError(null);
       // Keep current user's personal profile and reset relationship state
       setRecord((prev) => ({
         ...initialRecord,
@@ -749,6 +821,10 @@ export default function App() {
         noticeText = language === 'ar' ? (data.messageAr || data.messageEn || '') : (data.messageEn || data.messageAr || '');
       }
       setShowDeleteModal(false);
+      p1DraftRef.current = null;
+      p2DraftRef.current = null;
+      setP2Profile(null);
+      setP2ProfileError(null);
       await handleSignOut();
       if (noticeText) {
         setAppError(noticeText);
@@ -929,6 +1005,8 @@ export default function App() {
     try {
       const response = await authFetch(`/api/invitations/${invitation.id}/cancel`, { method: 'POST' });
       const data = await parseApiError(response);
+      p1DraftRef.current = null;
+      p2DraftRef.current = null;
       if (data.invitation) setInvitation(data.invitation);
       if (data.record) applyServerRecord(data.record);
       navigateTo('p1_details', '/');
@@ -956,6 +1034,7 @@ export default function App() {
         body: JSON.stringify({ block })
       });
       const data = await parseApiError(response);
+      p2DraftRef.current = null;
       setInvitation(data.invitation);
       navigateTo('p2_landing', `/invite/${invitation.id}`);
     } catch (err) {
@@ -1008,6 +1087,7 @@ export default function App() {
       return;
     }
 
+    void loadP2Profile();
     navigateTo('p2_details', `/invite/${targetInviteId}/complete`);
   };
 
@@ -1151,7 +1231,7 @@ export default function App() {
             <AuthScreen
               language={language}
               onAuthSuccess={handleNormalAuthSuccess}
-              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
+              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : screen === 'about' ? '/about' : undefined)}
             />
           )}
 
@@ -1267,7 +1347,7 @@ export default function App() {
               isP2InvitationFlow
               inviterName={invitation.inviterName}
               onAuthSuccess={(user) => void handleP2Authenticated(user)}
-              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
+              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : screen === 'about' ? '/about' : undefined)}
             />
           )}
 
@@ -1302,31 +1382,46 @@ export default function App() {
               }
 
               if (shouldRenderP2RegistrationScreen(decision)) {
-                const currentP2Draft = (authUser?.id && p2DraftRef.current?.uid === authUser.id) ? p2DraftRef.current?.partner2 : null;
+                const targetContextId = record.status === 'active'
+                  ? (record.id || 'active')
+                  : targetInviteId;
+
+                const currentP2Draft = (
+                  authUser?.id &&
+                  targetContextId &&
+                  p2DraftRef.current?.uid === authUser.id &&
+                  p2DraftRef.current?.contextId === targetContextId
+                ) ? p2DraftRef.current : null;
+
+                const isP2Loading = p2ProfileLoading || (invitationLoading && !invitation.id);
+                const p2ErrorToDisplay = p2ProfileError || (appError && !invitation.id ? appError : null);
+
                 return (
                   <P2RegistrationScreen
                     language={language}
-                    record={{
-                      ...record,
-                      partner2: {
-                        ...record.partner2,
-                        ...(currentP2Draft || {}),
-                        email: currentP2Draft?.email || record.partner2.email || p2Profile?.email || authUser?.email || ''
-                      }
-                    }}
+                    record={record}
                     initialProfile={p2Profile}
-                    loading={p2ProfileLoading}
-                    loadingError={appError && !invitation.id ? appError : null}
+                    draft={currentP2Draft?.partner2 || null}
+                    draftEditedFields={currentP2Draft?.editedFields || []}
+                    loading={isP2Loading}
+                    loadingError={p2ErrorToDisplay}
                     onRetryLoading={() => {
-                      if (targetInviteId) void loadInvitation(targetInviteId);
+                      if (targetInviteId && (!invitation.id || invitation.id !== targetInviteId)) {
+                        void loadInvitation(targetInviteId);
+                      }
                       void loadP2Profile();
                     }}
-                    onDraftChange={(draft) => {
-                      if (activeAuthUidRef.current) {
+                    onDraftChange={(draft, editedFields) => {
+                      if (
+                        activeAuthUidRef.current &&
+                        activeAuthUidRef.current === authUser?.id &&
+                        targetContextId
+                      ) {
                         p2DraftRef.current = {
                           uid: activeAuthUidRef.current,
-                          inviteId: targetInviteId,
-                          partner2: { ...(p2DraftRef.current?.partner2 || {}), ...draft }
+                          contextId: targetContextId,
+                          partner2: { ...(p2DraftRef.current?.partner2 || {}), ...draft },
+                          editedFields: Array.from(new Set([...(p2DraftRef.current?.editedFields || []), ...(editedFields || [])]))
                         };
                       }
                     }}
@@ -1335,6 +1430,26 @@ export default function App() {
                     onViewControls={() => navigateTo('review_controls', '/review')}
                     onOpenPrivacy={() => navigateTo('privacy', '/privacy')}
                     onOpenTerms={() => navigateTo('terms', '/terms')}
+                    serverVerification={p2Verification}
+                    onPhoneVerified={(e164) => {
+                      setP2Verification({
+                        whatsappTrusted: true,
+                        whatsappE164: e164
+                      });
+                      setP2Profile((prev) => prev ? {
+                        ...prev,
+                        phoneE164: e164,
+                        phoneVerified: true,
+                        whatsappE164: e164,
+                        whatsappTrusted: true
+                      } : {
+                        ...emptyPartner(),
+                        phoneE164: e164,
+                        phoneVerified: true,
+                        whatsappE164: e164,
+                        whatsappTrusted: true
+                      });
+                    }}
                   />
                 );
               }
@@ -1410,7 +1525,7 @@ export default function App() {
             </div>
           )}
 
-          {(currentScreen === 'privacy' || currentScreen === 'terms') && (
+          {(currentScreen === 'privacy' || currentScreen === 'terms' || currentScreen === 'about') && (
             <LegalPage
               page={currentScreen}
               language={language}
@@ -1459,7 +1574,12 @@ export default function App() {
 
         <LegalFooter
           language={language}
-          onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : '/terms')}
+          onNavigate={(screen) =>
+            navigateTo(
+              screen,
+              screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : '/about'
+            )
+          }
           showPreferredSource={currentScreen === 'auth'}
         />
 

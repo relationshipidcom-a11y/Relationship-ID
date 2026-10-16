@@ -23,6 +23,7 @@ export const getRouteState = (pathname?: string): RouteState => {
   if (path === '/review') return { screen: 'review_controls' };
   if (path === '/waiting') return { screen: 'p1_waiting' };
   if (path === '/p2') return { screen: 'p2_details' };
+  if (path === '/about') return { screen: 'about' };
   if (path === '/privacy') return { screen: 'privacy' };
   if (path === '/terms') return { screen: 'terms' };
   return { screen: 'not_found' };

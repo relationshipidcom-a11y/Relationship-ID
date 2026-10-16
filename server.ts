@@ -821,11 +821,11 @@ export const getSecurityHeaders = (env: string = process.env.NODE_ENV || 'develo
       "base-uri 'self'",
       "frame-ancestors 'none'",
       "form-action 'self'",
-      "script-src 'self' https://apis.google.com https://www.google.com https://www.gstatic.com https://www.googletagmanager.com",
+      "script-src 'self' https://apis.google.com https://www.google.com https://www.gstatic.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https://*.google-analytics.com https://www.google-analytics.com",
-      "connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseapp.com https://www.google.com wss://*.firebaseio.com https://*.google-analytics.com https://www.google-analytics.com",
+      "img-src 'self' data: blob:",
+      "connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseapp.com https://www.google.com wss://*.firebaseio.com",
       "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com"
     ].join('; ');
   }
@@ -3736,6 +3736,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
           whatsappCountry: 'SA +966',
           whatsappNumber: defaultPhone,
           whatsappTrusted: isWaVerified,
+          whatsappE164: isWaVerified ? (waE164FromDoc || undefined) : undefined,
           whatsappVerifiedAt: isWaVerified ? (userData?.whatsappVerifiedAt as string | undefined) : undefined
         };
       }
@@ -3748,8 +3749,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
           phoneE164: effectivePhone,
           emailVerified: Boolean(user.email_verified),
           email: user.email || null,
-          whatsappTrusted: Boolean(profile?.whatsappTrusted),
-          whatsappE164: profile?.whatsappE164 || waE164FromDoc || null
+          whatsappTrusted: Boolean(isWaVerified || profile?.whatsappTrusted),
+          whatsappE164: (isWaVerified && waE164FromDoc) || profile?.whatsappE164 || null
         }
       });
     } catch (err) {

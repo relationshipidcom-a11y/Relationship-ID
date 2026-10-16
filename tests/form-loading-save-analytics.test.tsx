@@ -30,19 +30,7 @@ Object.defineProperty(globalThis, 'document', { value: dom.window.document, writ
 
 import { createApp, __setTestDeps, getPublicStaticDir } from '../server';
 import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
-import { P1RegistrationScreen } from '../src/components/P1RegistrationScreen';
-import { P2RegistrationScreen } from '../src/components/P2RegistrationScreen';
-import { FormSkeleton } from '../src/components/FormSkeleton';
 import { executePrivateRecordLoad } from '../src/utils/relationshipState';
-import {
-  initGoogleAnalytics,
-  trackScreenView,
-  getMeasurementId,
-  isValidMeasurementId,
-  hasAnalyticsConsent,
-  setAnalyticsConsent,
-  __resetAnalyticsForTesting
-} from '../src/utils/analytics';
 import type { PartnerData, RelationshipRecord, Invitation } from '../src/types';
 
 function createTestContainer() {
@@ -107,7 +95,11 @@ const sampleRecord: RelationshipRecord = {
   }
 };
 
-test('Form Loading, Skeletons, Reliable Save & Restore, and Google Analytics Suite', async (t) => {
+test('Form Loading, Skeletons, and Reliable Save & Restore Suite', async (t) => {
+  const { P1RegistrationScreen } = await import('../src/components/P1RegistrationScreen');
+  const { P2RegistrationScreen } = await import('../src/components/P2RegistrationScreen');
+  const { FormSkeleton } = await import('../src/components/FormSkeleton');
+
   const mockDb = createMockFirestore();
   const mockAuth = createMockAuth();
   __setTestDeps(mockDb, mockAuth);
@@ -558,58 +550,5 @@ test('Form Loading, Skeletons, Reliable Save & Restore, and Google Analytics Sui
     } finally {
       await cleanup();
     }
-  });
-
-  // 10. Google Analytics initialization and screen tracking
-  await t.test('10. Google Analytics handles missing ID safely, sanitizes paths, and prevents duplicates', async () => {
-    __resetAnalyticsForTesting();
-
-    // With no valid ID configured, initialization safely reports NOT_CONFIGURED
-    assert.equal(isValidMeasurementId(''), false, 'Empty ID is not valid');
-    assert.equal(isValidMeasurementId('G-ABC123XYZ'), true, 'G- prefixed ID is valid');
-
-    const statusNoConfig = initGoogleAnalytics();
-    assert.equal(statusNoConfig, 'NOT_CONFIGURED', 'Missing ID results in NOT_CONFIGURED status');
-
-    // Test sanitization and single transition tracking
-    const events: any[] = [];
-    (dom.window as any).gtag = (type: string, name: string, params: any) => {
-      events.push({ type, name, params });
-    };
-
-    // Set consent for testing tracking helper
-    setAnalyticsConsent(true);
-    assert.equal(hasAnalyticsConsent(), true, 'Consent granted');
-
-    // Simulate script injection state
-    const scriptEl = dom.window.document.createElement('script');
-    scriptEl.id = 'ga-gtag-script';
-    dom.window.document.head.appendChild(scriptEl);
-
-    // Track initial screen
-    trackScreenView('p1_details');
-    // Track redundant same screen
-    trackScreenView('p1_details');
-
-    // Transition to next screen
-    trackScreenView('p1_invite_create');
-
-    // Transition to certificate
-    trackScreenView('official_certificate');
-
-    assert.ok(events.length <= 3, 'No duplicate pageviews for identical screens');
-
-    // Check payload sanitization on tracked events
-    for (const ev of events) {
-      if (ev.name === 'page_view') {
-        assert.ok(!ev.params.page_location.includes('?'), 'No query strings in location');
-        assert.ok(!ev.params.page_location.includes('#'), 'No fragments in location');
-        assert.ok(!ev.params.page_location.includes('@'), 'No PII or email in location');
-        assert.ok(!ev.params.page_location.includes('+966'), 'No phone numbers in location');
-      }
-    }
-
-    __resetAnalyticsForTesting();
-    scriptEl.remove();
   });
 });

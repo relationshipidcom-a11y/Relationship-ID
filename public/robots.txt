@@ -1,0 +1,15 @@
+# Relationship ID Robots Configuration
+# https://www.relationshipid.org
+
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Disallow: /api/
+Disallow: /invite/
+Disallow: /certificate/
+Disallow: /cert/
+Disallow: /verify/
+
+Sitemap: https://www.relationshipid.org/sitemap.xml

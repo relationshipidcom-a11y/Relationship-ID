@@ -10,6 +10,8 @@ export interface LegalDocument {
   privacySections: LegalSection[];
   termsTitle: string;
   termsSections: LegalSection[];
+  aboutTitle: string;
+  aboutSections: LegalSection[];
 }
 
 export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
@@ -18,7 +20,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     privacySections: [
       {
         heading: '1. Who We Are',
-        body: 'The data controller responsible for personal data processed through Relationship ID is Ramy Gabriel, located in Al Fayha District, Riyadh 14253, Saudi Arabia. For any questions, data subject requests, or privacy inquiries, contact customerservices@relationshipid.org. Data subjects may use this email address to exercise their legal rights under applicable law.'
+        body: 'For any questions, data subject requests, or privacy inquiries regarding Relationship ID, contact customerservices@relationshipid.org. Data subjects may use this email address to exercise their legal rights under applicable law.'
       },
       {
         heading: '2. What We Collect',
@@ -111,6 +113,29 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
         heading: '11. Contact',
         body: 'customerservices@relationshipid.org'
       }
+    ],
+    aboutTitle: 'About Relationship ID',
+    aboutSections: [
+      {
+        heading: '1. Voluntary Mutual Declaration',
+        body: 'Relationship ID is a private digital registry that records a voluntary mutual declaration between two consenting adults aged 18 or older.\n\nA relationship record and its associated certificate are created only when both partners independently sign in, verify their access, and give mutual consent. A certificate documents that both partners entered this shared declaration; it does not independently investigate, substantiate, or establish the factual truth of private relationship claims or personal history.'
+      },
+      {
+        heading: '2. Scope & Limits of Contact Verification',
+        body: 'Email verification confirms access to an email address. A WhatsApp verification code confirms access to the mobile number used for verification. Neither establishes government identity, civil status, background, or personal safety.\n\n• No government-ID upload or identity documents are required or collected.\n• No payment or credit-card details are required to use the current service.'
+      },
+      {
+        heading: '3. Not a Dating Safety Badge or Official Document',
+        body: 'Relationship ID is designed solely for consensual mutual documentation between two individuals:\n• It is not a dating safety badge, security clearance, background check certificate, or endorsement to meet someone in person.\n• It is not an official marriage certificate, religious contract, court document, or civil status registry.\n• It does not grant marriage rights, legal guardianship, inheritance rights, immigration status, residency entitlements, or financial alimony under any legal jurisdiction.\n\nNever rely on a digital certificate or registry entry as a guarantee that an individual is safe, honest, or vetted.'
+      },
+      {
+        heading: '4. Anti-Abuse Guidance & User Safety',
+        body: 'Your security and personal agency are fundamental:\n• Voluntary Participation: Using the service is strictly voluntary. You should never feel pressured, coerced, or intimidated into creating an account, sending an invitation, or accepting a relationship declaration.\n• Keep Credentials Private: Never share your passwords, email access, or one-time WhatsApp verification codes with anyone, including a partner. Legitimate verification will never ask you to disclose verification codes to third parties.\n• Certificate Is Not a Guarantee: A digital certificate confirms only mutual declaration, not individual trustworthiness. Always exercise personal caution in all personal interactions.\n• Ending a Relationship: Either partner can end the relationship, removing its public verification.\n• Block & Decline Protections: If you receive an unwanted invitation, you can decline it directly or block senders.\n• Reporting & Support: If you encounter impersonation, harassment, unauthorized contact use, or security concerns, contact customerservices@relationshipid.org.'
+      },
+      {
+        heading: '5. Inquiries & Independent Operation',
+        body: '• Inquiries: customerservices@relationshipid.org\n• Independent Operation: Relationship ID is an independent private application. It is not affiliated with, accredited by, or endorsed by Google, government ministries, or public marital registries.'
+      }
     ]
   },
   ar: {
@@ -118,7 +143,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     privacySections: [
       {
         heading: '1. من نحن',
-        body: 'الجهة المسؤولة والمتحكمة في معالجة البيانات الشخصية عبر منصة "Relationship ID" هو رامي جبرائيل (Ramy Gabriel)، المقيم في حي الفيحاء، الرياض 14253، المملكة العربية السعودية. لأي استفسارات أو ممارسة حقوق أصحاب البيانات الشخصية أو المسائل المتعلقة بالخصوصية، يمكنكم التواصل عبر البريد الإلكتروني: customerservices@relationshipid.org. يحق لأصحاب البيانات استخدام هذا العنوان لممارسة حقوقهم النظامية وفقاً للأنظمة المعمول بها.'
+        body: 'لأي استفسارات أو ممارسة حقوق أصحاب البيانات الشخصية أو المسائل المتعلقة بالخصوصية عبر منصة "Relationship ID"، يمكنكم التواصل عبر البريد الإلكتروني: customerservices@relationshipid.org. يحق لأصحاب البيانات استخدام هذا العنوان لممارسة حقوقهم النظامية وفقاً للأنظمة المعمول بها.'
       },
       {
         heading: '2. ما نجمعه من بيانات',
@@ -211,6 +236,31 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
         heading: '11. التواصل',
         body: 'customerservices@relationshipid.org'
       }
+    ],
+    aboutTitle: 'عن المنصة وسجل العلاقات',
+    aboutSections: [
+      {
+        heading: '1. سجل إقرار طوعي متبادل',
+        body: 'منصة Relationship ID هي سجل رقمي خاص يوثق إقراراً طوعياً متبادلاً بين شخصين بالغين مؤهلين (18 عاماً فأكثر).\n\nلا يتم إنشاء سجل العلاقة أو إصدار الشهادة المرتبطة به إلا بعد أن يقوم الطرفان بتسجيل الدخول بشكل مستقل والتحقق من وسيلة الاتصال وتقديم موافقة متبادلة صريحة. توثق الشهادة صدور هذا الإقرار المشترك بين الطرفين؛ ولا تمثل تحقيقاً مستقلاً أو إثباتاً لحقيقة ادعاءات العلاقات الخاصة أو التاريخ الشخصي لأي من الطرفين.'
+      },
+      {
+        heading: '2. نطاق التحقق التقني وحدوده',
+        body: 'يؤكد التحقق من البريد الإلكتروني إمكانية الوصول إلى عنوان البريد، ويؤكد رمز التحقق عبر WhatsApp إمكانية الوصول إلى رقم الجوال المستخدم للتحقق. ولا يثبت أي منهما الهوية الحكومية أو الحالة المدنية أو الخلفية الشخصية أو السلامة.\n\n• لا يُطلب رفع أي بطاقات هوية حكومية أو وثائق رسمية مطلقاً.\n• لا يتطلب استخدام الخدمة الحالية أي دفع مالي أو تقديم بيانات بطاقة ائتمانية.'
+      },
+      {
+        heading: '3. ليست شارة أمان للتعارف ولا وثيقة رسمية',
+        body: 'صُممت منصة Relationship ID حصرياً للتوثيق المتبادل الرضائي بين شخصين:\n• ليست "شارة أمان للتعارف" أو ترخيصاً أمنياً أو فحصاً لخلفية الأشخاص أو إذناً باللقاء الشخصي.\n• ليست عقد زواج رسمي أو وثيقة شرعية أو حكماً قضائياً أو تسجيلاً في السجلات المدنية الحكومية.\n• لا تمنح الشهادة حقوق الزواج أو النفقة أو الإرث أو الهجرة أو الإقامة أو أي التزامات مالية أو قانونية بموجب أي نظام أو قانون.\n\nيجب عدم الاعتماد على الشهادة الرقمية أو القيد كضمان لأمان الشخص أو صدقه أو خلو سجله من المخاطر.'
+      },
+      {
+        heading: '4. مكافحة إساءة الاستخدام وإرشادات الأمان',
+        body: 'أمانك الشخصي وحريتك في اتخاذ القرار هما الأساس:\n• المشاركة الطوعية: استخدام المنصة طوعي تماماً. لا توافق أبداً تحت أي ضغط أو إكراه على إنشاء حساب أو إرسال دعوة أو قبول إقرار علاقة.\n• سرية بيانات الدخول: لا تشارك أبداً كلمة مرورك أو رموز التحقق لمرة واحدة (OTP) المرسلة إلى WhatsApp مع أي شخص آخر، بما في ذلك الطرف الآخر.\n• الشهادة ليست ضماناً: الشهادة توثق الإقرار المشترك فقط ولا تضمن أمانة الطرف الآخر أو مصداقيته. احرص دائماً على أخذ الحيطة والحذر التام في تعاملاتك الشخصية.\n• إنهاء العلاقة: يمكن لأي من الطرفين إنهاء العلاقة، مما يزيل إمكانية التحقق العلني منها.\n• خيارات الرفض والحظر: إذا استلمت دعوة غير مرغوب فيها، يمكنك رفضها مباشرة أو حظر المرسلين.\n• الإبلاغ والدعم: إذا واجهت انتحالاً للشخصية أو مضايقة أو استخداماً غير مصرح به لبيانات اتصالك، يرجى التواصل عبر: customerservices@relationshipid.org.'
+      },
+      {
+        heading: '5. التواصل واستقلالية المنصة',
+        body: '• التواصل والدعم: customerservices@relationshipid.org\n• استقلالية المنصة: منصة Relationship ID منصة خاصة ومستقلة، وليست تابعة لشركة Google أو معتمدة منها، ولا تتبع أي وزارة أو جهة حكومية أو سجلات زواج رسمية.'
+      }
     ]
   }
 };
+
+

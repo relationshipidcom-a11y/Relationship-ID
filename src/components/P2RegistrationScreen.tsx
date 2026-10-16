@@ -30,7 +30,11 @@ interface P2RegistrationScreenProps {
   loadingError?: string | null;
   onRetryLoading?: () => void;
   initialProfile?: PartnerData | null;
-  onDraftChange?: (draft: Partial<PartnerData>) => void;
+  draft?: (Partial<PartnerData> & { editedFields?: string[] }) | null;
+  draftEditedFields?: string[];
+  onDraftChange?: (draft: Partial<PartnerData>, editedFields?: string[]) => void;
+  onPhoneVerified?: (e164: string) => void;
+  serverVerification?: { whatsappTrusted?: boolean; whatsappE164?: string | null } | null;
 }
 
 const isoFromParts = (year?: string, month?: string, day?: string) => {
@@ -58,92 +62,200 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
   loadingError = null,
   onRetryLoading,
   initialProfile = null,
-  onDraftChange
+  draft = null,
+  draftEditedFields,
+  onDraftChange,
+  onPhoneVerified,
+  serverVerification = null
 }) => {
   const t = translations[language];
 
-  // Effective initial values combining P2's saved personal profile with invitation record defaults
-  const effectivePartner2 = useMemo(() => ({
-    ...initialProfile,
-    ...record.partner2,
-    fullName: record.partner2.fullName || initialProfile?.fullName || auth?.currentUser?.displayName || '',
-    email: record.partner2.email || initialProfile?.email || auth?.currentUser?.email || '',
-    birthYear: record.partner2.birthYear || initialProfile?.birthYear || '',
-    birthMonth: record.partner2.birthMonth || initialProfile?.birthMonth || '',
-    birthDay: record.partner2.birthDay || initialProfile?.birthDay || '',
-    phoneNumber: record.partner2.phoneNumber || initialProfile?.phoneNumber || '',
-    phoneCountry: record.partner2.phoneCountry || initialProfile?.phoneCountry || 'SA +966',
-    phoneE164: record.partner2.phoneE164 || initialProfile?.phoneE164,
-    whatsappE164: record.partner2.whatsappE164 || initialProfile?.whatsappE164,
-    whatsappTrusted: record.partner2.whatsappTrusted ?? initialProfile?.whatsappTrusted,
-    phoneVerified: record.partner2.phoneVerified ?? initialProfile?.phoneVerified,
-    socialAccounts: record.partner2.socialAccounts || initialProfile?.socialAccounts,
-    socialHandle: record.partner2.socialHandle || initialProfile?.socialHandle
-  }), [record.partner2, initialProfile]);
+  const editedFieldsRef = useRef<Set<string>>(
+    new Set(draft?.editedFields || draftEditedFields || [])
+  );
+  const isSubmittingRef = useRef(false);
+
+  // Compute resolved initial values ensuring saved profile takes precedence over unedited defaults
+  const resolvedInitialValues = useMemo(() => {
+    // Full Name
+    let initFullName = '';
+    if (editedFieldsRef.current.has('fullName') && draft?.fullName !== undefined) {
+      initFullName = draft.fullName;
+    } else if (initialProfile?.fullName) {
+      initFullName = initialProfile.fullName;
+    } else if (record.partner2?.fullName) {
+      initFullName = record.partner2.fullName;
+    } else if (auth?.currentUser?.displayName) {
+      initFullName = auth.currentUser.displayName;
+    }
+
+    // DOB
+    let initBirthDate = '';
+    if (editedFieldsRef.current.has('birthDate') && draft) {
+      initBirthDate = isoFromParts(draft.birthYear, draft.birthMonth, draft.birthDay);
+    } else if (initialProfile?.birthYear && initialProfile?.birthMonth && initialProfile?.birthDay) {
+      initBirthDate = isoFromParts(initialProfile.birthYear, initialProfile.birthMonth, initialProfile.birthDay);
+    } else if (record.partner2?.birthYear && record.partner2?.birthMonth && record.partner2?.birthDay) {
+      initBirthDate = isoFromParts(record.partner2.birthYear, record.partner2.birthMonth, record.partner2.birthDay);
+    }
+
+    // Email
+    let initEmail = '';
+    if (editedFieldsRef.current.has('email') && draft?.email !== undefined) {
+      initEmail = draft.email;
+    } else if (initialProfile?.email) {
+      initEmail = initialProfile.email;
+    } else if (record.partner2?.email) {
+      initEmail = record.partner2.email;
+    } else if (auth?.currentUser?.email) {
+      initEmail = auth.currentUser.email;
+    }
+
+    // Phone Country - saved profile must override untouched default SA +966
+    let initCountryLegacy = 'SA +966';
+    if (editedFieldsRef.current.has('phoneCountry') && draft?.phoneCountry !== undefined) {
+      initCountryLegacy = draft.phoneCountry;
+    } else if (initialProfile?.phoneCountry) {
+      initCountryLegacy = initialProfile.phoneCountry;
+    } else if (record.partner2?.phoneCountry && record.partner2.phoneCountry !== 'SA +966') {
+      initCountryLegacy = record.partner2.phoneCountry;
+    } else if (record.partner2?.phoneCountry) {
+      initCountryLegacy = record.partner2.phoneCountry;
+    }
+
+    // Phone Number
+    let initPhoneNumber = '';
+    if (editedFieldsRef.current.has('phoneNumber') && draft?.phoneNumber !== undefined) {
+      initPhoneNumber = draft.phoneNumber;
+    } else if (initialProfile?.phoneNumber) {
+      initPhoneNumber = initialProfile.phoneNumber;
+    } else if (record.partner2?.phoneNumber) {
+      initPhoneNumber = record.partner2.phoneNumber;
+    }
+
+    // Social Accounts - saved profile must override untouched empty array
+    let initSocial: SocialAccount[] = [];
+    if (editedFieldsRef.current.has('socialAccounts') && draft?.socialAccounts !== undefined) {
+      initSocial = draft.socialAccounts;
+    } else if (Array.isArray(initialProfile?.socialAccounts) && initialProfile.socialAccounts.length > 0) {
+      initSocial = initialProfile.socialAccounts;
+    } else if (initialProfile?.socialHandle && initialProfile.socialHandle.trim()) {
+      initSocial = [{ platform: 'instagram', handle: initialProfile.socialHandle.trim().replace(/^@/, '') }];
+    } else if (Array.isArray(record.partner2?.socialAccounts) && record.partner2.socialAccounts.length > 0) {
+      initSocial = record.partner2.socialAccounts;
+    } else if (record.partner2?.socialHandle && record.partner2.socialHandle.trim()) {
+      initSocial = [{ platform: 'instagram', handle: record.partner2.socialHandle.trim().replace(/^@/, '') }];
+    }
+
+    // Verification - ONLY from authenticated server-confirmed ownership for exact canonical number
+    let initVerifiedPhone: string | null = null;
+    let initIsWhatsappVerified = false;
+    const serverConfirmedWa = (serverVerification?.whatsappTrusted && serverVerification?.whatsappE164)
+      || (initialProfile?.whatsappTrusted && initialProfile?.whatsappE164)
+      || (record.partner2?.whatsappTrusted && record.partner2?.whatsappE164)
+      || null;
+    const canonical = normalizePhoneNumber(countryFromLegacyValue(initCountryLegacy), initPhoneNumber);
+    if (serverConfirmedWa && canonical && canonical === serverConfirmedWa) {
+      initVerifiedPhone = serverConfirmedWa;
+      initIsWhatsappVerified = true;
+    }
+
+    return {
+      fullName: initFullName,
+      birthDate: initBirthDate,
+      email: initEmail,
+      phoneCountry: countryFromLegacyValue(initCountryLegacy),
+      phoneNumber: initPhoneNumber,
+      socialAccounts: initSocial,
+      verifiedPhone: initVerifiedPhone,
+      isWhatsappVerified: initIsWhatsappVerified
+    };
+  }, [initialProfile, serverVerification, record.partner2, draft]);
 
   // Unconditional hook declarations at the top of the component
-  const [fullName, setFullName] = useState(effectivePartner2.fullName);
-  const [birthDate, setBirthDate] = useState(isoFromParts(effectivePartner2.birthYear, effectivePartner2.birthMonth, effectivePartner2.birthDay));
-  const [email, setEmail] = useState(effectivePartner2.email);
-  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(countryFromLegacyValue(effectivePartner2.phoneCountry));
-  const [phoneNumber, setPhoneNumber] = useState(effectivePartner2.phoneNumber);
-  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(
-    (effectivePartner2.whatsappTrusted && effectivePartner2.whatsappE164)
-      ? effectivePartner2.whatsappE164
-      : (effectivePartner2.phoneVerified && effectivePartner2.phoneE164 ? effectivePartner2.phoneE164 : auth?.currentUser?.phoneNumber || null)
-  );
-  const [isWhatsappVerified, setIsWhatsappVerified] = useState<boolean>(
-    Boolean(effectivePartner2.whatsappTrusted && effectivePartner2.whatsappE164)
-  );
-  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>(() => {
-    if (Array.isArray(effectivePartner2.socialAccounts) && effectivePartner2.socialAccounts.length > 0) {
-      return effectivePartner2.socialAccounts;
-    }
-    if (effectivePartner2.socialHandle && effectivePartner2.socialHandle.trim()) {
-      return [{ platform: 'instagram', handle: effectivePartner2.socialHandle.trim().replace(/^@/, '') }];
-    }
-    return [];
-  });
+  const [fullName, setFullName] = useState(resolvedInitialValues.fullName);
+  const [birthDate, setBirthDate] = useState(resolvedInitialValues.birthDate);
+  const [email, setEmail] = useState(resolvedInitialValues.email);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(resolvedInitialValues.phoneCountry);
+  const [phoneNumber, setPhoneNumber] = useState(resolvedInitialValues.phoneNumber);
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(resolvedInitialValues.verifiedPhone);
+  const [isWhatsappVerified, setIsWhatsappVerified] = useState<boolean>(resolvedInitialValues.isWhatsappVerified);
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>(resolvedInitialValues.socialAccounts);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const editedFieldsRef = useRef<Set<string>>(new Set());
-  const isSubmittingRef = useRef(false);
-
+  // Late profile hydration effect: updates unedited fields without overwriting user edits
   useEffect(() => {
-    if (effectivePartner2.fullName && !editedFieldsRef.current.has('fullName')) {
-      setFullName(effectivePartner2.fullName);
+    if (loading) return;
+
+    if (!editedFieldsRef.current.has('fullName')) {
+      const resolvedName = initialProfile?.fullName || record.partner2?.fullName || auth?.currentUser?.displayName || '';
+      if (resolvedName) setFullName(resolvedName);
     }
-    const dob = isoFromParts(effectivePartner2.birthYear, effectivePartner2.birthMonth, effectivePartner2.birthDay);
-    if (dob && !editedFieldsRef.current.has('birthDate')) {
-      setBirthDate(dob);
+
+    if (!editedFieldsRef.current.has('birthDate')) {
+      const profileDob = isoFromParts(initialProfile?.birthYear, initialProfile?.birthMonth, initialProfile?.birthDay);
+      const recordDob = isoFromParts(record.partner2?.birthYear, record.partner2?.birthMonth, record.partner2?.birthDay);
+      const resolvedDob = profileDob || recordDob || '';
+      if (resolvedDob) setBirthDate(resolvedDob);
     }
-    if (effectivePartner2.email && !editedFieldsRef.current.has('email')) {
-      setEmail(effectivePartner2.email);
+
+    if (!editedFieldsRef.current.has('email')) {
+      const resolvedEmail = initialProfile?.email || record.partner2?.email || auth?.currentUser?.email || '';
+      if (resolvedEmail) setEmail(resolvedEmail);
     }
-    if (effectivePartner2.phoneCountry && !editedFieldsRef.current.has('phoneCountry')) {
-      setPhoneCountry(countryFromLegacyValue(effectivePartner2.phoneCountry));
+
+    if (!editedFieldsRef.current.has('phoneCountry')) {
+      const resolvedCountry = initialProfile?.phoneCountry
+        || (record.partner2?.phoneCountry && record.partner2.phoneCountry !== 'SA +966' ? record.partner2.phoneCountry : (initialProfile?.phoneCountry || record.partner2?.phoneCountry || 'SA +966'));
+      setPhoneCountry(countryFromLegacyValue(resolvedCountry));
     }
-    if (effectivePartner2.phoneNumber && !editedFieldsRef.current.has('phoneNumber')) {
-      setPhoneNumber(effectivePartner2.phoneNumber);
+
+    if (!editedFieldsRef.current.has('phoneNumber')) {
+      const resolvedNumber = initialProfile?.phoneNumber || record.partner2?.phoneNumber || '';
+      if (resolvedNumber) setPhoneNumber(resolvedNumber);
     }
-    const preverified = (effectivePartner2.whatsappTrusted && effectivePartner2.whatsappE164)
-      ? effectivePartner2.whatsappE164
-      : (effectivePartner2.phoneVerified && effectivePartner2.phoneE164 ? effectivePartner2.phoneE164 : auth?.currentUser?.phoneNumber || null);
-    if (preverified && !editedFieldsRef.current.has('verifiedPhone')) {
-      setVerifiedPhone(preverified);
+
+    if (!editedFieldsRef.current.has('socialAccounts')) {
+      if (Array.isArray(initialProfile?.socialAccounts) && initialProfile.socialAccounts.length > 0) {
+        setSocialAccounts(initialProfile.socialAccounts);
+      } else if (initialProfile?.socialHandle && initialProfile.socialHandle.trim()) {
+        setSocialAccounts([{ platform: 'instagram', handle: initialProfile.socialHandle.trim().replace(/^@/, '') }]);
+      } else if (Array.isArray(record.partner2?.socialAccounts) && record.partner2.socialAccounts.length > 0) {
+        setSocialAccounts(record.partner2.socialAccounts);
+      } else if (record.partner2?.socialHandle && record.partner2.socialHandle.trim()) {
+        setSocialAccounts([{ platform: 'instagram', handle: record.partner2.socialHandle.trim().replace(/^@/, '') }]);
+      }
     }
-    if (effectivePartner2.whatsappTrusted && effectivePartner2.whatsappE164 && !editedFieldsRef.current.has('isWhatsappVerified')) {
+
+    const currentCountry = (editedFieldsRef.current.has('phoneCountry') && draft?.phoneCountry)
+      ? countryFromLegacyValue(draft.phoneCountry)
+      : phoneCountry;
+    const currentNumber = (editedFieldsRef.current.has('phoneNumber') && draft?.phoneNumber)
+      ? draft.phoneNumber
+      : phoneNumber;
+    const currentCanonical = normalizePhoneNumber(currentCountry, currentNumber);
+    const serverConfirmedWa = (serverVerification?.whatsappTrusted && serverVerification?.whatsappE164)
+      || (initialProfile?.whatsappTrusted && initialProfile?.whatsappE164)
+      || (record.partner2?.whatsappTrusted && record.partner2?.whatsappE164)
+      || null;
+
+    if (serverConfirmedWa && currentCanonical && currentCanonical === serverConfirmedWa) {
+      setVerifiedPhone(serverConfirmedWa);
       setIsWhatsappVerified(true);
+    } else {
+      setVerifiedPhone(null);
+      setIsWhatsappVerified(false);
     }
-    if (Array.isArray(effectivePartner2.socialAccounts) && effectivePartner2.socialAccounts.length > 0 && !editedFieldsRef.current.has('socialAccounts')) {
-      setSocialAccounts(effectivePartner2.socialAccounts);
-    }
-  }, [effectivePartner2]);
+  }, [loading, initialProfile, serverVerification, record.partner2, phoneCountry, phoneNumber, draft]);
 
   // Keep parent draft updated for temporary navigation (like reading terms/privacy)
+  // Guard: NEVER emit while loading skeleton is visible, and only emit when user has edited fields
   useEffect(() => {
+    if (loading) return;
+    if (editedFieldsRef.current.size === 0) return;
+
     onDraftChange?.({
       fullName,
       birthDay: birthDate.split('-')[2] || '',
@@ -153,8 +265,8 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
       phoneCountry: legacyCountryValue(phoneCountry),
       phoneNumber,
       socialAccounts
-    });
-  }, [fullName, birthDate, email, phoneCountry, phoneNumber, socialAccounts, onDraftChange]);
+    }, Array.from(editedFieldsRef.current));
+  }, [loading, fullName, birthDate, email, phoneCountry, phoneNumber, socialAccounts, onDraftChange]);
 
   const canonicalPhone = useMemo(() => normalizePhoneNumber(phoneCountry, phoneNumber), [phoneCountry, phoneNumber]);
   const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
@@ -167,6 +279,7 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
     setIsWhatsappVerified(Boolean(e164));
 
     if (e164) {
+      onPhoneVerified?.(e164);
       try {
         const res = await authFetch('/api/profile/sync-verification', {
           method: 'POST',
@@ -237,8 +350,15 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
     }
   };
 
-  // State 1: Loading error -> display actionable error with Retry
-  if (loadingError) {
+  // State 1: Pure loading error (initial load failure before any data or edits exist) -> centered error with Retry
+  const hasExistingData = Boolean(
+    initialProfile ||
+    editedFieldsRef.current.size > 0 ||
+    record.partner2?.fullName ||
+    record.partner2?.phoneNumber
+  );
+
+  if (loadingError && !hasExistingData) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <div className="p-5 max-w-md w-full rounded-2xl bg-[#30264D] border border-rose-500/40 text-center space-y-4 shadow-xl">
@@ -451,6 +571,21 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
         <p className="text-base text-[#B7ACC8] leading-relaxed">{t.p2FormDesc}</p>
       </div>
 
+      {loadingError && (
+        <div className="mb-3 p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between gap-3 text-start">
+          <p className="text-xs sm:text-sm text-rose-200 font-medium leading-relaxed">{loadingError}</p>
+          {onRetryLoading && (
+            <button
+              type="button"
+              onClick={onRetryLoading}
+              className="px-3 py-1.5 rounded-lg bg-rose-800/60 hover:bg-rose-700/60 border border-rose-400/30 text-rose-100 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors"
+            >
+              {language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+            </button>
+          )}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-3.5">
         <section className={styles.cardSection}>
           <div className={styles.sectionHeader}>
@@ -475,6 +610,10 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
                   editedFieldsRef.current.add('fullName');
                   setFullName(e.target.value);
                 }}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  editedFieldsRef.current.add('fullName');
+                  setFullName((e.target as HTMLInputElement).value);
+                }}
                 className={styles.inputControl}
               />
             </div>
@@ -489,6 +628,10 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
                 onChange={(e) => {
                   editedFieldsRef.current.add('birthDate');
                   setBirthDate(e.target.value);
+                }}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  editedFieldsRef.current.add('birthDate');
+                  setBirthDate((e.target as HTMLInputElement).value);
                 }}
                 className={styles.inputControl}
                 dir="ltr"
@@ -520,6 +663,10 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
                   editedFieldsRef.current.add('email');
                   setEmail(e.target.value);
                 }}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  editedFieldsRef.current.add('email');
+                  setEmail((e.target as HTMLInputElement).value);
+                }}
                 className={styles.inputControl}
                 dir="ltr"
               />
@@ -534,11 +681,20 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
               isWhatsappVerified={isWhatsappVerified}
               onCountryChange={(value) => {
                 editedFieldsRef.current.add('phoneCountry');
+                editedFieldsRef.current.add('phoneNumber');
+                editedFieldsRef.current.add('verifiedPhone');
+                editedFieldsRef.current.add('isWhatsappVerified');
                 setPhoneCountry(value);
+                setVerifiedPhone(null);
+                setIsWhatsappVerified(false);
               }}
               onNumberChange={(value) => {
                 editedFieldsRef.current.add('phoneNumber');
+                editedFieldsRef.current.add('verifiedPhone');
+                editedFieldsRef.current.add('isWhatsappVerified');
                 setPhoneNumber(value);
+                setVerifiedPhone(null);
+                setIsWhatsappVerified(false);
               }}
               onVerified={handleVerified}
               label={t.phoneLabel}

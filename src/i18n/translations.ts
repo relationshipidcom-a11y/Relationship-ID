@@ -289,6 +289,8 @@ export const translations = {
     
     // Footer
     footerCopyright: '© 2026 Relationship ID • Relationship Registry for Web, iOS & Android',
+    aboutPlatform: 'عن المنصة',
+    aboutStandards: 'عن المنصة ومعايير السجل',
     privacyPolicy: 'سياسة الخصوصية',
     termsOfService: 'شروط الاستخدام',
     termsOfUse: 'شروط الاستخدام',
@@ -597,6 +599,8 @@ export const translations = {
 
     // Footer
     footerCopyright: '© 2026 Relationship ID • Relationship Registry for Web, iOS & Android',
+    aboutPlatform: 'About',
+    aboutStandards: 'About our registry & verification standards',
     privacyPolicy: 'Privacy Policy',
     termsOfService: 'Terms of Service',
     termsOfUse: 'Terms of Use',

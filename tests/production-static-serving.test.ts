@@ -114,12 +114,30 @@ test('Production static serving and artifact disclosure protection suite', async
       assert.ok(homeHtml.includes('<div id="root"></div>') || homeHtml.includes('<!DOCTYPE html>'), 'Home page should serve index.html');
 
       // SPA deep links
-      const spaLinks = ['/privacy', '/terms', '/this-page-does-not-exist', '/invite/test-id-123'];
+      const spaLinks = ['/about', '/privacy', '/terms', '/this-page-does-not-exist', '/invite/test-id-123'];
       for (const link of spaLinks) {
         const res = await fetch(`${baseUrl}${link}`);
         assert.equal(res.status, 200, `SPA route ${link} should return 200 with index.html fallback`);
         assert.ok(res.headers.get('content-type')?.includes('text/html'), `SPA route ${link} should return text/html`);
       }
+
+      // robots.txt static file
+      const robotsRes = await fetch(`${baseUrl}/robots.txt`);
+      assert.equal(robotsRes.status, 200, 'robots.txt should return 200');
+      assert.ok(robotsRes.headers.get('content-type')?.includes('text/plain'), 'robots.txt has text/plain content-type');
+      const robotsTxt = await robotsRes.text();
+      assert.ok(robotsTxt.includes('User-agent: *'), 'robots.txt contains User-agent directive');
+      assert.ok(robotsTxt.includes('Sitemap:'), 'robots.txt specifies sitemap location');
+
+      // sitemap.xml static file
+      const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`);
+      assert.equal(sitemapRes.status, 200, 'sitemap.xml should return 200');
+      assert.ok(sitemapRes.headers.get('content-type')?.includes('xml'), 'sitemap.xml has xml content-type');
+      const sitemapXml = await sitemapRes.text();
+      assert.ok(sitemapXml.includes('<loc>https://www.relationshipid.org/</loc>'), 'sitemap contains homepage');
+      assert.ok(sitemapXml.includes('<loc>https://www.relationshipid.org/about</loc>'), 'sitemap contains about page');
+      assert.equal(sitemapXml.includes('/invite/'), false, 'sitemap must not contain invite URLs');
+      assert.equal(sitemapXml.includes('/cert'), false, 'sitemap must not contain certificate URLs');
 
       // Brand SVG
       const svgRes = await fetch(`${baseUrl}/brand/relationship-id-logo.svg`);

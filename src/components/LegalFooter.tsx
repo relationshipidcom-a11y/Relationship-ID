@@ -5,7 +5,7 @@ import { translations } from '../i18n/translations';
 
 interface LegalFooterProps {
   language: Language;
-  onNavigate?: (screen: 'privacy' | 'terms') => void;
+  onNavigate?: (screen: 'privacy' | 'terms' | 'about') => void;
   showPreferredSource?: boolean;
 }
 
@@ -23,6 +23,17 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
       className="print:hidden w-full px-4 py-3.5 bg-[#141023] border-t border-white/10 text-center text-sm text-[#B7ACC8] space-y-2 shrink-0 select-none"
     >
       <div className="flex flex-wrap items-center justify-center gap-3 font-medium text-sm">
+        <a
+          href="/about"
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate?.('about');
+          }}
+          className="text-[#B7ACC8] hover:text-white transition-colors underline cursor-pointer"
+        >
+          {t.aboutPlatform}
+        </a>
+        <span className="text-white/20">•</span>
         <a
           href="/privacy"
           onClick={(e) => {

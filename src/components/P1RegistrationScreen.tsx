@@ -461,6 +461,10 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                   editedFieldsRef.current.add('fullName');
                   setFullName(e.target.value);
                 }}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  editedFieldsRef.current.add('fullName');
+                  setFullName((e.target as HTMLInputElement).value);
+                }}
                 className={styles.inputControl}
                 placeholder={t.fullNamePlaceholder}
               />
@@ -479,6 +483,10 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                 onChange={(e) => {
                   editedFieldsRef.current.add('birthDate');
                   setBirthDate(e.target.value);
+                }}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  editedFieldsRef.current.add('birthDate');
+                  setBirthDate((e.target as HTMLInputElement).value);
                 }}
                 className={styles.inputControl}
                 dir="ltr"
@@ -510,6 +518,10 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                   editedFieldsRef.current.add('email');
                   setEmail(e.target.value);
                 }}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                  editedFieldsRef.current.add('email');
+                  setEmail((e.target as HTMLInputElement).value);
+                }}
                 className={styles.inputControl}
                 placeholder="name@example.com"
                 dir="ltr"
@@ -525,11 +537,20 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                 isWhatsappVerified={isWhatsappVerified}
                 onCountryChange={(code) => {
                   editedFieldsRef.current.add('phoneCountry');
+                  editedFieldsRef.current.add('phoneNumber');
+                  editedFieldsRef.current.add('verifiedPhone');
+                  editedFieldsRef.current.add('isWhatsappVerified');
                   setPhoneCountry(code);
+                  setVerifiedPhone(null);
+                  setIsWhatsappVerified(false);
                 }}
                 onNumberChange={(val) => {
                   editedFieldsRef.current.add('phoneNumber');
+                  editedFieldsRef.current.add('verifiedPhone');
+                  editedFieldsRef.current.add('isWhatsappVerified');
                   setPhoneNumber(val);
+                  setVerifiedPhone(null);
+                  setIsWhatsappVerified(false);
                 }}
                 onVerified={handlePhoneVerified}
                 label={t.phoneLabel}

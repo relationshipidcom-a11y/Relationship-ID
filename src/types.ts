@@ -151,4 +151,5 @@ export type ScreenId =
   | 'verify_portal'
   | 'privacy'
   | 'terms'
+  | 'about'
   | 'not_found';

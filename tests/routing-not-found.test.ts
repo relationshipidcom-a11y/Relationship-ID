@@ -25,7 +25,8 @@ test('Routing and 404 Route State Suite', async (t) => {
     assert.equal(getRouteState('/').screen, 'auth');
     assert.equal(getRouteState('').screen, 'auth');
 
-    // Legal routes
+    // Legal and informational routes
+    assert.equal(getRouteState('/about').screen, 'about');
     assert.equal(getRouteState('/privacy').screen, 'privacy');
     assert.equal(getRouteState('/terms').screen, 'terms');
 

@@ -54,7 +54,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   inviterName = '',
   defaultEmail = '',
   defaultFullName = '',
-  onNavigate: _onNavigate,
+  onNavigate,
   step,
   totalSteps,
   auth: propAuth,
@@ -259,6 +259,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 : `Sign in to continue the invitation from ${inviterName}.`)
             : t.authHeroDesc}
         </p>
+        <div className="mt-2.5">
+          <a
+            href="/about"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate?.('about');
+            }}
+            className="inline-flex items-center gap-1.5 text-xs text-[#E7BCD3] hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.aboutStandards}</span>
+          </a>
+        </div>
       </div>
 
       {isP2InvitationFlow && (

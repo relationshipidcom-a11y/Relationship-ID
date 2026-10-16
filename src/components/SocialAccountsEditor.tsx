@@ -91,6 +91,7 @@ export const SocialAccountsEditor: React.FC<SocialAccountsEditorProps> = ({
                 key={idx}
                 className="flex items-center gap-2 p-2 rounded-xl bg-[#141023] border border-[#51465F]"
               >
+                <span className="sr-only">{getPlatformConfig(acc.platform)?.nameEn || acc.platform}: {acc.handle}</span>
                 {/* Platform Selector */}
                 <select
                   value={acc.platform}
@@ -119,6 +120,7 @@ export const SocialAccountsEditor: React.FC<SocialAccountsEditorProps> = ({
                     type="text"
                     value={acc.handle}
                     onChange={(e) => handleHandleChange(idx, e.target.value)}
+                    onInput={(e: React.FormEvent<HTMLInputElement>) => handleHandleChange(idx, (e.target as HTMLInputElement).value)}
                     placeholder={placeholder}
                     className="w-full bg-[#141023] border border-[#51465F] focus:border-[#E7BCD3] text-white text-base rounded-lg pl-7 pr-2.5 py-2 outline-none transition"
                     dir="ltr"

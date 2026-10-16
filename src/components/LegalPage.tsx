@@ -1,18 +1,28 @@
 import React from 'react';
-import { ArrowLeft, ArrowRight, Shield, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Shield, FileText, Info } from 'lucide-react';
 import { Language } from '../types';
 import { legalContent } from '../content/legal';
 
 interface LegalPageProps {
-  page: 'privacy' | 'terms';
+  page: 'privacy' | 'terms' | 'about';
   language: Language;
   onBack: () => void;
 }
 
 export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) => {
   const content = legalContent[language];
-  const title = page === 'privacy' ? content.privacyTitle : content.termsTitle;
-  const sections = page === 'privacy' ? content.privacySections : content.termsSections;
+  const title =
+    page === 'privacy'
+      ? content.privacyTitle
+      : page === 'terms'
+      ? content.termsTitle
+      : content.aboutTitle;
+  const sections =
+    page === 'privacy'
+      ? content.privacySections
+      : page === 'terms'
+      ? content.termsSections
+      : content.aboutSections;
   const isAr = language === 'ar';
 
   return (
@@ -30,7 +40,13 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) 
           </button>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#392D5A] border border-[#51465F] text-sm font-semibold tracking-wider text-[#E7BCD3] uppercase">
-            {page === 'privacy' ? <Shield className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+            {page === 'privacy' ? (
+              <Shield className="w-3.5 h-3.5" />
+            ) : page === 'terms' ? (
+              <FileText className="w-3.5 h-3.5" />
+            ) : (
+              <Info className="w-3.5 h-3.5" />
+            )}
             <span>{title}</span>
           </div>
         </div>

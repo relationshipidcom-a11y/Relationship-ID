@@ -49,10 +49,7 @@ export const firebaseConfig = {
   projectId: resolveValue(FIREBASE_WEB_CONFIG.projectId, getEnvVar('VITE_FIREBASE_PROJECT_ID')),
   storageBucket: resolveValue(FIREBASE_WEB_CONFIG.storageBucket, getEnvVar('VITE_FIREBASE_STORAGE_BUCKET')),
   messagingSenderId: resolveValue(FIREBASE_WEB_CONFIG.messagingSenderId, getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID')),
-  appId: resolveValue(FIREBASE_WEB_CONFIG.appId, getEnvVar('VITE_FIREBASE_APP_ID')),
-  ...(resolveValue(FIREBASE_WEB_CONFIG.measurementId, getEnvVar('VITE_FIREBASE_MEASUREMENT_ID'))
-    ? { measurementId: resolveValue(FIREBASE_WEB_CONFIG.measurementId, getEnvVar('VITE_FIREBASE_MEASUREMENT_ID')) }
-    : {})
+  appId: resolveValue(FIREBASE_WEB_CONFIG.appId, getEnvVar('VITE_FIREBASE_APP_ID'))
 };
 
 export const maskedApiKey = (() => {

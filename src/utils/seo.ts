@@ -100,8 +100,8 @@ const SEO_MAP: Record<ScreenId, SeoConfig> = {
     robots: 'noindex, nofollow'
   },
   official_certificate: {
-    title: { ar: 'شهادة سجل العلاقة الرقمية - Relationship ID', en: 'Official Relationship Certificate - Relationship ID' },
-    description: { ar: 'عرض شهادة سجل العلاقة الرقمية الموثقة.', en: 'View official digital relationship certificate.' },
+    title: { ar: 'شهادة سجل العلاقة الرقمية - Relationship ID', en: 'Digital Relationship Certificate - Relationship ID' },
+    description: { ar: 'عرض شهادة سجل العلاقة الرقمية الموثقة.', en: 'View digital relationship certificate.' },
     robots: 'noindex, nofollow'
   },
   verify_portal: {

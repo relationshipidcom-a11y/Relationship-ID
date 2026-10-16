@@ -69,7 +69,20 @@ export const LegalPage: React.FC<LegalPageProps> = ({ page, language, onBack }) 
                 {sec.heading}
               </h2>
               <p className="text-base text-[#B7ACC8] leading-relaxed whitespace-pre-line">
-                {sec.body}
+                {sec.body.split(/(customerservices@relationshipid\.org)/g).map((part, pIdx) =>
+                  part === 'customerservices@relationshipid.org' ? (
+                    <a
+                      key={pIdx}
+                      href="mailto:customerservices@relationshipid.org"
+                      className="underline text-[#E7BCD3] hover:text-white transition font-medium"
+                      dir="ltr"
+                    >
+                      {part}
+                    </a>
+                  ) : (
+                    part
+                  )
+                )}
               </p>
             </div>
           ))}

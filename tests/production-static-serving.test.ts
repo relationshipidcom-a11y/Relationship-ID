@@ -113,12 +113,21 @@ test('Production static serving and artifact disclosure protection suite', async
       const homeHtml = await homeRes.text();
       assert.ok(homeHtml.includes('<div id="root"></div>') || homeHtml.includes('<!DOCTYPE html>'), 'Home page should serve index.html');
 
-      // SPA deep links
-      const spaLinks = ['/about', '/privacy', '/terms', '/this-page-does-not-exist', '/invite/test-id-123'];
-      for (const link of spaLinks) {
+      // SPA deep links and X-Robots-Tag behavior
+      const publicSpaLinks = ['/', '/about', '/privacy', '/terms'];
+      for (const link of publicSpaLinks) {
         const res = await fetch(`${baseUrl}${link}`);
-        assert.equal(res.status, 200, `SPA route ${link} should return 200 with index.html fallback`);
-        assert.ok(res.headers.get('content-type')?.includes('text/html'), `SPA route ${link} should return text/html`);
+        assert.equal(res.status, 200, `Public route ${link} should return 200`);
+        assert.ok(res.headers.get('content-type')?.includes('text/html'), `Public route ${link} should return text/html`);
+        assert.equal(res.headers.get('x-robots-tag'), null, `Public route ${link} must not send X-Robots-Tag: noindex`);
+      }
+
+      const privateSpaLinks = ['/this-page-does-not-exist', '/invite/test-id-123', '/certificate/test-cert', '/verify'];
+      for (const link of privateSpaLinks) {
+        const res = await fetch(`${baseUrl}${link}`);
+        assert.equal(res.status, 200, `Private/fallback route ${link} should return 200 with index.html fallback`);
+        assert.ok(res.headers.get('content-type')?.includes('text/html'), `Private route ${link} should return text/html`);
+        assert.equal(res.headers.get('x-robots-tag'), 'noindex, nofollow', `Private route ${link} must send X-Robots-Tag: noindex, nofollow`);
       }
 
       // robots.txt static file
@@ -127,6 +136,9 @@ test('Production static serving and artifact disclosure protection suite', async
       assert.ok(robotsRes.headers.get('content-type')?.includes('text/plain'), 'robots.txt has text/plain content-type');
       const robotsTxt = await robotsRes.text();
       assert.ok(robotsTxt.includes('User-agent: *'), 'robots.txt contains User-agent directive');
+      assert.ok(robotsTxt.includes('Disallow: /api/'), 'robots.txt must disallow /api/');
+      assert.equal(robotsTxt.includes('Disallow: /invite/'), false, 'robots.txt must not disallow /invite/ so crawler can read X-Robots-Tag: noindex');
+      assert.equal(robotsTxt.includes('Disallow: /certificate/'), false, 'robots.txt must not disallow /certificate/ so crawler can read X-Robots-Tag: noindex');
       assert.ok(robotsTxt.includes('Sitemap:'), 'robots.txt specifies sitemap location');
 
       // sitemap.xml static file
@@ -136,6 +148,9 @@ test('Production static serving and artifact disclosure protection suite', async
       const sitemapXml = await sitemapRes.text();
       assert.ok(sitemapXml.includes('<loc>https://www.relationshipid.org/</loc>'), 'sitemap contains homepage');
       assert.ok(sitemapXml.includes('<loc>https://www.relationshipid.org/about</loc>'), 'sitemap contains about page');
+      assert.ok(sitemapXml.includes('<loc>https://www.relationshipid.org/privacy</loc>'), 'sitemap contains privacy page');
+      assert.ok(sitemapXml.includes('<loc>https://www.relationshipid.org/terms</loc>'), 'sitemap contains terms page');
+      assert.equal(sitemapXml.includes('xhtml:link'), false, 'sitemap must not advertise unsupported alternate language URLs');
       assert.equal(sitemapXml.includes('/invite/'), false, 'sitemap must not contain invite URLs');
       assert.equal(sitemapXml.includes('/cert'), false, 'sitemap must not contain certificate URLs');
 

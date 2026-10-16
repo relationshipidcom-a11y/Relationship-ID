@@ -7,9 +7,5 @@ Allow: /about
 Allow: /privacy
 Allow: /terms
 Disallow: /api/
-Disallow: /invite/
-Disallow: /certificate/
-Disallow: /cert/
-Disallow: /verify/
 
 Sitemap: https://www.relationshipid.org/sitemap.xml

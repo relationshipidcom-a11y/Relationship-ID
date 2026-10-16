@@ -1407,6 +1407,11 @@ export function mountProductionStatic(app: express.Express, staticDir: string): 
 
     const indexPath = path.join(staticDir, 'index.html');
     if (fs.existsSync(indexPath)) {
+      const cleanPath = lower.endsWith('/') && lower.length > 1 ? lower.slice(0, -1) : lower;
+      const isPublicInformational = cleanPath === '' || cleanPath === '/' || cleanPath === '/about' || cleanPath === '/privacy' || cleanPath === '/terms';
+      if (!isPublicInformational) {
+        res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      }
       return res.sendFile(indexPath);
     }
     return res.status(404).end();

@@ -627,4 +627,82 @@ test('AuthScreen DOM & lifecycle integration test suite', async (t) => {
 
     await cleanup();
   });
+
+  // 10: Diagnostics is collected only on persistence failure, never during healthy renders
+  await t.test('10. Diagnostics is not collected during healthy render; collected upon persistence failure and rendered in DiagnosticDetails', async () => {
+    const { div, root, cleanup } = createTestContainer();
+
+    // 10a: Healthy render
+    let probeKeysCreated = 0;
+    const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
+    window.localStorage.setItem = (key: string, val: string) => {
+      if (key.startsWith('__probe_')) probeKeysCreated++;
+      return originalSetItem(key, val);
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: workingAuthStandIn,
+          persistenceAdapter: workingAdapter,
+        })
+      );
+    });
+
+    // Healthy render must NOT invoke runDiagnostics() during render
+    assert.strictEqual(probeKeysCreated, 0, 'No storage diagnostics probe should run on healthy render');
+    assert.strictEqual(div.querySelector('[aria-controls]'), null, 'DiagnosticDetails button must not be rendered');
+
+    await cleanup();
+
+    // 10b: Persistence failure triggers diagnostic collection in effect
+    const { div: divFail, root: rootFail, cleanup: cleanupFail } = createTestContainer();
+    const failingAdapter: PersistenceAdapter = {
+      localPersistence: {} as any,
+      sessionPersistence: {} as any,
+      setPersistence: async () => {
+        throw new Error('Storage unavailable');
+      },
+    };
+
+    await act(async () => {
+      rootFail.render(
+        React.createElement(AuthScreen, {
+          language: 'en',
+          onAuthSuccess: () => {},
+          auth: workingAuthStandIn,
+          persistenceAdapter: failingAdapter,
+        })
+      );
+    });
+
+    // Alert banner should appear for persistence failure
+    const alert = divFail.querySelector('[role="alert"]');
+    assert.ok(alert, 'Persistence error alert must be rendered on persistence failure');
+
+    // DiagnosticDetails toggle button must now be present inside the alert
+    const detailsBtn = alert.querySelector('button[aria-controls]');
+    assert.ok(detailsBtn, 'DiagnosticDetails button must appear within the persistence failure alert');
+    assert.ok(detailsBtn.textContent?.includes('Technical Details'));
+
+    // Expand details to verify rendered content
+    await act(async () => {
+      (detailsBtn as HTMLButtonElement).click();
+    });
+
+    const panelId = detailsBtn.getAttribute('aria-controls')!;
+    const panel = divFail.querySelector(`div[id="${panelId}"]`);
+    assert.ok(panel, 'Diagnostics panel must be expanded');
+    const panelText = panel.textContent || '';
+    assert.ok(panelText.includes('Authentication persistence: error'));
+    assert.ok(panelText.includes('Failure category: persistence initialization failure'));
+    assert.ok(panelText.includes('Application initialization: unknown'));
+
+    // Restore setItem
+    window.localStorage.setItem = originalSetItem;
+    await cleanupFail();
+  });
 });
+

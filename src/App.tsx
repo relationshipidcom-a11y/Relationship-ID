@@ -358,6 +358,11 @@ export default function App() {
           : await fetchWithTimeout(`/api/invitations/${inviteId}`, { headers });
         return parseApiError(response);
       },
+      forceRefreshToken: async () => {
+        if (auth?.currentUser) {
+          await auth.currentUser.getIdToken(true);
+        }
+      },
       setInvitation,
       setInvitationAuth,
       setInvitationNotFound,
@@ -718,11 +723,13 @@ export default function App() {
     invitationRequestIdRef.current += 1;
     changeRequestsRequestIdRef.current += 1;
     notificationsRequestIdRef.current += 1;
-    if (auth) {
+    if (auth?.currentUser) {
       try {
         await signOut(auth);
       } catch (e) {
-        console.debug('Error signing out on account switch:', e);
+        console.error('Error signing out on account switch:', e);
+        setAppError(getLocalizedErrorMessage(e, language));
+        return;
       }
     }
     setAuthUser(null);
@@ -1045,6 +1052,7 @@ export default function App() {
   };
 
   const handleP2Authenticated = async (user: AuthUser) => {
+    activeAuthUidRef.current = user.id;
     setAuthUser(user);
     const routeInviteId = getRouteState().inviteId;
     const targetInviteId = (invitation.id && invitation.id !== 'current')
@@ -1319,6 +1327,9 @@ export default function App() {
                 authUser={authUser}
                 invitationAuthorization={invitationAuth}
                 invitationNotFound={invitationNotFound}
+                authInitialized={authInitialized}
+                invitationLoading={invitationLoading}
+                hasAppError={Boolean(appError)}
                 onAccept={() => {
                   setP2PendingAction('accept');
                   if (!auth?.currentUser) {
@@ -1328,12 +1339,31 @@ export default function App() {
                   } else if (!invitationAuth) {
                     setAppError(getLocalizedErrorMessage(new Error('INVITATION_NOT_LOADED'), language));
                   } else if (!invitationAuth.authorized) {
-                    setAppError(getLocalizedErrorMessage(new Error(invitationAuth.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                    if (invitationAuth.reason !== 'VERIFICATION_REQUIRED') {
+                      setAppError(getLocalizedErrorMessage(new Error(invitationAuth.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                    }
                   } else {
                     navigateTo('p2_details', `/invite/${invitation.id}/complete`);
                   }
                 }}
+                onPhoneVerified={(e164) => {
+                  setP2Verification({
+                    whatsappTrusted: true,
+                    whatsappE164: e164
+                  });
+                  if (invitation.id) {
+                    void loadInvitation(invitation.id);
+                  }
+                }}
                 onSwitchAccount={() => void handleSwitchAccount(invitation.id)}
+                onRetry={() => {
+                  const routeInviteId = getRouteState().inviteId;
+                  const inviteToLoad = invitation.id || (routeInviteId && routeInviteId !== 'current' ? routeInviteId : '');
+                  if (inviteToLoad && !invitationLoading) {
+                    setAppError('');
+                    void loadInvitation(inviteToLoad);
+                  }
+                }}
                 onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
                 onViewCertificate={hasActiveRelationship ? () => navigateTo('official_certificate', `/certificate/${record.verificationRef}`) : undefined}
                 onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
@@ -1346,6 +1376,7 @@ export default function App() {
               language={language}
               isP2InvitationFlow
               inviterName={invitation.inviterName}
+              contactRequirement={invitation.contactRequirement}
               onAuthSuccess={(user) => void handleP2Authenticated(user)}
               onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : screen === 'about' ? '/about' : undefined)}
             />
@@ -1463,18 +1494,40 @@ export default function App() {
                   authUser={authUser}
                   invitationAuthorization={invitationAuth}
                   invitationNotFound={invitationNotFound}
+                  authInitialized={authInitialized}
+                  invitationLoading={invitationLoading}
+                  hasAppError={Boolean(appError)}
                   onAccept={() => {
                     if (decision.state === 'p1_rejected') {
                       setAppError(getLocalizedErrorMessage(new Error('CANNOT_ACCEPT_OWN_INVITATION'), language));
                     } else if (decision.state === 'unauthorized') {
-                      setAppError(getLocalizedErrorMessage(new Error(decision.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                      if (decision.reason !== 'VERIFICATION_REQUIRED') {
+                        setAppError(getLocalizedErrorMessage(new Error(decision.reason || 'INVITATION_IDENTITY_MISMATCH'), language));
+                      }
                     } else if (!auth?.currentUser) {
                       navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
                     } else {
                       navigateTo('p2_auth', fallbackInviteId ? `/invite/${fallbackInviteId}/auth` : '/');
                     }
                   }}
+                  onPhoneVerified={(e164) => {
+                    setP2Verification({
+                      whatsappTrusted: true,
+                      whatsappE164: e164
+                    });
+                    if (fallbackInviteId) {
+                      void loadInvitation(fallbackInviteId);
+                    }
+                  }}
                   onSwitchAccount={() => void handleSwitchAccount(fallbackInviteId)}
+                  onRetry={() => {
+                    const routeInviteId = getRouteState().inviteId;
+                    const inviteToLoad = fallbackInviteId || (routeInviteId && routeInviteId !== 'current' ? routeInviteId : '');
+                    if (inviteToLoad && !invitationLoading) {
+                      setAppError('');
+                      void loadInvitation(inviteToLoad);
+                    }
+                  }}
                   onDecline={(block) => void handleDeclineInvitation(block).catch((error) => setAppError(getLocalizedErrorMessage(error, language)))}
                   onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : undefined)}
                 />

@@ -17,3 +17,27 @@ test('already international input is not double-prefixed', () => {
 test('invalid phone is rejected', () => {
   assert.equal(normalizePhoneNumber('SA', '123'), null);
 });
+
+test('All equivalent Saudi phone formats resolve to +966583347281', () => {
+  const target = '+966583347281';
+  const formats = [
+    '0583347281',
+    '583347281',
+    '+966583347281',
+    '966583347281',
+    '00966583347281',
+    '058 334 7281',
+    '+966 58 334 7281',
+    '٠٥٨٣٣٤٧٢٨١', // Arabic-Indic digits
+    '۰۵۸۳۳۴۷۲۸۱'  // Persian digits
+  ];
+
+  for (const fmt of formats) {
+    assert.equal(
+      normalizePhoneNumber('SA', fmt),
+      target,
+      `Failed to normalize format: ${fmt}`
+    );
+  }
+});
+

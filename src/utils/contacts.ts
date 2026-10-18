@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
-import { countryFromLegacyValue } from './phone';
+import { countryFromLegacyValue, preprocessPhoneInput } from './phone';
 
 export interface NormalizedContactResult {
   canonical: string;
@@ -49,16 +49,17 @@ export function normalizeCanonicalPhone(
   if (rawInput === undefined || rawInput === null) {
     return { canonical: '', isValid: true };
   }
-  const trimmed = rawInput.trim();
+  const trimmed = typeof rawInput === 'string' ? rawInput.trim() : String(rawInput).trim();
   if (trimmed === '') {
     return { canonical: '', isValid: true };
   }
 
   try {
     const iso: CountryCode = countryStr ? countryFromLegacyValue(countryStr) : 'SA';
-    const parsed = trimmed.startsWith('+')
-      ? parsePhoneNumberFromString(trimmed)
-      : parsePhoneNumberFromString(trimmed, iso);
+    const preprocessed = preprocessPhoneInput(iso, trimmed);
+    const parsed = preprocessed.startsWith('+')
+      ? parsePhoneNumberFromString(preprocessed)
+      : parsePhoneNumberFromString(preprocessed, iso);
 
     if (parsed && parsed.isValid()) {
       return { canonical: parsed.number, isValid: true };

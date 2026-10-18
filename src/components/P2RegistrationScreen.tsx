@@ -600,7 +600,12 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p2-fullname">{t.fullNameLabel}</label>
+              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p2-fullname">
+                {t.fullNameLabel}
+                <span className="block text-xs font-normal text-[#E7BCD3] mt-0.5">
+                  {language === 'ar' ? 'اسمك — راجعه وصحّحه عند الحاجة' : 'Your name — review and correct if needed.'}
+                </span>
+              </label>
               <input
                 id="p2-fullname"
                 type="text"

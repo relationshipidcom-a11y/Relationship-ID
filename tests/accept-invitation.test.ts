@@ -401,14 +401,14 @@ test('Step 6 accept & decline suite', async (t) => {
       assert.equal(directResDiff.authorized, false);
       assert.equal(directResDiff.reason, 'INVITATION_IDENTITY_MISMATCH');
 
-      // 8c. WhatsApp-only invite + user with no phone -> INVITATION_IDENTITY_MISMATCH
+      // 8c. WhatsApp-only invite + user with no phone -> VERIFICATION_REQUIRED (not assumed mismatch)
       const directResNoPhone = verifyRecipientIdentity({
         invitation: invWa,
         user: { uid: 'uid_p2_no_phone', email: 'nophone@example.com', email_verified: true, phone_number: null },
         isAction: 'accept'
       });
       assert.equal(directResNoPhone.authorized, false);
-      assert.equal(directResNoPhone.reason, 'INVITATION_IDENTITY_MISMATCH');
+      assert.equal(directResNoPhone.reason, 'VERIFICATION_REQUIRED');
     });
 
     // 9. Cancel invitation: owner-only atomic transition, status check, deletion guards

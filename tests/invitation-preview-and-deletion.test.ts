@@ -315,21 +315,31 @@ test('5. Recipient identity verification gate allows only verified intended reci
   assert.equal(resDeclineP1.authorized, false);
   assert.equal(resDeclineP1.reason, 'INVITER_CANNOT_DECLINE_AS_P2');
 
-  // Case B: Verified recipient with matching verified email -> authorized
+  // Case B: In both-contacts invite, matching verified email alone without phone -> requires phone verification
   const resB = verifyRecipientIdentity({
     invitation: inv,
     user: { uid: 'uid_p2', email: 'intended.partner@example.com', email_verified: true },
     isAction: 'accept'
   });
-  assert.equal(resB.authorized, true);
+  assert.equal(resB.authorized, false);
+  assert.equal(resB.reason, 'VERIFICATION_REQUIRED');
 
-  // Case C: Recipient with matching phone -> authorized
+  // Case C: In both-contacts invite, matching phone alone without verified email -> requires email verification
   const resC = verifyRecipientIdentity({
     invitation: inv,
     user: { uid: 'uid_p2', phone_number: '+966551234567' },
     isAction: 'accept'
   });
-  assert.equal(resC.authorized, true);
+  assert.equal(resC.authorized, false);
+  assert.equal(resC.reason, 'VERIFICATION_REQUIRED');
+
+  // Case BC: In both-contacts invite, BOTH matching verified email AND phone -> authorized
+  const resBoth = verifyRecipientIdentity({
+    invitation: inv,
+    user: { uid: 'uid_p2', email: 'intended.partner@example.com', email_verified: true, phone_number: '+966551234567' },
+    isAction: 'accept'
+  });
+  assert.equal(resBoth.authorized, true);
 
   // Case D: Recipient with matching email but NOT verified -> rejected (fails closed)
   const resD = verifyRecipientIdentity({
@@ -338,7 +348,7 @@ test('5. Recipient identity verification gate allows only verified intended reci
     isAction: 'accept'
   });
   assert.equal(resD.authorized, false);
-  assert.equal(resD.reason, 'INVITATION_IDENTITY_MISMATCH');
+  assert.equal(resD.reason, 'VERIFICATION_REQUIRED');
 
   // Case E: Unrelated logged-in user -> rejected
   const resE = verifyRecipientIdentity({
@@ -348,19 +358,40 @@ test('5. Recipient identity verification gate allows only verified intended reci
   });
   assert.equal(resE.authorized, false);
 
-  // Case F: Email-only invitation where user has verified phone but no matching verified email -> rejected
+  // Case F: Email-only invitation where user has verified email -> authorized
   const invEmailOnly: any = {
     id: 'inv_email_only',
     p1Uid: 'uid_p1_owner',
     partner2Email: 'intended@example.com'
   };
-  const resF = verifyRecipientIdentity({
+  const resEmailOnly = verifyRecipientIdentity({
     invitation: invEmailOnly,
-    user: { uid: 'uid_p2', phone_number: '+966559999999', email: 'intended@example.com', email_verified: false },
+    user: { uid: 'uid_p2', email: 'intended@example.com', email_verified: true },
     isAction: 'accept'
   });
-  assert.equal(resF.authorized, false);
-  assert.equal(resF.reason, 'INVITATION_IDENTITY_MISMATCH');
+  assert.equal(resEmailOnly.authorized, true);
+
+  // Case F-neg: Email-only invitation where user has matching email but NOT verified -> rejected with VERIFICATION_REQUIRED
+  const resEmailOnlyNeg = verifyRecipientIdentity({
+    invitation: invEmailOnly,
+    user: { uid: 'uid_p2', email: 'intended@example.com', email_verified: false },
+    isAction: 'accept'
+  });
+  assert.equal(resEmailOnlyNeg.authorized, false);
+  assert.equal(resEmailOnlyNeg.reason, 'VERIFICATION_REQUIRED');
+
+  // Case G: Mobile-only invitation where user has matching phone -> authorized
+  const invPhoneOnly: any = {
+    id: 'inv_phone_only',
+    p1Uid: 'uid_p1_owner',
+    partner2Phone: '+966551234567'
+  };
+  const resPhoneOnly = verifyRecipientIdentity({
+    invitation: invPhoneOnly,
+    user: { uid: 'uid_p2', phone_number: '+966551234567' },
+    isAction: 'accept'
+  });
+  assert.equal(resPhoneOnly.authorized, true);
 });
 
 // 6. Delete My Account deletes requester account and relationship, preserving other partner

@@ -51,14 +51,47 @@ export const legacyCountryValue = (country: CountryCode): string => {
   return `${normalized} +${getCountryCallingCode(country)}`;
 };
 
+export const preprocessPhoneInput = (iso: CountryCode, rawInput: string): string => {
+  if (!rawInput) return '';
+  // Convert Arabic-Indic (\u0660-\u0669) and Persian (\u06F0-\u06F9) digits to ASCII digits
+  let cleaned = rawInput
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+
+  // Remove spaces, dashes, parentheses, non-breaking spaces
+  cleaned = cleaned.replace(/[\s\-\(\)\u00A0]/g, '');
+
+  if (!cleaned) return '';
+
+  // Handle leading 00 -> +
+  if (cleaned.startsWith('00')) {
+    cleaned = '+' + cleaned.slice(2);
+  }
+
+  // If doesn't start with +, check if it starts with the country calling code
+  if (!cleaned.startsWith('+')) {
+    try {
+      const callingCode = getCountryCallingCode(iso);
+      if (cleaned.startsWith(callingCode)) {
+        cleaned = '+' + cleaned;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return cleaned;
+};
+
 export const normalizePhoneNumber = (country: CountryCode, rawInput: string): string | null => {
-  const raw = rawInput.trim();
-  if (!raw) return null;
+  if (!rawInput) return null;
+  const preprocessed = preprocessPhoneInput(country, rawInput);
+  if (!preprocessed) return null;
 
   try {
-    const phone = raw.startsWith('+')
-      ? parsePhoneNumberFromString(raw)
-      : parsePhoneNumberFromString(raw, country);
+    const phone = preprocessed.startsWith('+')
+      ? parsePhoneNumberFromString(preprocessed)
+      : parsePhoneNumberFromString(preprocessed, country);
     if (!phone || !phone.isValid()) return null;
     return phone.number;
   } catch {

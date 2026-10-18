@@ -28,14 +28,15 @@ Object.defineProperty(globalThis, 'document', { value: dom.window.document, writ
 (globalThis as any).HTMLButtonElement = dom.window.HTMLButtonElement;
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
-import { createApp, __setTestDeps, getPublicStaticDir } from '../server';
-import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
-import { P2LandingScreen } from '../src/components/P2LandingScreen';
-import { VerifyPortalModal } from '../src/components/VerifyPortalModal';
-import { executeInvitationLoad } from '../src/utils/relationshipState';
 import type { Invitation } from '../src/types';
 
 test('Bugfix Re-Test Suite (Comprehensive Verification of Known Issues)', async (t) => {
+  const { createApp, __setTestDeps, getPublicStaticDir } = await import('../server');
+  const { createMockFirestore, createMockAuth } = await import('./helpers/mockFirestore');
+  const { P2LandingScreen } = await import('../src/components/P2LandingScreen');
+  const { VerifyPortalModal } = await import('../src/components/VerifyPortalModal');
+  const { executeInvitationLoad } = await import('../src/utils/relationshipState');
+
   const mockDb = createMockFirestore();
   const mockAuth = createMockAuth();
   __setTestDeps(mockDb, mockAuth);
@@ -196,7 +197,7 @@ test('Bugfix Re-Test Suite (Comprehensive Verification of Known Issues)', async 
         startDate: '', startDateAr: '', startDateIso: '', status: 'pending', createdAt: '', expiresAt: '', reminderCount: 0,
       };
       await act(async () => {
-        root.render(React.createElement(P2LandingScreen, { language: 'en', invitation: emptyInv, invitationNotFound: false, onAccept: () => {}, onDecline: () => {} }));
+        root.render(React.createElement(P2LandingScreen, { language: 'en', invitation: emptyInv, authUser: { id: 'uid_p2', email: 'p2@example.com', name: 'Test P2' }, authInitialized: true, invitationNotFound: false, hasAppError: true, onAccept: () => {}, onDecline: () => {} }));
       });
       assert.ok(div.textContent?.includes('Could Not Load Invitation'));
       assert.ok(div.textContent?.includes('Try Again'));
@@ -205,7 +206,7 @@ test('Bugfix Re-Test Suite (Comprehensive Verification of Known Issues)', async 
       assert.equal(Array.from(div.querySelectorAll('button')).some((b) => b.textContent?.includes('Accept')), false);
 
       await act(async () => {
-        root.render(React.createElement(P2LandingScreen, { language: 'ar', invitation: emptyInv, invitationNotFound: false, onAccept: () => {}, onDecline: () => {} }));
+        root.render(React.createElement(P2LandingScreen, { language: 'ar', invitation: emptyInv, authUser: { id: 'uid_p2', email: 'p2@example.com', name: 'Test P2' }, authInitialized: true, invitationNotFound: false, hasAppError: true, onAccept: () => {}, onDecline: () => {} }));
       });
       assert.ok(div.textContent?.includes('تعذر تحميل الدعوة'));
       assert.ok(div.textContent?.includes('إعادة المحاولة'));

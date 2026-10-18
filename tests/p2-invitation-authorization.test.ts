@@ -7,13 +7,17 @@ import type { AddressInfo } from 'node:net';
 import {
   evaluateP2Authorization,
   shouldRenderP2RegistrationScreen,
-  evaluateP2AuthNavigation
+  evaluateP2AuthNavigation,
+  evaluateP2LandingState,
+  executeInvitationLoad
 } from '../src/utils/relationshipState';
 import {
   createApp,
   __setTestDeps,
-  CURRENT_LEGAL_VERSION
+  CURRENT_LEGAL_VERSION,
+  verifyRecipientIdentity
 } from '../server';
+import { getInvitationInstruction } from '../src/utils/invitationGuidance';
 import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
 
 const P1_PHONE = '+966500000001';
@@ -569,5 +573,555 @@ test('P2 Invitation Authorization & Fail-Closed Protection Suite', async (t) => 
     assert.equal(dataP1.invitation.relationshipType, 'dating');
     assert.equal(dataStranger.invitation.inviterName, 'Partner One');
     assert.equal(dataStranger.invitation.relationshipType, 'dating');
+  });
+
+  // 10. Landing state evaluator and session recovery regression tests
+  await t.test('17. Signed-out viewer on P2 landing screen returns signed_out state, never mismatch', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: null,
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: false,
+        isP1: false,
+        authorized: false,
+        reason: 'AUTH_REQUIRED',
+        inviteId: 'inv_123'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'signed_out');
+  });
+
+  await t.test('18. Pending auth initialization returns auth_loading state, never mismatch or authorized', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: false,
+      currentUserId: null,
+      targetInviteId: 'inv_123',
+      invitationAuth: null,
+      invitation: { id: 'inv_123', status: 'pending' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'auth_loading');
+  });
+
+  await t.test('19. Signed-in user with authorization pending returns authorization_pending, never mismatch or authorized', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: null,
+      invitation: { id: 'inv_123', status: 'pending' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'authorization_pending');
+  });
+
+  await t.test('20. Signed-in user with server AUTH_REQUIRED returns session_not_verified, not a mismatch accusation', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: false,
+        isP1: false,
+        authorized: false,
+        reason: 'AUTH_REQUIRED',
+        inviteId: 'inv_123',
+        authorizedUid: undefined,
+        requestUid: 'uid_p2'
+      },
+      invitation: { id: 'inv_123', status: 'pending' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'session_not_verified');
+    if (outcome.state === 'session_not_verified') {
+      assert.equal(outcome.reason, 'AUTH_REQUIRED');
+    }
+  });
+
+  await t.test('21. Genuine identity mismatch for current authenticated UID returns confirmed_mismatch', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_stranger',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: false,
+        reason: 'INVITATION_IDENTITY_MISMATCH',
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_stranger',
+        requestUid: 'uid_stranger'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'confirmed_mismatch');
+    if (outcome.state === 'confirmed_mismatch') {
+      assert.equal(outcome.reason, 'INVITATION_IDENTITY_MISMATCH');
+    }
+  });
+
+  await t.test('22. Stale authorization from previous UID or previous invitation returns authorization_pending', () => {
+    // A. Mismatched authorizedUid
+    const outcomeDifferentUid = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2_new',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: true,
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_p2_old'
+      },
+      invitation: { id: 'inv_123', status: 'pending' },
+      invitationLoading: false
+    });
+    assert.equal(outcomeDifferentUid.state, 'authorization_pending');
+
+    // B. Mismatched inviteId
+    const outcomeDifferentInvite = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: true,
+        inviteId: 'inv_other_999',
+        authorizedUid: 'uid_p2'
+      },
+      invitation: { id: 'inv_123', status: 'pending' },
+      invitationLoading: false
+    });
+    assert.equal(outcomeDifferentInvite.state, 'authorization_pending');
+  });
+
+  await t.test('23. P1 accessing own invitation returns p1_own_invitation with CANNOT_ACCEPT_OWN_INVITATION', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p1',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: true,
+        authorized: false,
+        reason: 'CURRENTLY_SIGNED_IN_AS_INVITER',
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_p1'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'p1_own_invitation');
+    if (outcome.state === 'p1_own_invitation') {
+      assert.equal(outcome.reason, 'CANNOT_ACCEPT_OWN_INVITATION');
+    }
+  });
+
+  await t.test('24. Network or server load failure returns load_failed', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: null,
+      invitation: null,
+      invitationLoading: false,
+      hasAppError: true
+    });
+    assert.equal(outcome.state, 'load_failed');
+  });
+
+  await t.test('25. Terminal invitation statuses (expired, cancelled, declined, accepted, not_found) preserved', () => {
+    const notFound = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: null,
+      invitation: null,
+      invitationLoading: false,
+      invitationNotFound: true
+    });
+    assert.equal(notFound.state, 'not_found');
+
+    for (const status of ['expired', 'cancelled', 'declined', 'accepted'] as const) {
+      const outcome = evaluateP2LandingState({
+        authInitialized: true,
+        currentUserId: 'uid_p2',
+        targetInviteId: 'inv_123',
+        invitationAuth: null,
+        invitation: { id: 'inv_123', status },
+        invitationLoading: false
+      });
+      assert.equal(outcome.state, status);
+    }
+  });
+
+  await t.test('26. executeInvitationLoad triggers forced token refresh on authenticated AUTH_REQUIRED and retries once', async () => {
+    let fetchCount = 0;
+    let refreshCount = 0;
+    let storedAuth: any = null;
+
+    const res = await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: 'uid_p2',
+      requestId: 1,
+      getCurrentRequestId: () => 1,
+      getActiveAuthUid: () => 'uid_p2',
+      getCurrentAuthUid: () => 'uid_p2',
+      fetchInvitation: async () => {
+        fetchCount++;
+        if (fetchCount === 1) {
+          return {
+            invitation: { id: 'inv_123', status: 'pending' },
+            authorization: { authenticated: false, isP1: false, authorized: false, reason: 'AUTH_REQUIRED', inviteId: 'inv_123' }
+          };
+        }
+        return {
+          invitation: { id: 'inv_123', status: 'pending' },
+          authorization: { authenticated: true, isP1: false, authorized: true, inviteId: 'inv_123', authorizedUid: 'uid_p2' }
+        };
+      },
+      forceRefreshToken: async () => {
+        refreshCount++;
+      },
+      setInvitation: () => {},
+      setInvitationAuth: (auth) => { storedAuth = auth; },
+      setRecord: () => {},
+      setAppError: () => {},
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+
+    assert.equal(fetchCount, 2, 'Must have retried the fetch once after token refresh');
+    assert.equal(refreshCount, 1, 'Must have called forceRefreshToken exactly once');
+    assert.ok(res);
+    assert.equal(storedAuth?.authenticated, true);
+    assert.equal(storedAuth?.authorized, true);
+  });
+
+  await t.test('27. executeInvitationLoad does not trigger token refresh on signed-out, genuine mismatch, or terminal invitations', async () => {
+    let refreshCount = 0;
+
+    // A. Signed-out request (requestUid: null)
+    await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: null,
+      requestId: 1,
+      getCurrentRequestId: () => 1,
+      getActiveAuthUid: () => null,
+      getCurrentAuthUid: () => null,
+      fetchInvitation: async () => ({
+        invitation: { id: 'inv_123', status: 'pending' },
+        authorization: { authenticated: false, isP1: false, authorized: false, reason: 'AUTH_REQUIRED', inviteId: 'inv_123' }
+      }),
+      forceRefreshToken: async () => { refreshCount++; },
+      setInvitation: () => {},
+      setInvitationAuth: () => {},
+      setRecord: () => {},
+      setAppError: () => {},
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+    assert.equal(refreshCount, 0, 'Signed-out request must not trigger token refresh');
+
+    // B. Genuine mismatch (authenticated: true, authorized: false)
+    await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: 'uid_stranger',
+      requestId: 2,
+      getCurrentRequestId: () => 2,
+      getActiveAuthUid: () => 'uid_stranger',
+      getCurrentAuthUid: () => 'uid_stranger',
+      fetchInvitation: async () => ({
+        invitation: { id: 'inv_123', status: 'pending' },
+        authorization: { authenticated: true, isP1: false, authorized: false, reason: 'INVITATION_IDENTITY_MISMATCH', inviteId: 'inv_123', authorizedUid: 'uid_stranger' }
+      }),
+      forceRefreshToken: async () => { refreshCount++; },
+      setInvitation: () => {},
+      setInvitationAuth: () => {},
+      setRecord: () => {},
+      setAppError: () => {},
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+    assert.equal(refreshCount, 0, 'Genuine mismatch must not trigger token refresh');
+
+    // C. Expired invitation
+    await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: 'uid_p2',
+      requestId: 3,
+      getCurrentRequestId: () => 3,
+      getActiveAuthUid: () => 'uid_p2',
+      getCurrentAuthUid: () => 'uid_p2',
+      fetchInvitation: async () => ({
+        invitation: { id: 'inv_123', status: 'expired' },
+        authorization: { authenticated: false, isP1: false, authorized: false, reason: 'AUTH_REQUIRED', inviteId: 'inv_123' }
+      }),
+      forceRefreshToken: async () => { refreshCount++; },
+      setInvitation: () => {},
+      setInvitationAuth: () => {},
+      setRecord: () => {},
+      setAppError: () => {},
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+    assert.equal(refreshCount, 0, 'Expired invitation must not trigger token refresh');
+  });
+
+  await t.test('28. evaluateP2LandingState: VERIFICATION_REQUIRED returns verification_required, NEVER mismatch', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: false,
+        reason: 'VERIFICATION_REQUIRED',
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_p2',
+        requestUid: 'uid_p2'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'verification_required');
+    if (outcome.state === 'verification_required') {
+      assert.equal(outcome.reason, 'VERIFICATION_REQUIRED');
+    }
+  });
+
+  await t.test('29. evaluateP2LandingState: INVALID_INVITATION_CONTACTS returns invalid_contacts, NEVER mismatch', () => {
+    const outcome = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: false,
+        reason: 'INVALID_INVITATION_CONTACTS',
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_p2',
+        requestUid: 'uid_p2'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcome.state, 'invalid_contacts');
+    if (outcome.state === 'invalid_contacts') {
+      assert.equal(outcome.reason, 'INVALID_INVITATION_CONTACTS');
+    }
+  });
+
+  await t.test('30. evaluateP2LandingState: unknown/missing reason fails closed with load_failed, NEVER inventing mismatch', () => {
+    const outcomeMissing = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: false,
+        reason: undefined,
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_p2',
+        requestUid: 'uid_p2'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcomeMissing.state, 'load_failed');
+
+    const outcomeUnknown = evaluateP2LandingState({
+      authInitialized: true,
+      currentUserId: 'uid_p2',
+      targetInviteId: 'inv_123',
+      invitationAuth: {
+        authenticated: true,
+        isP1: false,
+        authorized: false,
+        reason: 'SOME_UNEXPECTED_SERVER_ERROR',
+        inviteId: 'inv_123',
+        authorizedUid: 'uid_p2',
+        requestUid: 'uid_p2'
+      },
+      invitation: { id: 'inv_123', status: 'pending', p1Uid: 'uid_p1' },
+      invitationLoading: false
+    });
+    assert.equal(outcomeUnknown.state, 'load_failed');
+  });
+
+  await t.test('31. executeInvitationLoad: request becomes stale during forceRefreshToken -> no writes committed', async () => {
+    let currentReq = 1;
+    let written = false;
+
+    const res = await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: 'uid_p2',
+      requestId: 1,
+      getCurrentRequestId: () => currentReq,
+      getActiveAuthUid: () => 'uid_p2',
+      getCurrentAuthUid: () => 'uid_p2',
+      fetchInvitation: async () => ({
+        invitation: { id: 'inv_123', status: 'pending' },
+        authorization: { authenticated: false, isP1: false, authorized: false, reason: 'AUTH_REQUIRED', inviteId: 'inv_123' }
+      }),
+      forceRefreshToken: async () => {
+        // Request became stale while awaiting token refresh (e.g. user navigated or reloaded)
+        currentReq = 2;
+      },
+      setInvitation: () => { written = true; },
+      setInvitationAuth: () => { written = true; },
+      setRecord: () => { written = true; },
+      setAppError: () => { written = true; },
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+
+    assert.equal(res, null);
+    assert.equal(written, false, 'Stale completion during refresh must not write to state');
+  });
+
+  await t.test('32. executeInvitationLoad: forceRefreshToken throws and request became stale -> no writes committed', async () => {
+    let currentUid: string | null = 'uid_p2';
+    let written = false;
+
+    const res = await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: 'uid_p2',
+      requestId: 1,
+      getCurrentRequestId: () => 1,
+      getActiveAuthUid: () => currentUid,
+      getCurrentAuthUid: () => currentUid,
+      fetchInvitation: async () => ({
+        invitation: { id: 'inv_123', status: 'pending' },
+        authorization: { authenticated: false, isP1: false, authorized: false, reason: 'AUTH_REQUIRED', inviteId: 'inv_123' }
+      }),
+      forceRefreshToken: async () => {
+        currentUid = null; // signed out during refresh
+        throw new Error('Refresh failed');
+      },
+      setInvitation: () => { written = true; },
+      setInvitationAuth: () => { written = true; },
+      setRecord: () => { written = true; },
+      setAppError: () => { written = true; },
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+
+    assert.equal(res, null);
+    assert.equal(written, false, 'Stale completion when refresh fails must not write to state');
+  });
+
+  await t.test('33. executeInvitationLoad: retry fetch becomes stale before completion -> retried data is dropped', async () => {
+    let currentReq = 1;
+    let written = false;
+    let fetchCount = 0;
+
+    const res = await executeInvitationLoad({
+      inviteId: 'inv_123',
+      requestUid: 'uid_p2',
+      requestId: 1,
+      getCurrentRequestId: () => currentReq,
+      getActiveAuthUid: () => 'uid_p2',
+      getCurrentAuthUid: () => 'uid_p2',
+      fetchInvitation: async () => {
+        fetchCount++;
+        if (fetchCount === 1) {
+          return {
+            invitation: { id: 'inv_123', status: 'pending' },
+            authorization: { authenticated: false, isP1: false, authorized: false, reason: 'AUTH_REQUIRED', inviteId: 'inv_123' }
+          };
+        }
+        // Account switched while retry fetch was in flight
+        currentReq = 2;
+        return {
+          invitation: { id: 'inv_123', status: 'pending' },
+          authorization: { authenticated: true, isP1: false, authorized: true, inviteId: 'inv_123', authorizedUid: 'uid_p2' }
+        };
+      },
+      forceRefreshToken: async () => {},
+      setInvitation: () => { written = true; },
+      setInvitationAuth: () => { written = true; },
+      setRecord: () => { written = true; },
+      setAppError: () => { written = true; },
+      setInvitationLoading: () => {},
+      resetInvitation: () => {}
+    });
+
+    assert.equal(res, null);
+    assert.equal(written, false, 'Retried fetch completing after request became stale must not write');
+  });
+
+  await t.test('34. verifyRecipientIdentity: both-contacts policy rejects either contact alone with VERIFICATION_REQUIRED', () => {
+    const invBoth: any = {
+      id: 'inv_both',
+      p1Uid: 'uid_p1',
+      partner2Email: 'sara@example.com',
+      partner2Phone: '0500000002',
+      partner2PhoneCountry: 'SA +966'
+    };
+
+    // Email only -> rejected with VERIFICATION_REQUIRED
+    const resEmailOnly = verifyRecipientIdentity({
+      invitation: invBoth,
+      user: { uid: 'uid_p2', email: 'sara@example.com', email_verified: true, phone_number: null },
+      isAction: 'view'
+    });
+    assert.equal(resEmailOnly.authorized, false);
+    assert.equal(resEmailOnly.reason, 'VERIFICATION_REQUIRED');
+
+    // Phone only -> rejected with VERIFICATION_REQUIRED
+    const resPhoneOnly = verifyRecipientIdentity({
+      invitation: invBoth,
+      user: { uid: 'uid_p2', email: null, phone_number: '+966500000002' },
+      isAction: 'view'
+    });
+    assert.equal(resPhoneOnly.authorized, false);
+    assert.equal(resPhoneOnly.reason, 'VERIFICATION_REQUIRED');
+
+    // Both match and verified -> authorized
+    const resBoth = verifyRecipientIdentity({
+      invitation: invBoth,
+      user: { uid: 'uid_p2', email: 'sara@example.com', email_verified: true, phone_number: '+966500000002' },
+      isAction: 'view'
+    });
+    assert.equal(resBoth.authorized, true);
+
+    // Mismatched phone -> INVITATION_IDENTITY_MISMATCH
+    const resWrongPhone = verifyRecipientIdentity({
+      invitation: invBoth,
+      user: { uid: 'uid_p2', email: 'sara@example.com', email_verified: true, phone_number: '+966500000099' },
+      isAction: 'view'
+    });
+    assert.equal(resWrongPhone.authorized, false);
+    assert.equal(resWrongPhone.reason, 'INVITATION_IDENTITY_MISMATCH');
+
+    // Mismatched email -> INVITATION_IDENTITY_MISMATCH
+    const resWrongEmail = verifyRecipientIdentity({
+      invitation: invBoth,
+      user: { uid: 'uid_p2', email: 'wrong@example.com', email_verified: true, phone_number: '+966500000002' },
+      isAction: 'view'
+    });
+    assert.equal(resWrongEmail.authorized, false);
+    assert.equal(resWrongEmail.reason, 'INVITATION_IDENTITY_MISMATCH');
+  });
+
+  await t.test('35. getInvitationInstruction: formats instructions for email, mobile, and both without exposing personal data', () => {
+    const arMobile = getInvitationInstruction('mobile', 'ar');
+    assert.ok(arMobile?.includes('واتساب'));
+    assert.equal(arMobile?.includes('+966'), false);
+    assert.equal(arMobile?.includes('@'), false);
+
+    const enBoth = getInvitationInstruction('both', 'en');
+    assert.ok(enBoth?.includes('email'));
+    assert.ok(enBoth?.includes('WhatsApp'));
+    assert.equal(enBoth?.includes('@'), false);
   });
 });

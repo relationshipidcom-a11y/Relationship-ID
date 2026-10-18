@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Clock, Heart, Lock, LogIn, X, UserX, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import type { CountryCode } from 'libphonenumber-js';
 import { Language, Invitation, ScreenId, AuthUser, InvitationAuthorization } from '../types';
 import { translations } from '../i18n/translations';
+import { evaluateP2LandingState } from '../utils/relationshipState';
+import { getInvitationInstruction } from '../utils/invitationGuidance';
+import { PhoneVerificationField } from './PhoneVerificationField';
+import { BrandMark } from './BrandMark';
 
 interface P2LandingScreenProps {
   language: Language;
@@ -9,11 +14,16 @@ interface P2LandingScreenProps {
   authUser?: AuthUser | null;
   invitationAuthorization?: InvitationAuthorization | null;
   invitationNotFound?: boolean;
+  authInitialized?: boolean;
+  invitationLoading?: boolean;
+  hasAppError?: boolean;
   onAccept: () => void;
   onDecline: (block?: boolean) => void;
   onSwitchAccount?: () => void;
+  onRetry?: () => void;
   onViewCertificate?: () => void;
   onNavigate?: (screen: ScreenId) => void;
+  onPhoneVerified?: (e164: string) => void;
 }
 
 export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
@@ -22,33 +32,42 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   authUser,
   invitationAuthorization,
   invitationNotFound = false,
+  authInitialized = true,
+  invitationLoading = false,
+  hasAppError = false,
   onAccept,
   onDecline,
   onSwitchAccount,
+  onRetry,
   onViewCertificate,
-  onNavigate
+  onNavigate,
+  onPhoneVerified
 }) => {
   const t = translations[language];
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>('SA');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [verifiedPhoneE164, setVerifiedPhoneE164] = useState<string | null>(null);
 
-  const isP1 = Boolean(
-    invitationAuthorization?.isP1 ||
-    (authUser && invitation.p1Uid && authUser.id === invitation.p1Uid)
-  );
-  const isMismatch = Boolean(
-    !isP1 &&
-    authUser &&
-    invitationAuthorization &&
-    !invitationAuthorization.authorized
-  );
-  const isAuthorizedP2 = Boolean(
-    !isP1 &&
-    authUser &&
-    (!invitationAuthorization || invitationAuthorization.authorized)
-  );
+  // Clear verification UI state when account or invitation changes
+  useEffect(() => {
+    setVerifiedPhoneE164(null);
+    setPhoneNumber('');
+  }, [authUser?.id, invitation?.id]);
 
-  // Server confirmed the invitation does not exist
-  if (invitationNotFound) {
+  const landingOutcome = evaluateP2LandingState({
+    authInitialized,
+    currentUserId: authUser?.id || null,
+    targetInviteId: invitation.id,
+    invitationAuth: invitationAuthorization,
+    invitation,
+    invitationLoading,
+    invitationNotFound,
+    hasAppError
+  });
+
+  // 1. Server confirmed the invitation does not exist
+  if (landingOutcome.state === 'not_found') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
         <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
@@ -72,8 +91,8 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     );
   }
 
-  // Invitation could not be loaded (network or server problem) — never show stale or empty invitation details
-  if (!invitation.id) {
+  // 2. Fatal load failure when invitation is not loaded (network or server problem)
+  if (landingOutcome.state === 'load_failed') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
         <div role="alert" className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
@@ -90,7 +109,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           </p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={onRetry || (() => window.location.reload())}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#804E6A] hover:bg-[#8D5775] text-white text-sm font-bold min-h-[44px] cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
@@ -101,8 +120,39 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     );
   }
 
-  // If already declined
-  if (invitation.status === 'declined') {
+  // 3. Invalid invitation contacts configuration (safe fail-closed state)
+  if (landingOutcome.state === 'invalid_contacts') {
+    return (
+      <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
+        <div role="alert" className="w-full bg-[#30264D] border border-amber-500/40 rounded-[20px] p-6 shadow-2xl relative text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+          <h1 className="text-lg font-bold text-white mb-2">
+            {language === 'ar' ? 'بيانات الدعوة غير صالحة' : 'Invalid Invitation Contacts'}
+          </h1>
+          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+            {language === 'ar'
+              ? 'بيانات التواصل المحددة في هذه الدعوة غير مكتملة أو غير صالحة. يرجى التواصل مع الشريك لإعادة إرسال الدعوة بشكل صحيح.'
+              : 'The contact details specified in this invitation are incomplete or invalid. Please ask your partner to resend the invitation.'}
+          </p>
+          {onSwitchAccount && (
+            <button
+              type="button"
+              onClick={onSwitchAccount}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white text-sm font-semibold min-h-[44px] cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{t.switchAccountBtn}</span>
+            </button>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // 4. Terminal invitation states
+  if (landingOutcome.state === 'declined') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
         <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
@@ -126,8 +176,8 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     );
   }
 
-  if (invitation.status === 'expired' || invitation.status === 'cancelled') {
-    const expired = invitation.status === 'expired';
+  if (landingOutcome.state === 'expired' || landingOutcome.state === 'cancelled') {
+    const expired = landingOutcome.state === 'expired';
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
         <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
@@ -149,8 +199,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     );
   }
 
-  // If already accepted
-  if (invitation.status === 'accepted') {
+  if (landingOutcome.state === 'accepted') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
         <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
@@ -179,6 +228,38 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     );
   }
 
+  // 5. Loading / in-flight authorization state
+  if (
+    landingOutcome.state === 'auth_loading' ||
+    landingOutcome.state === 'authorization_pending' ||
+    landingOutcome.state === 'invitation_loading'
+  ) {
+    return (
+      <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#392D5A]/60 border border-[#9D6B87]/40 flex items-center justify-center shadow-lg mx-auto">
+          <RefreshCw className="w-6 h-6 animate-spin text-[#E7BCD3]" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-white">
+            {language === 'ar' ? 'جاري التحقق من تفاصيل الدعوة...' : 'Verifying invitation authorization...'}
+          </p>
+          <p className="text-xs text-[#B7ACC8]">
+            {language === 'ar' ? 'يرجى الانتظار بينما نتحقق من صلاحية الدعوة...' : 'Please wait while we verify invitation access...'}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const isP1 = landingOutcome.state === 'p1_own_invitation';
+  const isMismatch = landingOutcome.state === 'confirmed_mismatch';
+  const isSessionNotVerified = landingOutcome.state === 'session_not_verified';
+  const isVerificationRequired = landingOutcome.state === 'verification_required';
+  const isAuthorizedP2 = landingOutcome.state === 'authorized';
+  const isSignedOut = landingOutcome.state === 'signed_out';
+
+  const instructionText = getInvitationInstruction(invitation.contactRequirement, language);
+
   return (
     <main className="flex-1 flex flex-col items-center justify-center py-4 px-4 w-full">
       {/* Special Invitation Status Badge */}
@@ -193,26 +274,11 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
         {/* Ambient Glow */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#E7BCD3]/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Center Emblem: Fingerprint Heart */}
+        {/* Center Emblem: Relationship ID Logo */}
         <div className="flex items-center justify-center mb-5 relative">
           <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent to-white/20" />
           <div className="mx-4 p-3 rounded-2xl bg-[#392D5A] border border-[#51465F] shadow-lg flex items-center justify-center">
-            <svg
-              className="w-12 h-12 text-[#E7BCD3]"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.8"
-              viewBox="0 0 48 48"
-            >
-              <path d="M24 41s-16-10.4-16-22.4A9.6 9.6 0 0117.6 9c2.72 0 5.28 1.12 6.4 2.88A9.6 9.6 0 0130.4 9 9.6 9.6 0 0140 18.6C40 30.6 24 41 24 41z" />
-              <path d="M24 16.5c-3 0-5.5 2.5-5.5 5.5v3" />
-              <path d="M24 21a2 2 0 012 2v6c0 1.5-1 3-2.5 3.5" />
-              <path d="M20 28.5v-3c0-2.2 1.8-4 4-4s4 1.8 4 4v4" />
-              <path d="M16 23c0-4.4 3.6-8 8-8s8 3.6 8 8v6c0 3-2 5.5-4.5 6" />
-              <path d="M24 37c-4 0-7-3-7-6.5" />
-            </svg>
+            <BrandMark size={48} className="select-none" alt="Relationship ID" />
           </div>
           <div className="flex-1 h-[1px] bg-gradient-to-l from-transparent to-white/20" />
         </div>
@@ -258,7 +324,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           </div>
 
           {/* Expiration Notice */}
-          <div className="flex items-center justify-between text-sm pt-0.5">
+          <div className="flex items-center justify-between text-sm py-1 border-b border-white/10">
             <div className="flex items-center gap-2 text-amber-300 font-medium">
               <span>{t.expirationNoticeText}</span>
             </div>
@@ -266,9 +332,22 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <Clock className="w-3.5 h-3.5" />
             </div>
           </div>
+
+          {/* Contact Requirement Guidance (never reveals actual contact details) */}
+          {instructionText && (
+            <div className="space-y-1 pt-1">
+              <div className="text-xs font-bold text-[#E7BCD3] uppercase tracking-wider">
+                {language === 'ar' ? 'طريقة القبول' : 'How to accept'}
+              </div>
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-[#B7ACC8] leading-relaxed">
+                <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[#E7BCD3]" />
+                <span>{instructionText}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Account Mismatch / Recipient Status Alert */}
+        {/* Account Mismatch / Recipient Status Alerts */}
         {isP1 && (
           <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-start space-y-2">
             <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
@@ -278,16 +357,6 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <p className="text-base sm:text-sm text-amber-200/90 leading-relaxed">
               {t.p1CannotAcceptOwnInviteDesc}
             </p>
-            {onSwitchAccount && (
-              <button
-                type="button"
-                onClick={onSwitchAccount}
-                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 hover:text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[40px]"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>{t.switchAccountBtn}</span>
-              </button>
-            )}
           </div>
         )}
 
@@ -300,15 +369,95 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <p className="text-base sm:text-sm text-rose-200/90 leading-relaxed">
               {t.recipientMismatchDesc.replace('{email}', authUser?.email || authUser?.id || '')}
             </p>
+          </div>
+        )}
+
+        {isSessionNotVerified && (
+          <div className="mb-5 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-start space-y-2">
+            <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{t.sessionNotVerifiedTitle}</span>
+            </div>
+            <p className="text-base sm:text-sm text-amber-200/90 leading-relaxed">
+              {t.sessionNotVerifiedDesc}
+            </p>
+          </div>
+        )}
+
+        {/* Limited Pre-Authorization Verification Interface */}
+        {isVerificationRequired && (
+          <div className="mb-5 p-4 rounded-xl bg-[#392D5A]/80 border border-[#9D6B87]/50 text-start space-y-3">
+            <div className="flex items-center gap-2 text-[#E7BCD3] font-bold text-sm">
+              <Shield className="w-4 h-4 shrink-0" />
+              <span>{language === 'ar' ? 'تأكيد الحساب مطلوب لمراجعة الدعوة' : 'Verification Required to Review Invitation'}</span>
+            </div>
+            <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed">
+              {instructionText ||
+                (language === 'ar'
+                  ? 'لإكمال مراجعة وقبول الدعوة، يرجى تأكيد ملكيتك لرقم الجوال أو البريد الإلكتروني المطلوب.'
+                  : 'To review and accept this invitation, please verify ownership of the required contact.')}
+            </p>
+
+            {/* If email verification is needed */}
+            {(invitation.contactRequirement === 'email' || invitation.contactRequirement === 'both') && (
+              <div className="pt-2 border-t border-white/10 space-y-2">
+                <p className="text-xs text-[#E7BCD3]">
+                  {language === 'ar'
+                    ? 'هذه الدعوة تتطلب تأكيد البريد الإلكتروني المسجل في حسابك.'
+                    : 'This invitation requires verifying the email registered to your account.'}
+                </p>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="px-3 py-1.5 rounded-lg bg-[#526F80] text-white text-xs font-medium hover:bg-[#627F90] cursor-pointer"
+                  >
+                    {language === 'ar' ? 'تحقق مرة أخرى' : 'Check Again'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* If mobile verification is needed: provide existing secure Twilio WhatsApp verification */}
+            {(invitation.contactRequirement === 'mobile' || invitation.contactRequirement === 'both') && (
+              <div className="pt-2 border-t border-white/10">
+                <PhoneVerificationField
+                  id="p2-preauth-phone"
+                  language={language}
+                  country={phoneCountry}
+                  number={phoneNumber}
+                  verifiedE164={verifiedPhoneE164}
+                  isWhatsappVerified={true}
+                  onCountryChange={(c) => {
+                    setPhoneCountry(c);
+                    setVerifiedPhoneE164(null);
+                  }}
+                  onNumberChange={(n) => {
+                    setPhoneNumber(n);
+                    setVerifiedPhoneE164(null);
+                  }}
+                  onVerified={(e164) => {
+                    setVerifiedPhoneE164(e164);
+                    if (e164) {
+                      onPhoneVerified?.(e164);
+                    }
+                  }}
+                  label={language === 'ar' ? 'أدخل رقم جوالك لتأكيد ملكيته عبر واتساب' : 'Enter your mobile number to verify via WhatsApp'}
+                />
+              </div>
+            )}
+
+            {/* Exactly ONE switch account link if the user logged into the wrong account */}
             {onSwitchAccount && (
-              <button
-                type="button"
-                onClick={onSwitchAccount}
-                className="w-full mt-1.5 py-2.5 px-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 hover:text-white font-semibold text-sm flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[40px]"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>{t.switchAccountBtn}</span>
-              </button>
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onSwitchAccount}
+                  className="text-xs text-[#B7ACC8] hover:text-[#E7BCD3] underline cursor-pointer"
+                >
+                  {t.switchAccountBtn}
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -334,9 +483,10 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Buttons: Unified, mutually exclusive, exactly one primary button */}
         <div className="flex flex-col gap-2.5">
-          {!isP1 && !isMismatch ? (
+          {/* Case A: Authorized P2 or Signed Out viewer */}
+          {(isAuthorizedP2 || isSignedOut) && (
             <>
               <button
                 type="button"
@@ -344,7 +494,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
               >
                 <LogIn className="w-4 h-4" />
-                <span>{authUser ? t.reviewAndAcceptBtn : t.p2AcceptBtn}</span>
+                <span>{isAuthorizedP2 ? t.reviewAndAcceptBtn : t.p2AcceptBtn}</span>
               </button>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -367,18 +517,56 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 </button>
               </div>
             </>
-          ) : (
-            /* When user is P1 or Mismatch, provide safe switch-account primary button */
-            onSwitchAccount && (
-              <button
-                type="button"
-                onClick={onSwitchAccount}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>{t.switchAccountBtn}</span>
-              </button>
-            )
+          )}
+
+          {/* Case B: P1 or Confirmed Mismatch -> exactly ONE primary switch account button */}
+          {(isP1 || isMismatch) && onSwitchAccount && (
+            <button
+              type="button"
+              onClick={onSwitchAccount}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{t.switchAccountBtn}</span>
+            </button>
+          )}
+
+          {/* Case C: Session Not Verified -> Retry primary, Switch Account secondary */}
+          {isSessionNotVerified && (
+            <div className="flex flex-col gap-2">
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>{t.sessionRetryBtn}</span>
+                </button>
+              )}
+              {onSwitchAccount && (
+                <button
+                  type="button"
+                  onClick={onSwitchAccount}
+                  className="w-full py-2.5 px-3 rounded-xl border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>{t.switchAccountBtn}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Case D: Verification Required -> If just verified, continue button; else single switch-account */}
+          {isVerificationRequired && verifiedPhoneE164 && (
+            <button
+              type="button"
+              onClick={onAccept}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+            >
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <span>{language === 'ar' ? 'متابعة مراجعة الدعوة' : 'Continue to Review Invitation'}</span>
+            </button>
           )}
         </div>
       </div>
@@ -404,65 +592,31 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 {t.declineAndBlock}
               </h3>
             </div>
-
-            <p className="text-base sm:text-sm text-gray-300 leading-relaxed">
+            <p className="text-sm text-[#B7ACC8] leading-relaxed">
               {t.declineAndBlockConfirm}
             </p>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setShowBlockConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 text-sm font-semibold transition-colors min-h-[40px]"
-              >
-                {t.cancelBtn}
-              </button>
+            <div className="flex flex-col gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => {
                   setShowBlockConfirm(false);
                   onDecline(true);
                 }}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold shadow-lg shadow-rose-900/40 transition-colors flex items-center gap-1.5 min-h-[40px]"
+                className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition active:scale-[0.98] cursor-pointer min-h-[44px]"
               >
-                <UserX className="w-3.5 h-3.5" />
-                <span>{t.declineAndBlock}</span>
+                {t.declineAndBlock}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBlockConfirm(false)}
+                className="w-full py-2.5 px-4 rounded-xl border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white font-medium text-sm transition active:scale-[0.98] cursor-pointer min-h-[40px]"
+              >
+                {t.cancelBtn}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Assurance footer */}
-      <div className="mt-4 flex flex-col items-center gap-2 text-sm text-[#B7ACC8]">
-        <div className="flex items-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-[#E7BCD3]" />
-          <span>{t.dataPrivacyAssurance}</span>
-        </div>
-        <div className="flex items-center justify-center gap-3 text-sm text-[#B7ACC8]/70">
-          <a
-            href="/privacy"
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate?.('privacy');
-            }}
-            className="text-[#B7ACC8]/70 hover:text-[#E7BCD3] transition-colors underline"
-          >
-            {t.privacyPolicy}
-          </a>
-          <span>•</span>
-          <a
-            href="/terms"
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate?.('terms');
-            }}
-            className="text-[#B7ACC8]/70 hover:text-[#E7BCD3] transition-colors underline"
-          >
-            {t.termsOfService}
-          </a>
-        </div>
-      </div>
     </main>
   );
 };

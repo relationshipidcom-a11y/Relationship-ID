@@ -3,6 +3,7 @@ import { Hourglass, Copy, Check, MessageCircle, X, ExternalLink, Loader2, AlertC
 import { Language, Invitation, RelationshipRecord } from '../types';
 import { translations } from '../i18n/translations';
 import { getLocalizedErrorMessage } from '../utils/api';
+import { getInvitationInstruction } from '../utils/invitationGuidance';
 import styles from '../styles/WaitingScreen.module.css';
 
 interface WaitingScreenProps {
@@ -35,6 +36,11 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
 
   const inviteUrl = `${window.location.origin}/invite/${invitation.id}`;
 
+  const hasEmail = Boolean(invitation.partner2Email && invitation.partner2Email.trim() !== '');
+  const hasPhone = Boolean((invitation.partner2Phone && invitation.partner2Phone.trim() !== '') || ((invitation as any).partner2WaNumber && (invitation as any).partner2WaNumber.trim() !== ''));
+  const requirement = (hasEmail && hasPhone) ? 'both' : (hasEmail ? 'email' : 'mobile');
+  const instruction = getInvitationInstruction(requirement, language);
+
   useEffect(() => {
     const update = () => setRemainingMs(Math.max(0, new Date(invitation.expiresAt).getTime() - Date.now()));
     update();
@@ -55,11 +61,10 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   };
 
   const handleWhatsApp = () => {
-    const text = encodeURIComponent(
-      language === 'ar'
-        ? `رابط دعوة سجل علاقتنا: ${inviteUrl}`
-        : `Our Relationship ID invitation link: ${inviteUrl}`
-    );
+    const base = language === 'ar'
+      ? `رابط دعوة سجل علاقتنا: ${inviteUrl}`
+      : `Our Relationship ID invitation link: ${inviteUrl}`;
+    const text = encodeURIComponent(instruction ? `${base}\n\n${instruction}` : base);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 

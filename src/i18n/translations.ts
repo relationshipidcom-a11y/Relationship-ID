@@ -164,6 +164,9 @@ export const translations = {
     switchAccountBtn: 'تبديل الحساب وتسجيل الدخول كشريك 2',
     signedInAsP2: 'مسجل الدخول كشريك 2 مصرح له:',
     p2AuthRequired: 'يلزم تسجيل الدخول أولاً للوصول إلى تفاصيل الدعوة والموافقة عليها.',
+    sessionNotVerifiedTitle: 'تعذر التحقق من الجلسة',
+    sessionNotVerifiedDesc: 'تعذر التحقق من جلسة تسجيل الدخول مع خادم الدعوة. يمكنك إعادة المحاولة أو تسجيل الدخول بحساب آخر.',
+    sessionRetryBtn: 'إعادة محاولة التحقق',
     selfInvitationNotAllowed: 'لا يمكنك إرسال دعوة لنفسك باستخدام نفس بيانات الاتصال.',
     sameContactNotAllowed: 'يجب أن تكون بيانات الاتصال الخاصة بالطرف الثاني مختلفة عن بيانات الطرف الأول.',
 
@@ -474,6 +477,9 @@ export const translations = {
     switchAccountBtn: 'Switch Account & Sign In as Partner 2',
     signedInAsP2: 'Signed in as authorized Partner 2:',
     p2AuthRequired: 'Sign-in is required before accessing invitation details and providing consent.',
+    sessionNotVerifiedTitle: 'Session Verification Failed',
+    sessionNotVerifiedDesc: 'Could not verify your active session with the invitation server. You can retry or switch accounts.',
+    sessionRetryBtn: 'Retry Verification',
     selfInvitationNotAllowed: 'You cannot send an invitation to yourself using your own contact information.',
     sameContactNotAllowed: 'Partner 2 contact details must be completely distinct from Partner 1.',
 

@@ -128,7 +128,14 @@ export function evaluateP2Authorization(input: P2AuthorizationDecisionInput): P2
   }
 
   // 7. Authorization explicitly denied or not authenticated
-  if (!invitationAuth.authorized || !invitationAuth.authenticated) {
+  if (!invitationAuth.authenticated || invitationAuth.reason === 'AUTH_REQUIRED') {
+    return {
+      state: 'unauthorized',
+      reason: 'AUTH_REQUIRED'
+    };
+  }
+
+  if (!invitationAuth.authorized) {
     return {
       state: 'unauthorized',
       reason: invitationAuth.reason || 'INVITATION_IDENTITY_MISMATCH'
@@ -137,6 +144,9 @@ export function evaluateP2Authorization(input: P2AuthorizationDecisionInput): P2
 
   // 8. Authorization was issued for a different UID
   if (invitationAuth.authorizedUid && invitationAuth.authorizedUid !== currentUserId) {
+    return { state: 'unauthorized', reason: 'INVITATION_IDENTITY_MISMATCH' };
+  }
+  if ((invitationAuth as any).requestUid && (invitationAuth as any).requestUid !== currentUserId) {
     return { state: 'unauthorized', reason: 'INVITATION_IDENTITY_MISMATCH' };
   }
 
@@ -156,6 +166,171 @@ export function evaluateP2Authorization(input: P2AuthorizationDecisionInput): P2
 
 export function shouldRenderP2RegistrationScreen(outcome: P2AuthorizationOutcome): boolean {
   return outcome.state === 'active_p2' || outcome.state === 'authorized';
+}
+
+export interface P2LandingStateInput {
+  authInitialized: boolean;
+  currentUserId: string | null | undefined;
+  targetInviteId: string | null | undefined;
+  invitationAuth: {
+    authenticated?: boolean;
+    isP1?: boolean;
+    authorized?: boolean;
+    reason?: string;
+    inviteId?: string;
+    authorizedUid?: string;
+    requestUid?: string;
+    requestId?: number;
+  } | null | undefined;
+  invitation?: {
+    id?: string;
+    status?: string;
+    p1Uid?: string;
+  } | null;
+  invitationLoading: boolean;
+  invitationNotFound?: boolean;
+  hasAppError?: boolean;
+}
+
+export type P2LandingStateOutcome =
+  | { state: 'not_found' }
+  | { state: 'load_failed' }
+  | { state: 'declined' }
+  | { state: 'expired' }
+  | { state: 'cancelled' }
+  | { state: 'accepted' }
+  | { state: 'auth_loading' }
+  | { state: 'invitation_loading' }
+  | { state: 'authorization_pending' }
+  | { state: 'signed_out' }
+  | { state: 'p1_own_invitation'; reason: string }
+  | { state: 'confirmed_mismatch'; reason: string }
+  | { state: 'session_not_verified'; reason: string }
+  | { state: 'verification_required'; reason: string }
+  | { state: 'invalid_contacts'; reason: string }
+  | { state: 'authorized' };
+
+export function evaluateP2LandingState(input: P2LandingStateInput): P2LandingStateOutcome {
+  const {
+    authInitialized,
+    currentUserId,
+    targetInviteId,
+    invitationAuth,
+    invitation,
+    invitationLoading,
+    invitationNotFound = false,
+    hasAppError = false
+  } = input;
+
+  // 1. Explicitly not found on server
+  if (invitationNotFound) {
+    return { state: 'not_found' };
+  }
+
+
+  // 3. Terminal invitation statuses
+  if (invitation?.status === 'declined') {
+    return { state: 'declined' };
+  }
+  if (invitation?.status === 'expired') {
+    return { state: 'expired' };
+  }
+  if (invitation?.status === 'cancelled') {
+    return { state: 'cancelled' };
+  }
+  if (invitation?.status === 'accepted') {
+    return { state: 'accepted' };
+  }
+
+  // 2. Auth initialization in progress
+  if (!authInitialized) {
+    return { state: 'auth_loading' };
+  }
+
+  // 3. User is signed out: show clean minimal public preview, NEVER mismatch
+  if (!currentUserId) {
+    return { state: 'signed_out' };
+  }
+
+  // 4. Invitation loading or not yet loaded
+  if (!invitation || !invitation.id || invitationLoading) {
+    if (hasAppError && !invitationLoading) {
+      return { state: 'load_failed' };
+    }
+    return { state: 'invitation_loading' };
+  }
+
+  // 5. Terminal invitation statuses
+  if (invitation?.status === 'declined') {
+    return { state: 'declined' };
+  }
+  if (invitation?.status === 'expired') {
+    return { state: 'expired' };
+  }
+  if (invitation?.status === 'cancelled') {
+    return { state: 'cancelled' };
+  }
+  if (invitation?.status === 'accepted') {
+    return { state: 'accepted' };
+  }
+
+  // 6. Invitation loaded but authorization check pending
+  if (!invitationAuth) {
+    if (hasAppError) {
+      return { state: 'load_failed' };
+    }
+    return { state: 'authorization_pending' };
+  }
+
+  // 7. Authorization is for a different user or invite (stale state)
+  if (invitationAuth.authorizedUid && invitationAuth.authorizedUid !== currentUserId) {
+    return { state: 'authorization_pending' };
+  }
+  if (invitationAuth.requestUid && invitationAuth.requestUid !== currentUserId) {
+    return { state: 'authorization_pending' };
+  }
+  if (invitationAuth.inviteId && targetInviteId && invitationAuth.inviteId !== targetInviteId) {
+    return { state: 'authorization_pending' };
+  }
+
+  // 8. Caller is P1 (inviter) attempting to accept own invitation
+  if (
+    invitationAuth.isP1 ||
+    invitationAuth.reason === 'CURRENTLY_SIGNED_IN_AS_INVITER' ||
+    invitationAuth.reason === 'CANNOT_ACCEPT_OWN_INVITATION' ||
+    (Boolean(invitation?.p1Uid) && currentUserId === invitation?.p1Uid)
+  ) {
+    return { state: 'p1_own_invitation', reason: 'CANNOT_ACCEPT_OWN_INVITATION' };
+  }
+
+  // 9. Session not verified: user signed in locally, but server reported AUTH_REQUIRED
+  if (invitationAuth.authenticated === false || invitationAuth.reason === 'AUTH_REQUIRED') {
+    return { state: 'session_not_verified', reason: 'AUTH_REQUIRED' };
+  }
+
+  // 10. Server authorization evaluation
+  if (invitationAuth.authorized) {
+    return { state: 'authorized' };
+  }
+
+  // 11. Unauthorized states: accurately classify based on server reason
+  if (invitationAuth.reason === 'VERIFICATION_REQUIRED') {
+    return { state: 'verification_required', reason: 'VERIFICATION_REQUIRED' };
+  }
+
+  if (invitationAuth.reason === 'INVALID_INVITATION_CONTACTS') {
+    return { state: 'invalid_contacts', reason: 'INVALID_INVITATION_CONTACTS' };
+  }
+
+  if (invitationAuth.reason === 'INVITATION_IDENTITY_MISMATCH') {
+    return {
+      state: 'confirmed_mismatch',
+      reason: 'INVITATION_IDENTITY_MISMATCH'
+    };
+  }
+
+  // Fail closed on unknown/missing reason without inventing a mismatch
+  return { state: 'load_failed' };
 }
 
 export function evaluateP2AuthNavigation({
@@ -190,7 +365,14 @@ export function evaluateP2AuthNavigation({
   if (authCheck.isP1 || (p1Uid && currentUserId === p1Uid)) {
     return { canNavigateToDetails: false, error: 'CANNOT_ACCEPT_OWN_INVITATION', redirectScreen: 'p2_landing' };
   }
-  if (!authCheck.authorized || !authCheck.authenticated) {
+  if (!authCheck.authenticated || authCheck.reason === 'AUTH_REQUIRED') {
+    return {
+      canNavigateToDetails: false,
+      error: 'AUTH_REQUIRED',
+      redirectScreen: 'p2_landing'
+    };
+  }
+  if (!authCheck.authorized) {
     return {
       canNavigateToDetails: false,
       error: authCheck.reason || 'INVITATION_IDENTITY_MISMATCH',
@@ -215,6 +397,7 @@ export interface InvitationLoadingContext<T = any> {
   getActiveAuthUid: () => string | null;
   getCurrentAuthUid: () => string | null;
   fetchInvitation: () => Promise<T>;
+  forceRefreshToken?: () => Promise<void>;
   setInvitation: (invitation: any) => void;
   setInvitationAuth: (auth: any) => void;
   setRecord: (updater: (prev: any) => any) => void;
@@ -237,6 +420,7 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
     getActiveAuthUid,
     getCurrentAuthUid,
     fetchInvitation,
+    forceRefreshToken,
     setInvitation,
     setInvitationAuth,
     setRecord,
@@ -258,9 +442,41 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
   setInvitationNotFound?.(false);
 
   try {
-    const data = await fetchInvitation();
+    let data = await fetchInvitation();
 
     // Guard against stale asynchronous responses after sign-out, account switch, or superseded requests
+    if (!isCurrent()) {
+      return null;
+    }
+
+    // Session recovery: If a Firebase user existed (requestUid truthy), Bearer token was sent,
+    // but the server explicitly reports AUTH_REQUIRED session failure on a pending invitation:
+    // Allow at most ONE forced ID-token refresh and retry for that load.
+    if (
+      requestUid &&
+      data?.invitation?.status === 'pending' &&
+      data?.authorization &&
+      data.authorization.authenticated === false &&
+      data.authorization.reason === 'AUTH_REQUIRED' &&
+      forceRefreshToken
+    ) {
+      try {
+        await forceRefreshToken();
+        if (!isCurrent()) return null;
+
+        const retriedData = await fetchInvitation();
+        if (!isCurrent()) return null;
+
+        if (retriedData) {
+          data = retriedData;
+        }
+      } catch {
+        // Safe catch: if forced refresh fails, check if still current before proceeding
+        if (!isCurrent()) return null;
+      }
+    }
+
+    // Guard against stale state writes after token refresh, retry, or superseded loads
     if (!isCurrent()) {
       return null;
     }
@@ -274,9 +490,14 @@ export async function executeInvitationLoad<T extends { invitation?: any; author
 
     if (data.authorization) {
       setInvitationAuth({
-        ...data.authorization,
+        authenticated: Boolean(data.authorization.authenticated),
+        isP1: Boolean(data.authorization.isP1),
+        authorized: Boolean(data.authorization.authorized),
+        reason: typeof data.authorization.reason === 'string' ? data.authorization.reason : undefined,
         inviteId: data.authorization.inviteId || inviteId,
-        authorizedUid: data.authorization.authorizedUid || requestUid || undefined
+        authorizedUid: data.authorization.authorizedUid || (data.authorization.authenticated && requestUid ? requestUid : undefined),
+        requestUid: requestUid || undefined,
+        requestId
       });
     } else {
       setInvitationAuth(null);

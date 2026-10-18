@@ -1,6 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, Home } from 'lucide-react';
 import { withAppCheckHeaders } from '../lib/firebase';
+import { runDiagnostics, Diagnostics } from '../utils/diagnostics';
+import { DiagnosticDetails } from './DiagnosticDetails';
 
 interface Props {
   children: ReactNode;
@@ -10,6 +12,7 @@ interface Props {
 interface State {
   hasError: boolean;
   errorMessage?: string;
+  diagnostics?: Diagnostics | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -23,17 +26,27 @@ export class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(_error: Error): State {
     return {
       hasError: true,
-      errorMessage: 'UNEXPECTED_RENDER_ERROR'
+      errorMessage: 'UNEXPECTED_RENDER_ERROR',
     };
   }
 
   componentDidCatch(_error: Error, _errorInfo: ErrorInfo): void {
     console.error('[ErrorBoundary] Sanitized render error caught');
+    
+    // Capture diagnostics safely
+    try {
+      const diagnostics = runDiagnostics();
+      this.setState({ diagnostics });
+    } catch {
+      console.error('[ErrorBoundary] Diagnostic collection failed');
+      this.setState({ diagnostics: null });
+    }
 
     if (this.hasReported) {
       return;
     }
     this.hasReported = true;
+    // ... rest of error reporting ...
 
     try {
       const payload = {
@@ -69,6 +82,7 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
+
   render(): ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -94,10 +108,19 @@ export class ErrorBoundary extends Component<Props, State> {
             </h1>
             <p className="text-sm sm:text-base text-[#B7ACC8] mb-6 leading-relaxed">
               {isRtl
-                ? 'تعذر عرض هذه الصفحة بشكل صحيح. يمكنك إعادة تحميل الصفحة بأمان أو العودة إلى الصفحة الرئيسية.'
-                : 'This page could not be displayed properly. You can safely reload the page or return to the home screen.'}
+                ? 'تعذر عرض هذه الصفحة بشكل صحيح. يمكنك إعادة تحميل الصفحة أو العودة إلى الصفحة الرئيسية.'
+                : 'This page could not be displayed properly. You can try reloading it or return to the home screen.'}
             </p>
 
+            {this.state.diagnostics && (
+              <DiagnosticDetails
+                diagnostics={this.state.diagnostics}
+                initStatus="unknown"
+                failureCategory="render_failure"
+                authPersistence="unknown"
+                isRtl={isRtl}
+              />
+            )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 type="button"
@@ -105,7 +128,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] font-semibold text-sm sm:text-base hover:from-[#895472] hover:to-[#945E7D] transition-colors shadow-md active:scale-95 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                <span>{isRtl ? 'إعادة تحميل الصفحة' : 'Reload Page'}</span>
+                <span>{isRtl ? 'إعادة المحاولة' : 'Try Again'}</span>
               </button>
               <button
                 type="button"

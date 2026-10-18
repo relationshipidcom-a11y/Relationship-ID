@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, Copy, Share2, Mail, MessageCircle, ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { Language, Invitation } from '../types';
 import { translations } from '../i18n/translations';
+import { getInvitationInstruction } from '../utils/invitationGuidance';
 
 interface InviteSuccessScreenProps {
   language: Language;
@@ -23,6 +24,11 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
 
   const inviteUrl = `${window.location.origin}/invite/${invitation.id}`;
 
+  const hasEmail = Boolean(invitation.partner2Email && invitation.partner2Email.trim() !== '');
+  const hasPhone = Boolean((invitation.partner2Phone && invitation.partner2Phone.trim() !== '') || ((invitation as any).partner2WaNumber && (invitation as any).partner2WaNumber.trim() !== ''));
+  const requirement = (hasEmail && hasPhone) ? 'both' : (hasEmail ? 'email' : 'mobile');
+  const instruction = getInvitationInstruction(requirement, language);
+
   const handleCopy = async () => {
     try {
       if (!navigator.clipboard) throw new Error('Clipboard API unavailable');
@@ -36,11 +42,10 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
   };
 
   const handleWhatsApp = () => {
-    const text = encodeURIComponent(
-      language === 'ar'
-        ? `مرحباً ${invitation.partner2Name}، أدعوك لتوثيق سجل ارتباطنا الرقمي عبر Relationship ID: ${inviteUrl}`
-        : `Hi ${invitation.partner2Name}, please join me in confirming our relationship record on Relationship ID: ${inviteUrl}`
-    );
+    const base = language === 'ar'
+      ? `مرحباً ${invitation.partner2Name}، أدعوك لتوثيق سجل ارتباطنا الرقمي عبر Relationship ID: ${inviteUrl}`
+      : `Hi ${invitation.partner2Name}, please join me in confirming our relationship record on Relationship ID: ${inviteUrl}`;
+    const text = encodeURIComponent(instruction ? `${base}\n\n${instruction}` : base);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
@@ -50,11 +55,10 @@ export const InviteSuccessScreen: React.FC<InviteSuccessScreenProps> = ({
         ? 'دعوة لتوثيق شهادة الارتباط الرقمية'
         : 'Invitation to verify our Relationship Certificate'
     );
-    const body = encodeURIComponent(
-      language === 'ar'
-        ? `مرحباً ${invitation.partner2Name}،\n\nأدعوك لتأكيد سجل علاقتنا الرقمية:\n${inviteUrl}\n\nRelationship ID`
-        : `Hello ${invitation.partner2Name},\n\nPlease join me to confirm our relationship record:\n${inviteUrl}\n\nRelationship ID`
-    );
+    const base = language === 'ar'
+      ? `مرحباً ${invitation.partner2Name}،\n\nأدعوك لتأكيد سجل علاقتنا الرقمية:\n${inviteUrl}\n\nRelationship ID`
+      : `Hello ${invitation.partner2Name},\n\nPlease join me to confirm our relationship record:\n${inviteUrl}\n\nRelationship ID`;
+    const body = encodeURIComponent(instruction ? `${base}\n\n${instruction}` : base);
     window.location.href = `mailto:${invitation.partner2Email || ''}?subject=${subject}&body=${body}`;
   };
 

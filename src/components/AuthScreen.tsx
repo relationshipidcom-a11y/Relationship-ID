@@ -22,7 +22,10 @@ import styles from '../styles/AuthScreen.module.css';
 import { authAttemptFailureMessage, getAuthErrorCode, readableError } from '../utils/authErrors';
 import { useAuthPersistence } from '../utils/authPersistence';
 import { runGoogleSignIn } from '../utils/googleSignIn';
+import { runDiagnostics, Diagnostics } from '../utils/diagnostics';
+import { DiagnosticDetails } from './DiagnosticDetails';
 import { BrandMark } from './BrandMark';
+import { getInvitationInstruction } from '../utils/invitationGuidance';
 
 export { getAuthErrorCode, readableError };
 
@@ -31,6 +34,7 @@ interface AuthScreenProps {
   onAuthSuccess: (user: AuthUser) => void;
   isP2InvitationFlow?: boolean;
   inviterName?: string;
+  contactRequirement?: 'email' | 'mobile' | 'both';
   defaultEmail?: string;
   defaultFullName?: string;
   onNavigate?: (screen: ScreenId) => void;
@@ -52,6 +56,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   onAuthSuccess,
   isP2InvitationFlow = false,
   inviterName = '',
+  contactRequirement,
   defaultEmail = '',
   defaultFullName = '',
   onNavigate,
@@ -78,6 +83,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
 
   const {
     persistenceStatus,
@@ -91,6 +97,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   } = useAuthPersistence(effectiveAuth, true, persistenceAdapter);
 
   const isGoogleReady = isGoogleSignInReady(loading);
+
+  useEffect(() => {
+    if (persistenceStatus === 'error') {
+      try {
+        setDiagnostics(runDiagnostics());
+      } catch {
+        console.error('Diagnostic collection failed');
+      }
+    } else {
+      setDiagnostics(null);
+    }
+  }, [persistenceStatus]);
 
   useEffect(() => {
     if (!effectiveAuth) return;
@@ -119,7 +137,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setLoading(true);
     try {
       requireFirebaseConfig();
-      const attempt = await controller.runAuthAttempt(async (firebaseAuth) => {
+      const attempt = await controller.runAuthAttempt(async (firebaseAuth: Auth) => {
         if (activeTab === 'login') {
           const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
           onAuthSuccess(toAuthUser(credential.user));
@@ -275,16 +293,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </div>
 
       {isP2InvitationFlow && (
-        <div className="mb-3.5 w-full rounded-xl bg-[#30264D] border border-[#9D6B87]/40 p-3 flex items-center gap-2.5 shadow-sm text-right">
-          <div className="w-8 h-8 rounded-lg bg-[#9D6B87]/20 flex items-center justify-center shrink-0 text-[#E7BCD3]">
-            <Lock className="w-4 h-4" />
+        <div className="mb-3.5 w-full rounded-xl bg-[#30264D] border border-[#9D6B87]/40 p-3 flex flex-col gap-2 shadow-sm text-start">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#9D6B87]/20 flex items-center justify-center shrink-0 text-[#E7BCD3]">
+              <Lock className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <p className="text-sm font-bold text-[#E7BCD3] leading-tight">{t.p2ReturnNoticeTitle}</p>
+              <p className="text-sm text-[#B7ACC8]">
+                {language === 'ar' ? `الدعوة من ${inviterName || ''}` : `Invitation from ${inviterName || ''}`}
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col min-w-0">
-            <p className="text-sm font-bold text-[#E7BCD3] leading-tight">{t.p2ReturnNoticeTitle}</p>
-            <p className="text-sm text-[#B7ACC8]">
-              {language === 'ar' ? `الدعوة من ${inviterName}` : `Invitation from ${inviterName}`}
-            </p>
-          </div>
+          {contactRequirement && getInvitationInstruction(contactRequirement, language) && (
+            <div className="pt-2 border-t border-white/10 flex items-start gap-2 text-xs sm:text-sm text-[#E7BCD3]">
+              <Shield className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{getInvitationInstruction(contactRequirement, language)}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -353,8 +379,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </button>
           </div>
           <p className="text-amber-100/90 text-xs leading-normal">
-            {persistenceError ? readableError(persistenceError, language) : t.sessionInitErrorDesc}
+            {persistenceError ? readableError(persistenceError, language) : (language === 'ar' 
+              ? 'تعذر عرض هذه الصفحة بشكل صحيح. يمكنك إعادة تحميلها أو العودة إلى الصفحة الرئيسية.' 
+              : 'This page could not be displayed properly. You can try reloading it or return to the home screen.')}
           </p>
+          {diagnostics && (
+            <DiagnosticDetails
+              diagnostics={diagnostics}
+              initStatus="unknown"
+              failureCategory="persistence_initialization_failure"
+              authPersistence={persistenceStatus}
+              isRtl={language === 'ar'}
+            />
+          )}
         </div>
       )}
 

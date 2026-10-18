@@ -81,6 +81,7 @@ export interface Invitation {
   reminderCount: number;
   p1Uid?: string;
   p2Uid?: string | null;
+  contactRequirement?: 'email' | 'mobile' | 'both';
 }
 
 export interface InvitationAuthorization {
@@ -90,6 +91,8 @@ export interface InvitationAuthorization {
   reason?: string;
   inviteId?: string;
   authorizedUid?: string;
+  requestUid?: string;
+  requestId?: number;
 }
 
 export interface AuthUser {

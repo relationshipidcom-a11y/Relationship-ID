@@ -572,6 +572,14 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
     en: 'You are not the intended recipient of this invitation.',
     ar: 'أنت لست المستلم المقصود لهذه الدعوة.'
   },
+  VERIFICATION_REQUIRED: {
+    en: 'Contact verification is required before accepting this invitation.',
+    ar: 'مطلوب تأكيد جهة الاتصال قبل قبول هذه الدعوة.'
+  },
+  INVALID_INVITATION_CONTACTS: {
+    en: 'This invitation has invalid contact details.',
+    ar: 'بيانات التواصل في هذه الدعوة غير صالحة.'
+  },
   INVITATION_NOT_ALLOWED: {
     en: "This invitation can't be sent.",
     ar: 'لا يمكن إرسال هذه الدعوة.'
@@ -963,6 +971,22 @@ export interface RecipientIdentityCheckInput {
   isAction?: 'view' | 'accept' | 'decline';
 }
 
+export function getInvitationContactRequirement(
+  invitation: Pick<Invitation, 'partner2Email' | 'partner2Phone' | 'partner2PhoneCountry' | 'partner2Whatsapp' | 'partner2WhatsappCountry'>
+): 'email' | 'mobile' | 'both' | null {
+  const targetEmailNorm = normalizeCanonicalEmail(invitation.partner2Email);
+  const targetPhoneNorm = normalizeCanonicalPhone(invitation.partner2Phone, invitation.partner2PhoneCountry);
+  const targetWaNorm = normalizeCanonicalPhone(invitation.partner2Whatsapp, invitation.partner2WhatsappCountry || invitation.partner2PhoneCountry);
+
+  const hasEmailTarget = Boolean(targetEmailNorm.isValid && targetEmailNorm.canonical);
+  const hasPhoneTarget = Boolean((targetPhoneNorm.isValid && targetPhoneNorm.canonical) || (targetWaNorm.isValid && targetWaNorm.canonical));
+
+  if (hasEmailTarget && hasPhoneTarget) return 'both';
+  if (hasEmailTarget) return 'email';
+  if (hasPhoneTarget) return 'mobile';
+  return null;
+}
+
 export function verifyRecipientIdentity(input: RecipientIdentityCheckInput): {
   authorized: boolean;
   isP1: boolean;
@@ -989,6 +1013,11 @@ export function verifyRecipientIdentity(input: RecipientIdentityCheckInput): {
   const hasEmailTarget = Boolean(targetEmailNorm.isValid && targetEmailNorm.canonical);
   const hasPhoneTarget = Boolean((targetPhoneNorm.isValid && targetPhoneNorm.canonical) || (targetWaNorm.isValid && targetWaNorm.canonical));
 
+  // Reject invalid/missing target contacts safely with allowlisted error
+  if (!hasEmailTarget && !hasPhoneTarget) {
+    return { authorized: false, isP1: false, reason: 'INVALID_INVITATION_CONTACTS' };
+  }
+
   const userEmailNorm = normalizeCanonicalEmail(user.email);
   const userPhoneNorm = normalizeCanonicalPhone(user.phone_number);
 
@@ -1007,22 +1036,65 @@ export function verifyRecipientIdentity(input: RecipientIdentityCheckInput): {
       userPhoneNorm.canonical === targetWaNorm.canonical)
   );
 
+  // Policy 1: Both email and mobile
   if (hasEmailTarget && hasPhoneTarget) {
-    if (emailMatches || phoneMatches) return { authorized: true, isP1: false };
-    return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
+    // Explicit mismatch if user has a valid contact that does not match the invited target
+    if (
+      userEmailNorm.isValid &&
+      userEmailNorm.canonical &&
+      targetEmailNorm.canonical &&
+      userEmailNorm.canonical !== targetEmailNorm.canonical
+    ) {
+      return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
+    }
+    if (
+      userPhoneNorm.isValid &&
+      userPhoneNorm.canonical &&
+      userPhoneNorm.canonical !== targetPhoneNorm.canonical &&
+      userPhoneNorm.canonical !== targetWaNorm.canonical
+    ) {
+      return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
+    }
+    // Both must be present and verified
+    if (!userEmailNorm.canonical || !user.email_verified) {
+      return { authorized: false, isP1: false, reason: 'VERIFICATION_REQUIRED' };
+    }
+    if (!phoneMatches) {
+      return { authorized: false, isP1: false, reason: 'VERIFICATION_REQUIRED' };
+    }
+    return { authorized: true, isP1: false };
   }
 
+  // Policy 2: Email only
   if (hasEmailTarget) {
-    if (emailMatches) return { authorized: true, isP1: false };
+    if (emailMatches) {
+      return { authorized: true, isP1: false };
+    }
+    if (userEmailNorm.isValid && userEmailNorm.canonical === targetEmailNorm.canonical && !user.email_verified) {
+      return { authorized: false, isP1: false, reason: 'VERIFICATION_REQUIRED' };
+    }
     return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
   }
 
+  // Policy 3: Mobile only
   if (hasPhoneTarget) {
-    if (phoneMatches) return { authorized: true, isP1: false };
-    return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
+    if (phoneMatches) {
+      return { authorized: true, isP1: false };
+    }
+    if (
+      userPhoneNorm.isValid &&
+      userPhoneNorm.canonical &&
+      userPhoneNorm.canonical !== targetPhoneNorm.canonical &&
+      userPhoneNorm.canonical !== targetWaNorm.canonical
+    ) {
+      return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
+    }
+    // Account email may differ because no recipient email was specified.
+    // Unverified mobile requires verification, NOT a mismatch accusation.
+    return { authorized: false, isP1: false, reason: 'VERIFICATION_REQUIRED' };
   }
 
-  return { authorized: false, isP1: false, reason: 'INVITATION_IDENTITY_MISMATCH' };
+  return { authorized: false, isP1: false, reason: 'INVALID_INVITATION_CONTACTS' };
 }
 
 // Shared trusted backend operation for relationship termination (permanent deletion with bounded batches)
@@ -2500,17 +2572,29 @@ export function createApp(options?: CreateAppOptions): express.Express {
 
       // Check optional authenticated caller identity for authorized participant review
       let authenticatedUser: { uid: string; email?: string; email_verified?: boolean; phone_number?: string } | null = null;
+      let tokenVerificationFailed = false;
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ') && adminAuth) {
         const token = authHeader.split('Bearer ')[1]?.trim();
         if (token) {
+          let decoded: any = null;
           try {
-            const decoded = await adminAuth.verifyIdToken(token);
+            decoded = await adminAuth.verifyIdToken(token);
+          } catch {
+            tokenVerificationFailed = true;
+          }
+
+          if (decoded) {
             let effectivePhone = decoded.phone_number;
             if (!effectivePhone && adminDb) {
-              const uDoc = await adminDb.collection(USERS_COL).doc(decoded.uid).get();
-              if (uDoc.exists && uDoc.data()?.whatsappTrusted && uDoc.data()?.whatsappE164) {
-                effectivePhone = uDoc.data()?.whatsappE164;
+              try {
+                const uDoc = await adminDb.collection(USERS_COL).doc(decoded.uid).get();
+                if (uDoc.exists && uDoc.data()?.whatsappTrusted && uDoc.data()?.whatsappE164) {
+                  effectivePhone = uDoc.data()?.whatsappE164;
+                }
+              } catch (dbErr) {
+                console.error('Error fetching user profile for invitation preview:', dbErr);
+                return respondWithError(res, 500, 'DATABASE_ERROR');
               }
             }
             authenticatedUser = {
@@ -2519,15 +2603,14 @@ export function createApp(options?: CreateAppOptions): express.Express {
               email_verified: Boolean(decoded.email_verified),
               phone_number: effectivePhone
             };
-          } catch {
-            // Unauthenticated or invalid token - fall through to public preview
           }
         }
       }
 
+      const contactRequirement = getInvitationContactRequirement(invitation);
       let isAuthorizedRecipient = false;
       let isP1 = false;
-      let authReason: string | undefined = 'AUTH_REQUIRED';
+      let authReason: string | undefined = tokenVerificationFailed ? 'AUTH_REQUIRED' : (authHeader ? 'AUTH_REQUIRED' : undefined);
       const isAuthenticated = Boolean(authenticatedUser);
 
       if (authenticatedUser) {
@@ -2558,7 +2641,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
             status: invitation.status,
             createdAt: invitation.createdAt,
             expiresAt: invitation.expiresAt,
-            reminderCount: invitation.reminderCount
+            reminderCount: invitation.reminderCount,
+            contactRequirement
           },
           record: record ? {
             type: record.type,
@@ -2586,7 +2670,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
           inviterName: invitation.inviterName,
           relationshipType: invitation.relationshipType,
           status: invitation.status,
-          expiresAt: invitation.expiresAt
+          expiresAt: invitation.expiresAt,
+          contactRequirement
         },
         record: null,
         authorization: {
@@ -2936,6 +3021,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
         CANNOT_ACCEPT_OWN_INVITATION: 400,
         SELF_RELATIONSHIP_NOT_ALLOWED: 400,
         INVITATION_IDENTITY_MISMATCH: 403,
+        VERIFICATION_REQUIRED: 403,
         RELATIONSHIP_ALREADY_ACTIVE: 409,
         RELATIONSHIP_NOT_PENDING: 409,
         P2_ALREADY_IN_ACTIVE_RELATIONSHIP: 409,
@@ -2949,7 +3035,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
         P2_AUTH_REQUIRED: 401,
         VERIFIED_PHONE_REQUIRED: 400,
         INVALID_PHONE_NUMBER: 400,
-        INVALID_CONTACT_FORMAT: 400
+        INVALID_CONTACT_FORMAT: 400,
+        INVALID_INVITATION_CONTACTS: 400
       };
       const statusCode = statusMap[msg] || (msg.startsWith('INVITATION_') ? 409 : 500);
       return respondWithError(res, statusCode, msg);
@@ -3064,6 +3151,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
       const statusMap: Record<string, number> = {
         INVITATION_NOT_FOUND: 404,
         INVITATION_IDENTITY_MISMATCH: 403,
+        VERIFICATION_REQUIRED: 403,
+        INVALID_INVITATION_CONTACTS: 400,
         INVITER_CANNOT_DECLINE_AS_P2: 400,
         ACCOUNT_DELETION_PENDING: 409,
         RELATIONSHIP_DELETION_PENDING: 409

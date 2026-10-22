@@ -43,6 +43,10 @@ interface AuthScreenProps {
   auth?: Auth | null;
   persistenceAdapter?: PersistenceAdapter;
   signInWithPopupFn?: (auth: Auth, provider: any) => Promise<any>;
+  signInWithEmailAndPasswordFn?: (auth: Auth, email: string, pass: string) => Promise<any>;
+  createUserWithEmailAndPasswordFn?: (auth: Auth, email: string, pass: string) => Promise<any>;
+  updateProfileFn?: (user: any, profile: { displayName?: string | null; photoURL?: string | null }) => Promise<void>;
+  sendPasswordResetEmailFn?: (auth: Auth, email: string) => Promise<any>;
 }
 
 const toAuthUser = (user: { uid: string; email: string | null; displayName: string | null }): AuthUser => ({
@@ -64,11 +68,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   totalSteps,
   auth: propAuth,
   persistenceAdapter,
-  signInWithPopupFn
+  signInWithPopupFn,
+  signInWithEmailAndPasswordFn,
+  createUserWithEmailAndPasswordFn,
+  updateProfileFn,
+  sendPasswordResetEmailFn
 }) => {
   const effectiveAuth = propAuth !== undefined ? propAuth : defaultAuth;
   const t = translations[language];
   const googleInFlightRef = useRef(false);
+  const emailInFlightRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState(defaultEmail || '');
   const [password, setPassword] = useState('');
@@ -129,22 +138,56 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     throw err;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (loading || authInFlight) return;
+    if (loading || authInFlight || emailInFlightRef.current) return;
+    emailInFlightRef.current = true;
+
+    // Synchronously extract authoritative values from form elements before any await
+    const form = e.currentTarget;
+    const formElements = form.elements;
+    const emailEl = formElements.namedItem('email') as HTMLInputElement | null;
+    const passEl = formElements.namedItem('password') as HTMLInputElement | null;
+    const nameEl = formElements.namedItem('fullName') as HTMLInputElement | null;
+
+    // Current DOM values authoritative even if React state is nonempty or stale
+    const authoritativeEmail = (emailEl ? emailEl.value : email).trim();
+    const authoritativePassword = passEl ? passEl.value : password; // NEVER trim password!
+    const authoritativeFullName = (nameEl ? nameEl.value : fullName).trim();
+
+    // Sync state for consistency
+    if (authoritativeEmail !== email) setEmail(authoritativeEmail);
+    if (authoritativePassword !== password) setPassword(authoritativePassword);
+    if (activeTab === 'signup' && authoritativeFullName !== fullName) setFullName(authoritativeFullName);
+
     setError('');
     setNotice('');
     setLoading(true);
     try {
+      if (!authoritativeEmail) {
+        throw Object.assign(new Error('Missing email'), { code: 'auth/missing-email' });
+      }
+      if (!authoritativePassword) {
+        throw Object.assign(new Error('Missing password'), { code: 'auth/missing-password' });
+      }
+
       requireFirebaseConfig();
       const attempt = await controller.runAuthAttempt(async (firebaseAuth: Auth) => {
         if (activeTab === 'login') {
-          const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
+          const credential = await (signInWithEmailAndPasswordFn || signInWithEmailAndPassword)(
+            firebaseAuth,
+            authoritativeEmail,
+            authoritativePassword
+          );
           onAuthSuccess(toAuthUser(credential.user));
         } else {
-          const credential = await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password);
-          if (fullName.trim()) {
-            await updateProfile(credential.user, { displayName: fullName.trim() });
+          const credential = await (createUserWithEmailAndPasswordFn || createUserWithEmailAndPassword)(
+            firebaseAuth,
+            authoritativeEmail,
+            authoritativePassword
+          );
+          if (authoritativeFullName) {
+            await (updateProfileFn || updateProfile)(credential.user, { displayName: authoritativeFullName });
           }
           onAuthSuccess(toAuthUser(credential.user));
         }
@@ -154,9 +197,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         setError(authAttemptFailureMessage(attempt.reason, language));
         return;
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const authCode = getAuthErrorCode(err) || (err instanceof Error && (err as any).code) || 'unknown';
+      const sanitizedCode = typeof authCode === 'string' && /^auth\/[a-z0-9.-]+$/i.test(authCode) ? authCode : 'unknown';
+      console.error('[auth-failure]', {
+        operation: activeTab === 'login' ? 'signin' : 'signup',
+        code: sanitizedCode,
+      });
       setError(readableError(err, language));
     } finally {
+      emailInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -214,11 +264,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setShowResetModal(true);
   };
 
-  const handleModalPasswordReset = async (e: React.FormEvent) => {
+  const handleModalPasswordReset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setResetError('');
     setResetSuccess('');
-    const targetEmail = resetEmail.trim();
+    const form = e.currentTarget;
+    const resetInput = form?.elements?.namedItem('resetEmail') as HTMLInputElement | null;
+    const targetEmail = (resetInput ? resetInput.value : resetEmail).trim();
     if (!targetEmail) {
       setResetError(language === 'ar' ? 'يرجى إدخال عنوان البريد الإلكتروني.' : 'Please enter your email address.');
       return;
@@ -234,13 +286,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setResetLoading(true);
     try {
       requireFirebaseConfig();
-      await sendPasswordResetEmail(effectiveAuth, targetEmail);
+      await (sendPasswordResetEmailFn || sendPasswordResetEmail)(effectiveAuth, targetEmail);
       const successMsg = language === 'ar'
         ? `تم إرسال رابط إعادة تعيين كلمة المرور إلى (${targetEmail}). يرجى فحص صندوق الوارد أو البريد غير الهام (Spam).`
         : `Password reset email sent to (${targetEmail}). Please check your inbox or spam folder.`;
       setResetSuccess(successMsg);
       setNotice(successMsg);
-    } catch (err) {
+    } catch (err: unknown) {
+      const authCode = getAuthErrorCode(err) || (err instanceof Error && (err as any).code) || 'unknown';
+      const sanitizedCode = typeof authCode === 'string' && /^auth\/[a-z0-9.-]+$/i.test(authCode) ? authCode : 'unknown';
+      console.error('[auth-failure]', { operation: 'password-reset', code: sanitizedCode });
       setResetError(readableError(err, language));
     } finally {
       setResetLoading(false);
@@ -404,13 +459,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         {activeTab === 'signup' && (
           <div>
             <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="auth-name">{t.fullNameLabel}</label>
-            <input id="auth-name" type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className={styles.inputField} placeholder={t.fullNamePlaceholder} />
+            <input
+              id="auth-name"
+              name="fullName"
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              onInput={(e) => setFullName((e.target as HTMLInputElement).value)}
+              className={styles.inputField}
+              placeholder={t.fullNamePlaceholder}
+              autoComplete="name"
+            />
           </div>
         )}
 
         <div>
           <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="auth-email">{t.emailLabel}</label>
-          <input id="auth-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={styles.inputField} placeholder={t.emailPlaceholder} dir="ltr" />
+          <input
+            id="auth-email"
+            name="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
+            className={styles.inputField}
+            placeholder={t.emailPlaceholder}
+            dir="ltr"
+            autoComplete="email"
+          />
         </div>
 
         <div>
@@ -442,11 +520,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <div className="relative">
             <input
               id="auth-pass"
+              name="password"
               type={showPassword ? 'text' : 'password'}
               required
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
               className={`${styles.inputField} ltr:pr-10 ltr:pl-4 rtl:pl-10 rtl:pr-4`}
               autoComplete={activeTab === 'login' ? 'current-password' : 'new-password'}
             />
@@ -569,13 +649,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 </label>
                 <input
                   id="reset-email-input"
+                  name="resetEmail"
                   type="email"
                   required
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
+                  onInput={(e) => setResetEmail((e.target as HTMLInputElement).value)}
                   placeholder={t.emailPlaceholder}
                   className={styles.inputField}
                   dir="ltr"
+                  autoComplete="email"
                   autoFocus
                 />
               </div>

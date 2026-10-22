@@ -140,6 +140,24 @@ test('Authentication readableError unit tests', async (t) => {
     assert.equal(readableError(error2, 'ar'), 'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف على الأقل.');
   });
 
+  await t.test('handles auth/missing-password in en and ar', () => {
+    const error = Object.assign(new Error('Missing password'), { code: 'auth/missing-password' });
+    assert.equal(readableError(error, 'en'), 'Please enter your password.');
+    assert.equal(readableError(error, 'ar'), 'يرجى إدخال كلمة المرور.');
+  });
+
+  await t.test('handles auth/network-request-failed in en and ar', () => {
+    const error = Object.assign(new Error('Network request failed'), { code: 'auth/network-request-failed' });
+    assert.equal(readableError(error, 'en'), 'Network error. Please check your internet connection.');
+    assert.equal(readableError(error, 'ar'), 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
+  });
+
+  await t.test('handles auth/user-disabled in en and ar', () => {
+    const error = Object.assign(new Error('User disabled'), { code: 'auth/user-disabled' });
+    assert.equal(readableError(error, 'en'), 'This account has been disabled.');
+    assert.equal(readableError(error, 'ar'), 'تم تعطيل هذا الحساب.');
+  });
+
   // a) Verify developer text is absent from auth error messages
   await t.test('developer text is absent from auth error messages in en and ar', () => {
     const codes = [

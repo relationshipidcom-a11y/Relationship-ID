@@ -9,6 +9,9 @@ const knownArabicMessages = new Set<string>([
   'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يرجى إنشاء حساب أولاً.',
   'صيغة البريد الإلكتروني غير صحيحة.',
   'يرجى إدخال عنوان البريد الإلكتروني.',
+  'يرجى إدخال كلمة المرور.',
+  'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.',
+  'تم تعطيل هذا الحساب.',
   'تم حظر الطلبات مؤقتاً بسبب تكرار المحاولات. يرجى الانتظار بضع دقائق والمحاولة مجدداً.',
   'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف على الأقل.',
   'تم حظر النافذة المنبثقة من قِبل المتصفح. يرجى السماح بالنوافذ المنبثقة لهذا الموقع لإتمام تسجيل الدخول عبر Google.',
@@ -100,6 +103,21 @@ export const readableError = (error: unknown, language: Language = 'ar'): string
       return language === 'ar'
         ? 'يرجى إدخال عنوان البريد الإلكتروني.'
         : 'Please enter your email address.';
+    }
+    if (code === 'auth/missing-password') {
+      return language === 'ar'
+        ? 'يرجى إدخال كلمة المرور.'
+        : 'Please enter your password.';
+    }
+    if (code === 'auth/network-request-failed') {
+      return language === 'ar'
+        ? 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.'
+        : 'Network error. Please check your internet connection.';
+    }
+    if (code === 'auth/user-disabled') {
+      return language === 'ar'
+        ? 'تم تعطيل هذا الحساب.'
+        : 'This account has been disabled.';
     }
     if (code === 'auth/too-many-requests') {
       return language === 'ar'

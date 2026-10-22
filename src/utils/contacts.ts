@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
-import { countryFromLegacyValue, preprocessPhoneInput } from './phone';
+import { countryFromLegacyValue, normalizePhoneNumber } from './phone';
 
 export interface NormalizedContactResult {
   canonical: string;
@@ -38,8 +38,7 @@ export function normalizeCanonicalEmail(email?: string | null): NormalizedContac
 /**
  * Normalizes a phone or WhatsApp number according to canonical business rules:
  * - Genuinely absent (null, undefined, or empty string): valid and canonical is empty string.
- * - Non-empty string: parsed using libphonenumber-js with the specified country code.
- * - Saudi national numbers (e.g. 055...) and international numbers (+96655...) resolve to identical E.164.
+ * - Non-empty string: parsed using shared normalizePhoneNumber with the specified country code.
  * - Invalid numbers: isValid is false.
  */
 export function normalizeCanonicalPhone(
@@ -55,14 +54,10 @@ export function normalizeCanonicalPhone(
   }
 
   try {
-    const iso: CountryCode = countryStr ? countryFromLegacyValue(countryStr) : 'SA';
-    const preprocessed = preprocessPhoneInput(iso, trimmed);
-    const parsed = preprocessed.startsWith('+')
-      ? parsePhoneNumberFromString(preprocessed)
-      : parsePhoneNumberFromString(preprocessed, iso);
-
-    if (parsed && parsed.isValid()) {
-      return { canonical: parsed.number, isValid: true };
+    const iso: CountryCode = countryStr ? (countryFromLegacyValue(countryStr) || 'SA') : 'SA';
+    const canonical = normalizePhoneNumber(iso, trimmed);
+    if (canonical) {
+      return { canonical, isValid: true };
     }
   } catch {
     // ignore parse error

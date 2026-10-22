@@ -41,3 +41,28 @@ test('All equivalent Saudi phone formats resolve to +966583347281', () => {
   }
 });
 
+test('International numbering rules across regions', () => {
+  // Egypt (+20)
+  assert.equal(normalizePhoneNumber('EG', '01012345678'), '+201012345678');
+  assert.equal(normalizePhoneNumber('EG', '+201012345678'), '+201012345678');
+
+  // UK (+44)
+  assert.equal(normalizePhoneNumber('GB', '02079460901'), '+442079460901');
+
+  // Italy (+39) preserving significant leading zero in 061234567
+  assert.equal(normalizePhoneNumber('IT', '061234567'), '+39061234567');
+
+  // Germany (+49)
+  assert.equal(normalizePhoneNumber('DE', '03012345'), '+493012345');
+
+  // India (+91)
+  assert.equal(normalizePhoneNumber('IN', '9876543210'), '+919876543210');
+
+  // US (+1)
+  assert.equal(normalizePhoneNumber('US', '4155552671'), '+14155552671');
+
+  // Explicit international input while a different country is selected (France selected, US number entered)
+  assert.equal(normalizePhoneNumber('FR', '+14155552671'), '+14155552671');
+});
+
+

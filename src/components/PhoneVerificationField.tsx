@@ -45,6 +45,33 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   const canonical = useMemo(() => normalizePhoneNumber(country, number), [country, number]);
   const isVerified = Boolean(canonical && verifiedE164 === canonical);
 
+  // Track current canonical in a ref to check against live state, not closure-captured variables
+  const currentCanonicalRef = useRef<string | null>(canonical);
+  currentCanonicalRef.current = canonical;
+
+  // Track previous canonical to detect genuine number changes vs formatting-only edits
+  const prevCanonicalRef = useRef<string | null>(canonical);
+
+  // Track current authenticated user UID
+  const currentUid = auth?.currentUser?.uid || null;
+  const prevUidRef = useRef<string | null>(currentUid);
+
+  // Monotonically increasing operation generation counter to reject obsolete responses
+  const operationGenRef = useRef(0);
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      operationGenRef.current += 1;
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (resendCooldown > 0) {
       cooldownTimerRef.current = setTimeout(() => {
@@ -56,35 +83,123 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
     };
   }, [resendCooldown]);
 
-  const resetVerificationState = () => {
-    setCodeSent(false);
-    setOtp('');
-    setError('');
-    onVerified(null);
+  // Handle external or internal changes to canonical phone number
+  useEffect(() => {
+    if (canonical !== prevCanonicalRef.current) {
+      // Canonical number changed or became invalid: invalidate operations & clear pending session
+      operationGenRef.current += 1;
+      setSending(false);
+      setConfirming(false);
+      setCodeSent(false);
+      setOtp('');
+      setError('');
+      setResendCooldown(0);
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+      if (verifiedE164 && verifiedE164 !== canonical) {
+        onVerified(null);
+      }
+      prevCanonicalRef.current = canonical;
+    }
+  }, [canonical, verifiedE164, onVerified]);
+
+  // Handle changes to authenticated account
+  useEffect(() => {
+    const nowUid = auth?.currentUser?.uid || null;
+    if (nowUid !== prevUidRef.current) {
+      operationGenRef.current += 1;
+      setSending(false);
+      setConfirming(false);
+      setCodeSent(false);
+      setOtp('');
+      setError('');
+      setResendCooldown(0);
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+      prevUidRef.current = nowUid;
+    }
+  }, [currentUid]);
+
+  const isOpCurrent = (opId: number, opCanonical: string, opUid: string | null): boolean => {
+    if (!isMountedRef.current) return false;
+    if (operationGenRef.current !== opId) return false;
+    if (!currentCanonicalRef.current || currentCanonicalRef.current !== opCanonical) return false;
+    const nowUid = auth?.currentUser?.uid || null;
+    if (nowUid !== opUid) return false;
+    return true;
   };
 
-  const handleCountryChange = (value: string) => {
-    resetVerificationState();
-    onCountryChange(value as CountryCode);
+  const handleCountryChange = (newCountry: string) => {
+    onCountryChange(newCountry as CountryCode);
+    const newCanonical = normalizePhoneNumber(newCountry as CountryCode, number);
+    if (newCanonical !== currentCanonicalRef.current) {
+      operationGenRef.current += 1;
+      setSending(false);
+      setConfirming(false);
+      setCodeSent(false);
+      setOtp('');
+      setError('');
+      setResendCooldown(0);
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+      if (verifiedE164 && verifiedE164 !== newCanonical) {
+        onVerified(null);
+      }
+      prevCanonicalRef.current = newCanonical;
+      currentCanonicalRef.current = newCanonical;
+    }
   };
 
-  const handleNumberChange = (value: string) => {
-    resetVerificationState();
-    onNumberChange(value);
+  const handleNumberChange = (newNumber: string) => {
+    onNumberChange(newNumber);
+    const newCanonical = normalizePhoneNumber(country, newNumber);
+    if (newCanonical !== currentCanonicalRef.current) {
+      operationGenRef.current += 1;
+      setSending(false);
+      setConfirming(false);
+      setCodeSent(false);
+      setOtp('');
+      setError('');
+      setResendCooldown(0);
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+      if (verifiedE164 && verifiedE164 !== newCanonical) {
+        onVerified(null);
+      }
+      prevCanonicalRef.current = newCanonical;
+      currentCanonicalRef.current = newCanonical;
+    }
   };
 
   const sendCode = async () => {
+    if (sending || confirming) return;
     setError('');
-    if (!canonical) {
+    const requestCanonical = canonical;
+    if (!requestCanonical) {
       setError(language === 'ar' ? 'أدخل رقم جوال صالحاً.' : 'Enter a valid mobile number.');
       return;
     }
-    if (!auth?.currentUser) {
-      setError(language === 'ar' ? 'سجّل الدخول أولاً للتحقق من الجوال عبر واتساب.' : 'Sign in before verifying your mobile number via WhatsApp.');
+    const currentUid = auth?.currentUser?.uid || null;
+    if (!currentUid) {
+      setError(
+        language === 'ar'
+          ? 'سجّل الدخول أولاً للتحقق من الجوال عبر واتساب.'
+          : 'Sign in before verifying your mobile number via WhatsApp.'
+      );
       return;
     }
 
+    const opId = ++operationGenRef.current;
     setSending(true);
+
     try {
       const res = await authFetch('/api/whatsapp/verify/start', {
         method: 'POST',
@@ -96,6 +211,8 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       });
 
       const data = await res.json().catch(() => ({}));
+      if (!isOpCurrent(opId, requestCanonical, currentUid)) return;
+
       if (!res.ok) {
         if (res.status === 429) {
           setError(
@@ -134,28 +251,37 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       setCodeSent(true);
       setResendCooldown(60);
     } catch {
-      setError(
-        language === 'ar'
-          ? 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.'
-          : 'Network error. Please try again.'
-      );
+      if (isOpCurrent(opId, requestCanonical, currentUid)) {
+        setError(
+          language === 'ar'
+            ? 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.'
+            : 'Network error. Please try again.'
+        );
+      }
     } finally {
-      setSending(false);
+      if (isOpCurrent(opId, requestCanonical, currentUid)) {
+        setSending(false);
+      }
     }
   };
 
   const confirmCode = async () => {
+    if (sending || confirming) return;
     setError('');
+    const requestCanonical = canonical;
     if (otp.trim().length !== 6) {
       setError(language === 'ar' ? 'أدخل رمز التحقق المكون من 6 أرقام.' : 'Enter the 6-digit verification code.');
       return;
     }
-    if (!auth?.currentUser || !canonical) {
+    const currentUid = auth?.currentUser?.uid || null;
+    if (!currentUid || !requestCanonical) {
       setError(language === 'ar' ? 'جلسة التحقق غير صالحة.' : 'Verification session is not valid.');
       return;
     }
 
+    const opId = ++operationGenRef.current;
     setConfirming(true);
+
     try {
       const res = await authFetch('/api/whatsapp/verify/check', {
         method: 'POST',
@@ -168,6 +294,8 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       });
 
       const data = await res.json().catch(() => ({}));
+      if (!isOpCurrent(opId, requestCanonical, currentUid)) return;
+
       if (!res.ok) {
         setError(
           language === 'ar'
@@ -178,16 +306,20 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       }
 
       if (data.success && data.whatsappTrusted) {
-        onVerified(canonical);
+        onVerified(requestCanonical);
         setCodeSent(false);
         setOtp('');
       } else {
         setError(language === 'ar' ? 'فشل التحقق من الرمز.' : 'Verification check failed.');
       }
     } catch {
-      setError(language === 'ar' ? 'حدث خطأ في الاتصال أثناء التحقق من الرمز.' : 'Network error while verifying code.');
+      if (isOpCurrent(opId, requestCanonical, currentUid)) {
+        setError(language === 'ar' ? 'حدث خطأ في الاتصال أثناء التحقق من الرمز.' : 'Network error while verifying code.');
+      }
     } finally {
-      setConfirming(false);
+      if (isOpCurrent(opId, requestCanonical, currentUid)) {
+        setConfirming(false);
+      }
     }
   };
 
@@ -281,6 +413,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
               maxLength={6}
               value={otp}
               onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              onInput={(event: React.FormEvent<HTMLInputElement>) => setOtp((event.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6))}
               placeholder={language === 'ar' ? 'رمز واتساب (6 أرقام)' : '6-digit WhatsApp code'}
               className={`${styles.inputControl} flex-1`}
             />

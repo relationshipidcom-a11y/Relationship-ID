@@ -72,7 +72,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const [fullName, setFullName] = useState(initialData.fullName || '');
   const [birthDate, setBirthDate] = useState(isoFromParts(initialData.birthYear, initialData.birthMonth, initialData.birthDay));
   const [email, setEmail] = useState(initialData.email || auth?.currentUser?.email || '');
-  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.phoneCountry));
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(countryFromLegacyValue(initialData.phoneCountry) || 'SA');
   const [phoneNumber, setPhoneNumber] = useState(initialData.phoneNumber || '');
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(
     initialData.whatsappTrusted && initialData.whatsappE164
@@ -112,7 +112,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
       setEmail(initialData.email);
     }
     if (initialData.phoneCountry && !editedFieldsRef.current.has('phoneCountry')) {
-      setPhoneCountry(countryFromLegacyValue(initialData.phoneCountry));
+      setPhoneCountry(countryFromLegacyValue(initialData.phoneCountry) || 'SA');
     }
     if (initialData.phoneNumber && !editedFieldsRef.current.has('phoneNumber')) {
       setPhoneNumber(initialData.phoneNumber);
@@ -538,19 +538,25 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                 onCountryChange={(code) => {
                   editedFieldsRef.current.add('phoneCountry');
                   editedFieldsRef.current.add('phoneNumber');
-                  editedFieldsRef.current.add('verifiedPhone');
-                  editedFieldsRef.current.add('isWhatsappVerified');
                   setPhoneCountry(code);
-                  setVerifiedPhone(null);
-                  setIsWhatsappVerified(false);
+                  const newCanonical = normalizePhoneNumber(code, phoneNumber);
+                  if (!newCanonical || newCanonical !== verifiedPhone) {
+                    editedFieldsRef.current.add('verifiedPhone');
+                    editedFieldsRef.current.add('isWhatsappVerified');
+                    setVerifiedPhone(null);
+                    setIsWhatsappVerified(false);
+                  }
                 }}
                 onNumberChange={(val) => {
                   editedFieldsRef.current.add('phoneNumber');
-                  editedFieldsRef.current.add('verifiedPhone');
-                  editedFieldsRef.current.add('isWhatsappVerified');
                   setPhoneNumber(val);
-                  setVerifiedPhone(null);
-                  setIsWhatsappVerified(false);
+                  const newCanonical = normalizePhoneNumber(phoneCountry, val);
+                  if (!newCanonical || newCanonical !== verifiedPhone) {
+                    editedFieldsRef.current.add('verifiedPhone');
+                    editedFieldsRef.current.add('isWhatsappVerified');
+                    setVerifiedPhone(null);
+                    setIsWhatsappVerified(false);
+                  }
                 }}
                 onVerified={handlePhoneVerified}
                 label={t.phoneLabel}

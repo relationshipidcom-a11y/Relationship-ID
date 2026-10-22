@@ -154,7 +154,7 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
       || (initialProfile?.whatsappTrusted && initialProfile?.whatsappE164)
       || (record.partner2?.whatsappTrusted && record.partner2?.whatsappE164)
       || null;
-    const canonical = normalizePhoneNumber(countryFromLegacyValue(initCountryLegacy), initPhoneNumber);
+    const canonical = normalizePhoneNumber(countryFromLegacyValue(initCountryLegacy) || 'SA', initPhoneNumber);
     if (serverConfirmedWa && canonical && canonical === serverConfirmedWa) {
       initVerifiedPhone = serverConfirmedWa;
       initIsWhatsappVerified = true;
@@ -164,7 +164,7 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
       fullName: initFullName,
       birthDate: initBirthDate,
       email: initEmail,
-      phoneCountry: countryFromLegacyValue(initCountryLegacy),
+      phoneCountry: countryFromLegacyValue(initCountryLegacy) || 'SA',
       phoneNumber: initPhoneNumber,
       socialAccounts: initSocial,
       verifiedPhone: initVerifiedPhone,
@@ -209,7 +209,7 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
     if (!editedFieldsRef.current.has('phoneCountry')) {
       const resolvedCountry = initialProfile?.phoneCountry
         || (record.partner2?.phoneCountry && record.partner2.phoneCountry !== 'SA +966' ? record.partner2.phoneCountry : (initialProfile?.phoneCountry || record.partner2?.phoneCountry || 'SA +966'));
-      setPhoneCountry(countryFromLegacyValue(resolvedCountry));
+      setPhoneCountry(countryFromLegacyValue(resolvedCountry) || 'SA');
     }
 
     if (!editedFieldsRef.current.has('phoneNumber')) {
@@ -230,7 +230,7 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
     }
 
     const currentCountry = (editedFieldsRef.current.has('phoneCountry') && draft?.phoneCountry)
-      ? countryFromLegacyValue(draft.phoneCountry)
+      ? (countryFromLegacyValue(draft.phoneCountry) || 'SA')
       : phoneCountry;
     const currentNumber = (editedFieldsRef.current.has('phoneNumber') && draft?.phoneNumber)
       ? draft.phoneNumber
@@ -687,19 +687,25 @@ export const P2RegistrationScreen: React.FC<P2RegistrationScreenProps> = ({
               onCountryChange={(value) => {
                 editedFieldsRef.current.add('phoneCountry');
                 editedFieldsRef.current.add('phoneNumber');
-                editedFieldsRef.current.add('verifiedPhone');
-                editedFieldsRef.current.add('isWhatsappVerified');
                 setPhoneCountry(value);
-                setVerifiedPhone(null);
-                setIsWhatsappVerified(false);
+                const newCanonical = normalizePhoneNumber(value, phoneNumber);
+                if (!newCanonical || newCanonical !== verifiedPhone) {
+                  editedFieldsRef.current.add('verifiedPhone');
+                  editedFieldsRef.current.add('isWhatsappVerified');
+                  setVerifiedPhone(null);
+                  setIsWhatsappVerified(false);
+                }
               }}
               onNumberChange={(value) => {
                 editedFieldsRef.current.add('phoneNumber');
-                editedFieldsRef.current.add('verifiedPhone');
-                editedFieldsRef.current.add('isWhatsappVerified');
                 setPhoneNumber(value);
-                setVerifiedPhone(null);
-                setIsWhatsappVerified(false);
+                const newCanonical = normalizePhoneNumber(phoneCountry, value);
+                if (!newCanonical || newCanonical !== verifiedPhone) {
+                  editedFieldsRef.current.add('verifiedPhone');
+                  editedFieldsRef.current.add('isWhatsappVerified');
+                  setVerifiedPhone(null);
+                  setIsWhatsappVerified(false);
+                }
               }}
               onVerified={handleVerified}
               label={t.phoneLabel}

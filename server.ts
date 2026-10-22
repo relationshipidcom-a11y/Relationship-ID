@@ -1731,7 +1731,11 @@ export function createApp(options?: CreateAppOptions): express.Express {
 
       return res.json({ success: true });
     } catch (err: any) {
-      console.error('Error starting WhatsApp verification:', err);
+      console.error('[whatsapp] start failed', {
+        operation: 'start',
+        code: err?.code || err?.status || err?.name,
+        status: err?.status || 502
+      });
       const code = err?.message || '';
       if (code === 'WHATSAPP_VERIFY_UNAVAILABLE') {
         return respondWithError(res, 503, 'WHATSAPP_VERIFY_UNAVAILABLE');

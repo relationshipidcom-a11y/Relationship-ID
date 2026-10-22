@@ -7,6 +7,7 @@ import { evaluateP2LandingState } from '../utils/relationshipState';
 import { getInvitationInstruction } from '../utils/invitationGuidance';
 import { PhoneVerificationField } from './PhoneVerificationField';
 import { BrandMark } from './BrandMark';
+import { normalizePhoneNumber } from '../utils/phone';
 
 interface P2LandingScreenProps {
   language: Language;
@@ -430,11 +431,17 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                   isWhatsappVerified={true}
                   onCountryChange={(c) => {
                     setPhoneCountry(c);
-                    setVerifiedPhoneE164(null);
+                    const newCanonical = normalizePhoneNumber(c, phoneNumber);
+                    if (!newCanonical || newCanonical !== verifiedPhoneE164) {
+                      setVerifiedPhoneE164(null);
+                    }
                   }}
                   onNumberChange={(n) => {
                     setPhoneNumber(n);
-                    setVerifiedPhoneE164(null);
+                    const newCanonical = normalizePhoneNumber(phoneCountry, n);
+                    if (!newCanonical || newCanonical !== verifiedPhoneE164) {
+                      setVerifiedPhoneE164(null);
+                    }
                   }}
                   onVerified={(e164) => {
                     setVerifiedPhoneE164(e164);

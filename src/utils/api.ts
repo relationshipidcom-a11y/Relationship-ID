@@ -80,10 +80,15 @@ export const ALLOWED_ERROR_CODES = new Set([
   'UNSAFE_INPUT',
   'INVALID_PLATFORM',
   'FIELD_TOO_LONG',
-  'INVALID_INPUT'
+  'INVALID_INPUT',
+  'SUBMISSION_IN_PROGRESS'
 ]);
 
 export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
+  SUBMISSION_IN_PROGRESS: {
+    en: 'A submission is already in progress. Please wait.',
+    ar: 'يتم إرسال الطلب حالياً. يرجى الانتظار.'
+  },
   AUTH_REQUIRED: {
     en: 'Authentication required. Please sign in.',
     ar: 'تسجيل الدخول مطلوب. يرجى تسجيل الدخول.'
@@ -508,11 +513,26 @@ export async function authFetch(
     throw new Error('AUTH_REQUIRED');
   }
 
-  const token = await auth.currentUser.getIdToken(true);
-  const headers = await withAppCheckHeaders(init.headers);
-  headers.set('Authorization', `Bearer ${token}`);
+  let prepTimeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    prepTimeoutId = setTimeout(() => reject(new Error('NETWORK_TIMEOUT')), timeoutMs);
+  });
 
-  return fetchWithTimeout(input, { ...init, headers }, timeoutMs);
+  const prepareHeaders = async (): Promise<Headers> => {
+    // Avoid forcing full network refresh if existing token is valid
+    const token = await auth!.currentUser!.getIdToken(false);
+    const headers = await withAppCheckHeaders(init.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    return headers;
+  };
+
+  try {
+    const headers = await Promise.race([prepareHeaders(), timeoutPromise]);
+    if (prepTimeoutId) clearTimeout(prepTimeoutId);
+    return await fetchWithTimeout(input, { ...init, headers }, timeoutMs);
+  } finally {
+    if (prepTimeoutId) clearTimeout(prepTimeoutId);
+  }
 }
 
 /**

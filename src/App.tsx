@@ -983,7 +983,9 @@ export default function App() {
     partner2Whatsapp?: string;
     partner2WhatsappCountry?: string;
   }) => {
-    if (isSubmittingRef.current) return;
+    if (isSubmittingRef.current) {
+      throw new Error('SUBMISSION_IN_PROGRESS');
+    }
     isSubmittingRef.current = true;
     setAppError('');
     try {
@@ -993,6 +995,9 @@ export default function App() {
         body: JSON.stringify(p2Data)
       });
       const data = await parseApiError(response);
+      if (!data || !data.invitation) {
+        throw new Error('INVITATION_NOT_FOUND');
+      }
       setInvitation(data.invitation);
       if (data.record) applyServerRecord(data.record);
       navigateTo('invite_success');

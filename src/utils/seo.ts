@@ -12,12 +12,12 @@ interface SeoConfig {
 const SEO_MAP: Record<ScreenId, SeoConfig> = {
   auth: {
     title: {
-      ar: 'Relationship ID - سجل علاقة خاص وتوثيق رقمي متبادل',
-      en: 'Relationship ID - Private Relationship Record Registry'
+      ar: 'ارتباط | Relationship ID – شهادة علاقة مجانية',
+      en: 'Relationship ID | ارتباط – Free Relationship Certificate'
     },
     description: {
-      ar: 'سجل رقمي خاص للعلاقات بموافقة متبادلة وتوثيق آمن دون طلب بطاقات هوية.',
-      en: 'Private relationship registry with mutual partner consent, secure invitations, and privacy-safe certificate verification.'
+      ar: 'توثيق رقمي متبادل ومجاني للعلاقة: يؤكد كلا الشريكين ويحصلان على شهادة رقمية قابلة للتحقق برمز QR. مواعدة، خطوبة أو زواج. بدون إعلانات وبدون رسوم.',
+      en: 'Free mutual relationship verification: both partners confirm and get a QR-verifiable digital certificate. Dating, Engaged or Married. No ads, no fees.'
     },
     canonicalPath: '/',
     robots: 'index, follow'
@@ -25,7 +25,7 @@ const SEO_MAP: Record<ScreenId, SeoConfig> = {
   about: {
     title: {
       ar: 'عن المنصة ومعايير التوثيق والسجل - Relationship ID',
-      en: 'About Relationship ID - Registry Standards & Verification Scope'
+      en: 'About Relationship ID | ارتباط'
     },
     description: {
       ar: 'تعرف على طبيعة منصة Relationship ID كسجل إقرار طوعي متبادل، ونطاق التحقق، وإرشادات مكافحة الإساءة.',
@@ -37,7 +37,7 @@ const SEO_MAP: Record<ScreenId, SeoConfig> = {
   privacy: {
     title: {
       ar: 'سياسة الخصوصية - Relationship ID',
-      en: 'Privacy Policy - Relationship ID'
+      en: 'Privacy Policy | Relationship ID'
     },
     description: {
       ar: 'سياسة الخصوصية لمنصة Relationship ID وحماية البيانات الشخصية وفق الأنظمة المرعية.',
@@ -49,7 +49,7 @@ const SEO_MAP: Record<ScreenId, SeoConfig> = {
   terms: {
     title: {
       ar: 'شروط الاستخدام - Relationship ID',
-      en: 'Terms of Use - Relationship ID'
+      en: 'Terms of Use | Relationship ID'
     },
     description: {
       ar: 'شروط وأحكام استخدام منصة Relationship ID وحقوق وواجبات المستخدمين وحدود الشهادة الرقمية.',

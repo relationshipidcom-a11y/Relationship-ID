@@ -129,7 +129,7 @@ export interface ChangeRequest {
 export interface AppNotification {
   id: string;
   userId: string;
-  type: 'relationship_ended' | 'change_request' | 'general';
+  type: 'relationship_ended' | 'change_request' | 'general' | 'invitation_accepted' | 'invitation_declined';
   recordId?: string;
   senderName?: string;
   messageAr: string;

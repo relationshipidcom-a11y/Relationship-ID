@@ -326,18 +326,11 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`${id}-number`} className="block text-sm font-medium text-[#B7ACC8]">
+        <label htmlFor={`${id}-number`} className="block text-sm font-medium text-[#D6DAED]">
           {label || (language === 'ar' ? 'رقم الهاتف المحمول' : 'Mobile Phone Number')}
         </label>
-        {isVerified ? (
-          <span className="text-sm px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 inline-flex items-center gap-1 font-medium">
-            <CheckCircle className="w-3.5 h-3.5" />
-            {isWhatsappVerified
-              ? (language === 'ar' ? 'موثوق عبر واتساب ✓' : 'Verified via WhatsApp ✓')
-              : (language === 'ar' ? 'رقم موثوق ✓' : 'Verified Phone ✓')}
-          </span>
-        ) : (
-          <span className="text-sm text-[#B7ACC8]/70 font-medium">
+        {!isVerified && (
+          <span className="text-sm text-[#D6DAED]/70 font-medium">
             {language === 'ar' ? 'غير موثوق' : 'Not verified'}
           </span>
         )}
@@ -349,7 +342,7 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           value={country}
           onChange={(event) => handleCountryChange(event.target.value)}
           onInput={(event: React.FormEvent<HTMLSelectElement>) => handleCountryChange((event.target as HTMLSelectElement).value)}
-          className="col-span-5 bg-[#141023] border border-[#51465F] text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#E7BCD3]"
+          className="col-span-5 sm:col-span-4 bg-[#252D52] border border-[#A0A9D1] text-white rounded-xl px-2.5 py-2.5 text-base min-h-[44px] outline-none focus:border-[#B8BCE6] truncate"
         >
           {supportedCountries.map((item) => (
             <option key={item.iso} value={item.iso}>
@@ -365,43 +358,55 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           value={number}
           onChange={(event) => handleNumberChange(event.target.value)}
           onInput={(event: React.FormEvent<HTMLInputElement>) => handleNumberChange((event.target as HTMLInputElement).value)}
-          className={`${styles.inputControl} col-span-7`}
+          className={`${styles.inputControl} col-span-7 sm:col-span-8 min-h-[44px] text-base`}
           dir="ltr"
           autoComplete="tel-national"
           placeholder={country === 'SA' ? '55 123 4567' : 'Mobile number'}
         />
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={sending || confirming || isVerified || resendCooldown > 0}
-          onClick={sendCode}
-          className="flex-1 py-2.5 px-3 rounded-xl bg-[#30264D] border border-[#51465F] text-[#E7BCD3] text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-[#3D305A] transition min-h-[40px]"
-        >
-          {sending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : isVerified ? (
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-          ) : (
-            <MessageSquare className="w-4 h-4" />
-          )}
-          {isVerified
-            ? (isWhatsappVerified
+      {isVerified ? (
+        <div className="flex items-center justify-between p-2.5 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-medium">
+              {isWhatsappVerified
                 ? (language === 'ar' ? 'تم التحقق عبر واتساب ✓' : 'Verified via WhatsApp ✓')
-                : (language === 'ar' ? 'تم التحقق من الرقم ✓' : 'Verified Phone ✓'))
-            : (codeSent
+                : (language === 'ar' ? 'تم التحقق من الرقم ✓' : 'Verified Phone ✓')}
+            </span>
+          </div>
+          {canonical && (
+            <span className="text-xs sm:text-sm text-emerald-300/80 font-mono shrink-0" dir="ltr">
+              {canonical}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={sending || confirming || resendCooldown > 0}
+            onClick={sendCode}
+            className="flex-1 py-2.5 px-3 rounded-xl bg-[#414A75] border border-[#A0A9D1] text-[#B8BCE6] text-sm sm:text-base font-semibold disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer hover:bg-[#39436D] transition min-h-[44px]"
+          >
+            {sending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <MessageSquare className="w-4 h-4" />
+            )}
+            {codeSent
               ? (resendCooldown > 0
                 ? (language === 'ar' ? `إعادة الإرسال بعد ${resendCooldown} ث` : `Resend in ${resendCooldown}s`)
                 : (language === 'ar' ? 'إعادة إرسال رمز واتساب' : 'Resend WhatsApp code'))
-              : (language === 'ar' ? 'التحقق عبر واتساب' : 'Verify via WhatsApp'))}
-        </button>
-        {canonical && (
-          <span className="text-sm text-[#B7ACC8]/70 font-mono shrink-0" dir="ltr">
-            {legacyCountryValue(country).split(' ')[1]}…{canonical.slice(-4)}
-          </span>
-        )}
-      </div>
+              : (language === 'ar' ? 'التحقق عبر واتساب' : 'Verify via WhatsApp')}
+          </button>
+          {canonical && (
+            <span className="text-xs sm:text-sm text-[#D6DAED]/70 font-mono shrink-0" dir="ltr">
+              {legacyCountryValue(country).split(' ')[1]}…{canonical.slice(-4)}
+            </span>
+          )}
+        </div>
+      )}
 
       {codeSent && !isVerified && (
         <div className="space-y-1.5">
@@ -415,18 +420,18 @@ export const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
               onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
               onInput={(event: React.FormEvent<HTMLInputElement>) => setOtp((event.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6))}
               placeholder={language === 'ar' ? 'رمز واتساب (6 أرقام)' : '6-digit WhatsApp code'}
-              className={`${styles.inputControl} flex-1`}
+              className={`${styles.inputControl} flex-1 min-h-[44px] text-base`}
             />
             <button
               type="button"
               onClick={confirmCode}
               disabled={confirming || otp.trim().length !== 6}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] text-sm font-semibold disabled:opacity-50 cursor-pointer min-h-[40px] flex items-center gap-1.5"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] text-sm font-semibold disabled:opacity-50 cursor-pointer min-h-[44px] flex items-center gap-1.5"
             >
               {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'تحقق من الرمز' : 'Verify')}
             </button>
           </div>
-          <p className="text-xs text-[#B7ACC8]/80">
+          <p className="text-xs text-[#D6DAED]/80">
             {language === 'ar'
               ? 'يصلك رمز التحقق المكون من 6 أرقام في رسالة عبر تطبيق واتساب.'
               : 'Your 6-digit verification code arrives in a message via WhatsApp.'}

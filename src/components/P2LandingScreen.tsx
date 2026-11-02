@@ -71,20 +71,20 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   if (landingOutcome.state === 'not_found') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
+        <div className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-[20px] p-6 shadow-2xl relative text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300">
             <AlertTriangle className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'رابط الدعوة غير صالح أو غير موجود' : 'Invitation Not Found'}
           </h1>
-          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#D6DAED] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'تعذر العثور على هذه الدعوة. يرجى التأكد من الرابط أو طلب دعوة جديدة من الشريك.'
               : 'This invitation could not be found. Please check the link or request a new invitation from your partner.'}
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-sm text-[#B7ACC8]/60">
-            <Shield className="w-3.5 h-3.5 text-[#E7BCD3]" />
+          <div className="flex items-center justify-center gap-1.5 text-sm text-[#D6DAED]/60">
+            <Shield className="w-3.5 h-3.5 text-[#B8BCE6]" />
             <span>{t.dataPrivacyAssurance}</span>
           </div>
         </div>
@@ -96,14 +96,14 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   if (landingOutcome.state === 'load_failed') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div role="alert" className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
+        <div role="alert" className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-[20px] p-6 shadow-2xl relative text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
             <AlertTriangle className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تعذر تحميل الدعوة' : 'Could Not Load Invitation'}
           </h1>
-          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#D6DAED] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'تحقق من اتصالك بالإنترنت ثم أعد المحاولة.'
               : 'Check your internet connection and try again.'}
@@ -111,7 +111,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           <button
             type="button"
             onClick={onRetry || (() => window.location.reload())}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#804E6A] hover:bg-[#8D5775] text-white text-sm font-bold min-h-[44px] cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#B8BCE6] hover:bg-[#B8BCE6] text-[#202747] text-sm font-bold min-h-[44px] cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             <span>{language === 'ar' ? 'إعادة المحاولة' : 'Try Again'}</span>
@@ -125,14 +125,14 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   if (landingOutcome.state === 'invalid_contacts') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div role="alert" className="w-full bg-[#30264D] border border-amber-500/40 rounded-[20px] p-6 shadow-2xl relative text-center">
+        <div role="alert" className="w-full bg-[#414A75] border border-amber-500/40 rounded-[20px] p-6 shadow-2xl relative text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
             <AlertTriangle className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'بيانات الدعوة غير صالحة' : 'Invalid Invitation Contacts'}
           </h1>
-          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#D6DAED] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'بيانات التواصل المحددة في هذه الدعوة غير مكتملة أو غير صالحة. يرجى التواصل مع الشريك لإعادة إرسال الدعوة بشكل صحيح.'
               : 'The contact details specified in this invitation are incomplete or invalid. Please ask your partner to resend the invitation.'}
@@ -141,7 +141,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <button
               type="button"
               onClick={onSwitchAccount}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white text-sm font-semibold min-h-[44px] cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#39436D] hover:bg-[#4F5A8C] text-[#D6DAED] hover:text-white text-sm font-semibold min-h-[44px] cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>{t.switchAccountBtn}</span>
@@ -156,20 +156,20 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   if (landingOutcome.state === 'declined') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
+        <div className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-[20px] p-6 shadow-2xl relative text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300">
             <X className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تم رفض الدعوة' : 'Invitation Declined'}
           </h1>
-          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#D6DAED] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'لقد تم رفض هذه الدعوة. لن يتم إنشاء أو مشاركة أي سجل ارتباط أو شهادة رقمية.'
               : 'You have declined this invitation. No relationship record or digital certificate was created.'}
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-sm text-[#B7ACC8]/60">
-            <Shield className="w-3.5 h-3.5 text-[#E7BCD3]" />
+          <div className="flex items-center justify-center gap-1.5 text-sm text-[#D6DAED]/60">
+            <Shield className="w-3.5 h-3.5 text-[#B8BCE6]" />
             <span>{t.dataPrivacyAssurance}</span>
           </div>
         </div>
@@ -181,8 +181,8 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
     const expired = landingOutcome.state === 'expired';
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#392D5A] border border-[#51465F] flex items-center justify-center text-[#E7BCD3]">
+        <div className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-[20px] p-6 shadow-2xl relative text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#39436D] border border-[#A0A9D1] flex items-center justify-center text-[#B8BCE6]">
             <Clock className="w-7 h-7" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
@@ -190,7 +190,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               ? (language === 'ar' ? 'انتهت صلاحية الدعوة' : 'Invitation Expired')
               : (language === 'ar' ? 'تم إلغاء الدعوة' : 'Invitation Cancelled')}
           </h1>
-          <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#D6DAED] leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'لا يمكن قبول هذه الدعوة. اطلب من الشريك إنشاء دعوة جديدة عند الحاجة.'
               : 'This invitation can no longer be accepted. Ask the partner to create a new invitation if needed.'}
@@ -203,14 +203,14 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   if (landingOutcome.state === 'accepted') {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full">
-        <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative text-center">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#E7BCD3]/15 border border-[#51465F] flex items-center justify-center text-[#E7BCD3]">
+        <div className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-[20px] p-6 shadow-2xl relative text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#B8BCE6]/15 border border-[#A0A9D1] flex items-center justify-center text-[#B8BCE6]">
             <Heart className="w-7 h-7 fill-current" />
           </div>
           <h1 className="text-lg font-bold text-white mb-2">
             {language === 'ar' ? 'تم قبول الدعوة وتوثيق السجل' : 'Invitation Already Accepted'}
           </h1>
-          <p className="text-base sm:text-sm text-[#B7ACC8] mb-6 leading-relaxed max-w-[280px] mx-auto">
+          <p className="text-base sm:text-sm text-[#D6DAED] mb-6 leading-relaxed max-w-[280px] mx-auto">
             {language === 'ar'
               ? 'تم ربط وتوثيق هذا السجل بنجاح لكلا الطرفين.'
               : 'This relationship record has already been accepted by both partners.'}
@@ -219,7 +219,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <button
               type="button"
               onClick={onViewCertificate}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 cursor-pointer border border-[#51465F]"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm shadow-lg shadow-black/20 flex items-center justify-center gap-2 cursor-pointer border border-[#A0A9D1]"
             >
               <span>{language === 'ar' ? 'عرض شهادة العلاقة' : 'View Relationship Certificate'}</span>
             </button>
@@ -237,14 +237,14 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   ) {
     return (
       <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 w-full text-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-[#392D5A]/60 border border-[#9D6B87]/40 flex items-center justify-center shadow-lg mx-auto">
-          <RefreshCw className="w-6 h-6 animate-spin text-[#E7BCD3]" />
+        <div className="w-12 h-12 rounded-2xl bg-[#39436D]/60 border border-[#B8BCE6]/40 flex items-center justify-center shadow-lg mx-auto">
+          <RefreshCw className="w-6 h-6 animate-spin text-[#B8BCE6]" />
         </div>
         <div className="space-y-1">
           <p className="text-sm font-semibold text-white">
             {language === 'ar' ? 'جاري التحقق من تفاصيل الدعوة...' : 'Verifying invitation authorization...'}
           </p>
-          <p className="text-xs text-[#B7ACC8]">
+          <p className="text-xs text-[#D6DAED]">
             {language === 'ar' ? 'يرجى الانتظار بينما نتحقق من صلاحية الدعوة...' : 'Please wait while we verify invitation access...'}
           </p>
         </div>
@@ -264,21 +264,21 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
   return (
     <main className="flex-1 flex flex-col items-center justify-center py-4 px-4 w-full">
       {/* Special Invitation Status Badge */}
-      <div className="mb-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#392D5A] border border-[#51465F] text-[#E7BCD3] text-sm font-semibold shadow-md">
-        <span className="w-2 h-2 rounded-full bg-[#E7BCD3] animate-pulse" />
+      <div className="mb-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#39436D] border border-[#A0A9D1] text-[#B8BCE6] text-sm font-semibold shadow-md">
+        <span className="w-2 h-2 rounded-full bg-[#B8BCE6] animate-pulse" />
         <span>{t.p2LandingBadge}</span>
         <Lock className="w-3.5 h-3.5 opacity-80" />
       </div>
 
       {/* Invitation Primary Card */}
-      <div className="w-full bg-[#30264D] border border-[#51465F] rounded-[20px] p-6 shadow-2xl relative overflow-hidden">
+      <div className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-[20px] p-6 shadow-2xl relative overflow-hidden">
         {/* Ambient Glow */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#E7BCD3]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#B8BCE6]/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Center Emblem: Relationship ID Logo */}
         <div className="flex items-center justify-center mb-5 relative">
           <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent to-white/20" />
-          <div className="mx-4 p-3 rounded-2xl bg-[#392D5A] border border-[#51465F] shadow-lg flex items-center justify-center">
+          <div className="mx-4 p-3 rounded-2xl bg-[#39436D] border border-[#A0A9D1] shadow-lg flex items-center justify-center">
             <BrandMark size={48} className="select-none" alt="Relationship ID" />
           </div>
           <div className="flex-1 h-[1px] bg-gradient-to-l from-transparent to-white/20" />
@@ -289,27 +289,27 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">
             {t.p2LandingTitle}
           </h1>
-          <p className="text-[#B7ACC8] text-base sm:text-sm font-medium">
+          <p className="text-[#D6DAED] text-base sm:text-sm font-medium">
             {t.p2InvitedYouText.replace('{inviter}', invitation.inviterName)}
           </p>
         </div>
 
         {/* Details Box */}
-        <div className="bg-[#141023] border border-[#51465F] rounded-xl p-4 space-y-3 mb-5">
+        <div className="bg-[#252D52] border border-[#A0A9D1] rounded-xl p-4 space-y-3 mb-5">
           {/* Inviter Info */}
           <div className="flex items-center justify-between text-sm py-1 border-b border-white/10">
-            <div className="flex items-center gap-2 text-[#B7ACC8] font-medium">
+            <div className="flex items-center gap-2 text-[#D6DAED] font-medium">
               <span>{t.invitationFrom}</span>
               <span className="text-white font-semibold">{invitation.inviterName}</span>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#392D5A] flex items-center justify-center text-[#B7ACC8]">
+            <div className="w-7 h-7 rounded-lg bg-[#39436D] flex items-center justify-center text-[#D6DAED]">
               <Shield className="w-3.5 h-3.5" />
             </div>
           </div>
 
           {/* Requested Stage */}
           <div className="flex items-center justify-between text-sm py-1 border-b border-white/10">
-            <div className="flex items-center gap-2 text-[#B7ACC8] font-medium">
+            <div className="flex items-center gap-2 text-[#D6DAED] font-medium">
               <span>{t.requestedRelationshipStage}</span>
               <span className="text-white font-semibold">
                 {invitation.relationshipType === 'marriage'
@@ -319,7 +319,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                   : t.dating}
               </span>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#392D5A] flex items-center justify-center text-[#B7ACC8]">
+            <div className="w-7 h-7 rounded-lg bg-[#39436D] flex items-center justify-center text-[#D6DAED]">
               <Heart className="w-3.5 h-3.5 fill-current" />
             </div>
           </div>
@@ -337,11 +337,11 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
           {/* Contact Requirement Guidance (never reveals actual contact details) */}
           {instructionText && (
             <div className="space-y-1 pt-1">
-              <div className="text-xs font-bold text-[#E7BCD3] uppercase tracking-wider">
+              <div className="text-xs font-bold text-[#B8BCE6] uppercase tracking-wider">
                 {language === 'ar' ? 'طريقة القبول' : 'How to accept'}
               </div>
-              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-[#B7ACC8] leading-relaxed">
-                <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[#E7BCD3]" />
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-[#D6DAED] leading-relaxed">
+                <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[#B8BCE6]" />
                 <span>{instructionText}</span>
               </div>
             </div>
@@ -387,12 +387,12 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
 
         {/* Limited Pre-Authorization Verification Interface */}
         {isVerificationRequired && (
-          <div className="mb-5 p-4 rounded-xl bg-[#392D5A]/80 border border-[#9D6B87]/50 text-start space-y-3">
-            <div className="flex items-center gap-2 text-[#E7BCD3] font-bold text-sm">
+          <div className="mb-5 p-4 rounded-xl bg-[#39436D]/80 border border-[#B8BCE6]/50 text-start space-y-3">
+            <div className="flex items-center gap-2 text-[#B8BCE6] font-bold text-sm">
               <Shield className="w-4 h-4 shrink-0" />
               <span>{language === 'ar' ? 'تأكيد الحساب مطلوب لمراجعة الدعوة' : 'Verification Required to Review Invitation'}</span>
             </div>
-            <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed">
+            <p className="text-base sm:text-sm text-[#D6DAED] leading-relaxed">
               {instructionText ||
                 (language === 'ar'
                   ? 'لإكمال مراجعة وقبول الدعوة، يرجى تأكيد ملكيتك لرقم الجوال أو البريد الإلكتروني المطلوب.'
@@ -402,7 +402,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             {/* If email verification is needed */}
             {(invitation.contactRequirement === 'email' || invitation.contactRequirement === 'both') && (
               <div className="pt-2 border-t border-white/10 space-y-2">
-                <p className="text-xs text-[#E7BCD3]">
+                <p className="text-xs text-[#B8BCE6]">
                   {language === 'ar'
                     ? 'هذه الدعوة تتطلب تأكيد البريد الإلكتروني المسجل في حسابك.'
                     : 'This invitation requires verifying the email registered to your account.'}
@@ -460,7 +460,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 <button
                   type="button"
                   onClick={onSwitchAccount}
-                  className="text-xs text-[#B7ACC8] hover:text-[#E7BCD3] underline cursor-pointer"
+                  className="text-xs text-[#D6DAED] hover:text-[#B8BCE6] underline cursor-pointer"
                 >
                   {t.switchAccountBtn}
                 </button>
@@ -474,7 +474,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
               <div className="text-sm truncate">
-                <span className="text-[#B7ACC8]">{t.signedInAsP2} </span>
+                <span className="text-[#D6DAED]">{t.signedInAsP2} </span>
                 <span className="text-white font-semibold">{authUser?.name || authUser?.email}</span>
               </div>
             </div>
@@ -482,7 +482,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={onSwitchAccount}
-                className="text-sm text-[#E7BCD3] hover:text-white underline shrink-0 cursor-pointer"
+                className="text-sm text-[#B8BCE6] hover:text-white underline shrink-0 cursor-pointer"
               >
                 {t.switchAccountBtn}
               </button>
@@ -498,7 +498,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={onAccept}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#A0A9D1] cursor-pointer min-h-[44px]"
               >
                 <LogIn className="w-4 h-4" />
                 <span>{isAuthorizedP2 ? t.reviewAndAcceptBtn : t.p2AcceptBtn}</span>
@@ -508,7 +508,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => onDecline(false)}
-                  className="w-full py-2.5 px-3 rounded-xl border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
+                  className="w-full py-2.5 px-3 rounded-xl border border-[#A0A9D1] bg-[#39436D] hover:bg-[#4F5A8C] text-[#D6DAED] hover:text-white font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span>{t.p2DeclineBtn}</span>
@@ -531,7 +531,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <button
               type="button"
               onClick={onSwitchAccount}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#A0A9D1] cursor-pointer min-h-[44px]"
             >
               <LogIn className="w-4 h-4" />
               <span>{t.switchAccountBtn}</span>
@@ -545,7 +545,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#A0A9D1] cursor-pointer min-h-[44px]"
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span>{t.sessionRetryBtn}</span>
@@ -555,7 +555,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 <button
                   type="button"
                   onClick={onSwitchAccount}
-                  className="w-full py-2.5 px-3 rounded-xl border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
+                  className="w-full py-2.5 px-3 rounded-xl border border-[#A0A9D1] bg-[#39436D] hover:bg-[#4F5A8C] text-[#D6DAED] hover:text-white font-medium text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer min-h-[40px]"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>{t.switchAccountBtn}</span>
@@ -569,7 +569,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             <button
               type="button"
               onClick={onAccept}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#51465F] cursor-pointer min-h-[44px]"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm sm:text-base shadow-lg shadow-black/20 flex items-center justify-center gap-2 transition transform active:scale-[0.98] border border-[#A0A9D1] cursor-pointer min-h-[44px]"
             >
               <CheckCircle className="w-4 h-4 text-emerald-400" />
               <span>{language === 'ar' ? 'متابعة مراجعة الدعوة' : 'Continue to Review Invitation'}</span>
@@ -590,7 +590,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
             }
           }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-300 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
@@ -599,7 +599,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
                 {t.declineAndBlock}
               </h3>
             </div>
-            <p className="text-sm text-[#B7ACC8] leading-relaxed">
+            <p className="text-sm text-[#D6DAED] leading-relaxed">
               {t.declineAndBlockConfirm}
             </p>
             <div className="flex flex-col gap-2 pt-2">
@@ -616,7 +616,7 @@ export const P2LandingScreen: React.FC<P2LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowBlockConfirm(false)}
-                className="w-full py-2.5 px-4 rounded-xl border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] text-[#B7ACC8] hover:text-white font-medium text-sm transition active:scale-[0.98] cursor-pointer min-h-[40px]"
+                className="w-full py-2.5 px-4 rounded-xl border border-[#A0A9D1] bg-[#39436D] hover:bg-[#4F5A8C] text-[#D6DAED] hover:text-white font-medium text-sm transition active:scale-[0.98] cursor-pointer min-h-[40px]"
               >
                 {t.cancelBtn}
               </button>

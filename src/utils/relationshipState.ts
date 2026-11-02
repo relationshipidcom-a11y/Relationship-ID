@@ -544,7 +544,7 @@ export interface PrivateRecordLoadingContext<T = any> {
   setInvitation: (invitation: any) => void;
   setAppError: (errorMsg: string) => void;
   formatErrorMessage?: (err: any) => string;
-  routeAfterLoad?: boolean;
+  routeAfterLoad?: boolean | (() => boolean);
   onNavigate?: (screen: ScreenId, path?: string) => void;
   initialRecord: any;
   initialInvitation: any;
@@ -609,7 +609,8 @@ export async function executePrivateRecordLoad<T extends { record?: any; invitat
     // On verified successful load or retry, clear any active error
     setAppError('');
 
-    if (routeAfterLoad && onNavigate) {
+    const shouldRoute = typeof routeAfterLoad === 'function' ? routeAfterLoad() : routeAfterLoad;
+    if (shouldRoute && onNavigate) {
       if (!isCurrent()) return null;
 
       if (!loadedRecord) {

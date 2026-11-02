@@ -52,7 +52,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '9. Your Rights as a Data Subject',
-        body: 'Under the Saudi Personal Data Protection Law (PDPL), you have rights regarding your personal data: (a) Right to be informed about how your personal data is collected and processed; (b) Right of access and data portability — you can download a machine-readable JSON copy of your own data at any time from the account menu in the app, using "Download My Data (JSON)", and you may also request a copy by emailing customerservices@relationshipid.org; (c) Right to correction of protected profile fields, available directly in the application through mutual partner change requests; (d) Right to erasure (destruction of personal data), available directly in the application through the Delete Account feature; and (e) Right to withdraw consent at any time, including ending the relationship record through the application, which immediately revokes and removes public verification. For any requests not directly automated in the interface, contact customerservices@relationshipid.org. You also have the right to lodge a complaint with the Saudi Data & AI Authority (SDAIA) if you believe your personal data is being processed in violation of applicable laws.'
+        body: 'Under the Saudi Personal Data Protection Law (PDPL), you have rights regarding your personal data: (a) Right to be informed about how your personal data is collected and processed; (b) Right of access and data portability; (c) Right to correction of protected profile fields, available directly in the application through mutual partner change requests; (d) Right to erasure (destruction of personal data), available directly in the application through the Delete Account feature; and (e) Right to withdraw consent at any time, including ending the relationship record through the application, which immediately revokes and removes public verification. For any requests not directly automated in the interface, contact customerservices@relationshipid.org. You also have the right to lodge a complaint with the Saudi Data & AI Authority (SDAIA) if you believe your personal data is being processed in violation of applicable laws.'
       },
       {
         heading: '10. Security and Breach Notification',
@@ -118,7 +118,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     aboutSections: [
       {
         heading: '1. Voluntary Mutual Declaration',
-        body: 'Relationship ID is a private digital registry that records a voluntary mutual declaration between two consenting adults aged 18 or older.\n\nA relationship record and its associated certificate are created only when both partners independently sign in, verify their access, and give mutual consent. A certificate documents that both partners entered this shared declaration; it does not independently investigate, substantiate, or establish the factual truth of private relationship claims or personal history.'
+        body: 'Relationship ID is a private digital registry that records a voluntary mutual declaration between two consenting adults aged 18 or older.\n\nA relationship record and its associated certificate are created only when both partners independently sign in, verify their access, and give mutual consent. A certificate documents that both partners entered this shared declaration.'
       },
       {
         heading: '2. Scope & Limits of Contact Verification',
@@ -126,7 +126,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '3. Not a Dating Safety Badge or Official Document',
-        body: 'Relationship ID is designed solely for consensual mutual documentation between two individuals:\n• It is not a dating safety badge, security clearance, background check certificate, or endorsement to meet someone in person.\n• It is not an official marriage certificate, religious contract, court document, or civil status registry.\n• It does not grant marriage rights, legal guardianship, inheritance rights, immigration status, residency entitlements, or financial alimony under any legal jurisdiction.\n\nNever rely on a digital certificate or registry entry as a guarantee that an individual is safe, honest, or vetted.'
+        body: 'Relationship ID is designed solely for consensual mutual documentation between two individuals:\n• It does not grant marriage rights, legal guardianship, inheritance rights, immigration status, residency entitlements, or financial alimony under any legal jurisdiction.\n\nNever rely on a digital certificate or registry entry as a guarantee that an individual is safe, honest, or vetted.'
       },
       {
         heading: '4. Anti-Abuse Guidance & User Safety',
@@ -155,7 +155,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '4. ما يُعرض علناً للعموم',
-        body: 'عند إصدار شهادة العلاقة بناءً على التأكيد المتبادل بين الطرفين، فإن بوابة التحقق العامة ورمز الاستجابة السريعة (QR) يعرضان فقط البيانات التالية لأي شخص لديه رابط الشهادة أو مرجع التحقق: الاسمان القانونيان المعتمدان لكِلا الشريكين، ومرحلة العلاقة (تعارف، خطوبة، أو زواج)، وتاريخ بدء العلاقة. بالإضافة إلى ذلك، تتيح خاصية البحث عن جهة الاتصال الاختيارية (المعطلة افتراضياً والتي تتطلب موافقة صريحة من كِلا الشريكين) لمن يمتلك بالفعل رقم هاتف أو بريداً إلكترونياً مطابقاً التحقق فقط من وجود علاقة نشطة ومرحلتها الحالية، دون كشف الأسماء أو التواريخ أو أي بيانات شخصية أخرى. ولا يتم إظهار بيانات الاتصال (البريد الإلكتروني ورقم الهاتف)، وتاريخ الميلاد، والمعرفات الداخلية للحسابات، وسجلات الدعوات، وسجلات الأمان الخاصة علناً على الإطلاق.'
+        body: 'عند إصدار شهادة العلاقة بناءً على التأكيد المتبادل بين الطرفين، فإن بوابة التحقق العامة ورمز الاستجابة السريعة (QR) يعرضان فقط البيانات التالية لأي شخص لديه رابط الشهادة أو مرجع التحقق: الاسمان القانونيان المعتمدان لكِلا الشريكين، ومرحلة العلاقة (مواعدة، خطوبة، أو زواج)، وتاريخ بدء العلاقة. بالإضافة إلى ذلك، تتيح خاصية البحث عن جهة الاتصال الاختيارية (المعطلة افتراضياً والتي تتطلب موافقة صريحة من كِلا الشريكين) لمن يمتلك بالفعل رقم هاتف أو بريداً إلكترونياً مطابقاً التحقق فقط من وجود علاقة نشطة ومرحلتها الحالية، دون كشف الأسماء أو التواريخ أو أي بيانات شخصية أخرى. ولا يتم إظهار بيانات الاتصال (البريد الإلكتروني ورقم الهاتف)، وتاريخ الميلاد، والمعرفات الداخلية للحسابات، وسجلات الدعوات، وسجلات الأمان الخاصة علناً على الإطلاق.'
       },
       {
         heading: '5. المسوغ النظامي للمعالجة',
@@ -175,7 +175,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '9. حقوقك بصفتك صاحب بيانات',
-        body: 'بموجب نظام حماية البيانات الشخصية في المملكة العربية السعودية (PDPL)، يحق لك: (أ) الحق في العلم بكيفية جمع بياناتك ومعالجتها؛ (ب) الحق في الوصول إلى بياناتك الشخصية وفي نقلها — يمكنك تنزيل نسخة من بياناتك بصيغة JSON قابلة للقراءة آلياً في أي وقت من قائمة الحساب في التطبيق عبر خيار "تنزيل بياناتي (JSON)"، كما يمكنك طلب نسخة عبر البريد الإلكتروني customerservices@relationshipid.org؛ (ج) الحق في تصحيح وتعديل الحقول المحمية في الملف التعريفي، والمتوفر مباشرة داخل التطبيق عبر تقديم طلب تعديل يتطلب موافقة الشريك؛ (د) الحق في إتلاف ومحو البيانات، المتوفر مباشرة داخل التطبيق من خلال خيار "حذف الحساب"؛ (هـ) الحق في الرجوع عن الموافقة في أي وقت، بما في ذلك إنهاء سجل العلاقة عبر التطبيق مما يلغي التحقق العام فوراً. لأي طلبات غير مؤتمتة داخل الواجهة، يرجى مراسلتنا على customerservices@relationshipid.org. كما يحق لك تقديم شكوى لدى الهيئة السعودية للبيانات والذكاء الاصطناعي (SDAIA) في حال رأيت أن معالجة بياناتك تخالف الأنظمة المرعية.'
+        body: 'بموجب نظام حماية البيانات الشخصية في المملكة العربية السعودية (PDPL)، يحق لك: (أ) الحق في العلم بكيفية جمع بياناتك ومعالجتها؛ (ب) الحق في الوصول إلى بياناتك الشخصية وفي نقلها؛ (ج) الحق في تصحيح وتعديل الحقول المحمية في الملف التعريفي، والمتوفر مباشرة داخل التطبيق عبر تقديم طلب تعديل يتطلب موافقة الشريك؛ (د) الحق في إتلاف ومحو البيانات، المتوفر مباشرة داخل التطبيق من خلال خيار "حذف الحساب"؛ (هـ) الحق في الرجوع عن الموافقة في أي وقت، بما في ذلك إنهاء سجل العلاقة عبر التطبيق مما يلغي التحقق العام فوراً. لأي طلبات غير مؤتمتة داخل الواجهة، يرجى مراسلتنا على customerservices@relationshipid.org. كما يحق لك تقديم شكوى لدى الهيئة السعودية للبيانات والذكاء الاصطناعي (SDAIA) في حال رأيت أن معالجة بياناتك تخالف الأنظمة المرعية.'
       },
       {
         heading: '10. الأمان والإشعار بالانتهاكات',
@@ -241,7 +241,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
     aboutSections: [
       {
         heading: '1. سجل إقرار طوعي متبادل',
-        body: 'منصة Relationship ID هي سجل رقمي خاص يوثق إقراراً طوعياً متبادلاً بين شخصين بالغين مؤهلين (18 عاماً فأكثر).\n\nلا يتم إنشاء سجل العلاقة أو إصدار الشهادة المرتبطة به إلا بعد أن يقوم الطرفان بتسجيل الدخول بشكل مستقل والتحقق من وسيلة الاتصال وتقديم موافقة متبادلة صريحة. توثق الشهادة صدور هذا الإقرار المشترك بين الطرفين؛ ولا تمثل تحقيقاً مستقلاً أو إثباتاً لحقيقة ادعاءات العلاقات الخاصة أو التاريخ الشخصي لأي من الطرفين.'
+        body: 'منصة Relationship ID هي سجل رقمي خاص يوثق إقراراً طوعياً متبادلاً بين شخصين بالغين مؤهلين (18 عاماً فأكثر).\n\nلا يتم إنشاء سجل العلاقة أو إصدار الشهادة المرتبطة به إلا بعد أن يقوم الطرفان بتسجيل الدخول بشكل مستقل والتحقق من وسيلة الاتصال وتقديم موافقة متبادلة صريحة. توثق الشهادة صدور هذا الإقرار المشترك بين الطرفين.'
       },
       {
         heading: '2. نطاق التحقق التقني وحدوده',
@@ -249,7 +249,7 @@ export const legalContent: { en: LegalDocument; ar: LegalDocument } = {
       },
       {
         heading: '3. ليست شارة أمان للتعارف ولا وثيقة رسمية',
-        body: 'صُممت منصة Relationship ID حصرياً للتوثيق المتبادل الرضائي بين شخصين:\n• ليست "شارة أمان للتعارف" أو ترخيصاً أمنياً أو فحصاً لخلفية الأشخاص أو إذناً باللقاء الشخصي.\n• ليست عقد زواج رسمي أو وثيقة شرعية أو حكماً قضائياً أو تسجيلاً في السجلات المدنية الحكومية.\n• لا تمنح الشهادة حقوق الزواج أو النفقة أو الإرث أو الهجرة أو الإقامة أو أي التزامات مالية أو قانونية بموجب أي نظام أو قانون.\n\nيجب عدم الاعتماد على الشهادة الرقمية أو القيد كضمان لأمان الشخص أو صدقه أو خلو سجله من المخاطر.'
+        body: 'صُممت منصة Relationship ID حصرياً للتوثيق المتبادل الرضائي بين شخصين:\n• لا تمنح الشهادة حقوق الزواج أو النفقة أو الإرث أو الهجرة أو الإقامة أو أي التزامات مالية أو قانونية بموجب أي نظام أو قانون.\n\nيجب عدم الاعتماد على الشهادة الرقمية أو القيد كضمان لأمان الشخص أو صدقه أو خلو سجله من المخاطر.'
       },
       {
         heading: '4. مكافحة إساءة الاستخدام وإرشادات الأمان',

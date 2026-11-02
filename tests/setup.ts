@@ -7,3 +7,7 @@ const cssHook =
     'export function load(url, context, next) { if (url.endsWith(".css")) { return { format: "module", shortCircuit: true, source: "export default {}" }; } return next(url, context); }'
   );
 register(cssHook);
+
+if (!process.env.FIREBASE_PROJECT_ID && !process.env.VITE_FIREBASE_PROJECT_ID) {
+  process.env.FIREBASE_PROJECT_ID = 'relationship-id';
+}

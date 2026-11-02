@@ -201,12 +201,10 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.ok(stringified.includes('Google reCAPTCHA Enterprise'), 'Must preserve reCAPTCHA disclosure');
   });
 
-  // 11. Google Preferred Sources footer link configuration and translations
-  await t.test('11. Google Preferred Sources footer link translations and destination', () => {
-    assert.equal(translations.en.addPreferredSource, 'Add to Preferred Sources on Google');
-    assert.equal(translations.ar.addPreferredSource, 'أضفنا إلى المصادر المفضّلة على Google');
-    const expectedUrl = 'https://www.google.com/preferences/source?q=relationshipid.org';
-    assert.equal(expectedUrl, 'https://www.google.com/preferences/source?q=relationshipid.org');
+  // 11. Save this website footer button translations
+  await t.test('11. Save this website footer button translations', () => {
+    assert.equal(translations.en.saveThisWebsite, 'Save this website');
+    assert.equal(translations.ar.saveThisWebsite, 'احفظ الموقع للوصول إليه بسهولة');
   });
 
   // 12. About content privacy, verification, ending, and payment accuracy
@@ -265,6 +263,46 @@ test('Legal Content Compliance Suite', async (t) => {
     assert.ok(
       arAboutText.includes('لا يتطلب استخدام الخدمة الحالية أي دفع مالي أو تقديم بيانات بطاقة ائتمانية.'),
       'Arabic About must use approved payment text'
+    );
+  });
+
+  // 13. Owner-requested About content deletions
+  await t.test('13. Owner-requested About content deletions are absent in en and ar', () => {
+    const enAboutText = legalContent.en.aboutSections.map((s) => `${s.heading} ${s.body}`).join('\n');
+    const arAboutText = legalContent.ar.aboutSections.map((s) => `${s.heading} ${s.body}`).join('\n');
+
+    // Arabic deletions
+    assert.equal(
+      arAboutText.includes('ولا تمثل تحقيقاً مستقلاً أو إثباتاً لحقيقة ادعاءات العلاقات الخاصة أو التاريخ الشخصي لأي من الطرفين'),
+      false,
+      'Arabic About must not contain independent investigation clause'
+    );
+    assert.equal(
+      arAboutText.includes('ليست "شارة أمان للتعارف" أو ترخيصاً أمنياً أو فحصاً لخلفية الأشخاص أو إذناً باللقاء الشخصي'),
+      false,
+      'Arabic About must not contain dating safety badge clause'
+    );
+    assert.equal(
+      arAboutText.includes('ليست عقد زواج رسمي أو وثيقة شرعية أو حكماً قضائياً أو تسجيلاً في السجلات المدنية الحكومية'),
+      false,
+      'Arabic About must not contain official marriage certificate clause'
+    );
+
+    // English deletions
+    assert.equal(
+      enAboutText.includes('it does not independently investigate, substantiate, or establish the factual truth of private relationship claims or personal history'),
+      false,
+      'English About must not contain independent investigation clause'
+    );
+    assert.equal(
+      enAboutText.includes('It is not a dating safety badge, security clearance, background check certificate, or endorsement to meet someone in person'),
+      false,
+      'English About must not contain dating safety badge clause'
+    );
+    assert.equal(
+      enAboutText.includes('It is not an official marriage certificate, religious contract, court document, or civil status registry'),
+      false,
+      'English About must not contain official marriage certificate clause'
     );
   });
 });

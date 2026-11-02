@@ -2,6 +2,9 @@ export const TEST_CONTACT_HASH_SECRET = 'test_contact_hash_secret_at_least_32_ch
 if (process.env.NODE_ENV === 'test' && (!process.env.CONTACT_HASH_SECRET || process.env.CONTACT_HASH_SECRET.length < 32)) {
   process.env.CONTACT_HASH_SECRET = TEST_CONTACT_HASH_SECRET;
 }
+if (process.env.NODE_ENV === 'test' && !process.env.FIREBASE_PROJECT_ID && !process.env.VITE_FIREBASE_PROJECT_ID) {
+  process.env.FIREBASE_PROJECT_ID = 'relationship-id';
+}
 
 export interface DecodedTestUser {
   uid: string;
@@ -332,7 +335,8 @@ export class MockAuth {
   public onGetUser?: (uid: string) => Promise<{ uid: string }> | { uid: string };
 
   addUser(token: string, user: DecodedTestUser): void {
-    this.users.set(token, { ...user });
+    const auth_time = user.auth_time !== undefined ? user.auth_time : Math.floor(Date.now() / 1000);
+    this.users.set(token, { auth_time, ...user });
   }
 
   async verifyIdToken(token: string): Promise<DecodedTestUser> {

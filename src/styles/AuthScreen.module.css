@@ -3,15 +3,15 @@
   max-width: 390px;
   min-height: 100vh;
   margin: 0 auto;
-  background: linear-gradient(180deg, #30264D 0%, #261E3E 50%, #19142F 100%);
-  border: 1px solid #51465F;
+  background: linear-gradient(180deg, #414A75 0%, #39436D 50%, #2C345F 100%);
+  border: 1px solid #A0A9D1;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   position: relative;
-  color: #F7F4FA;
+  color: #F7F8FC;
 }
 
 @media (min-width: 640px) {
@@ -24,8 +24,8 @@
 .tabPillContainer {
   padding: 4px;
   border-radius: 12px;
-  background-color: #141023;
-  border: 1px solid #51465F;
+  background-color: #252D52;
+  border: 1px solid #A0A9D1;
   display: flex;
   align-items: center;
   margin-bottom: 14px;
@@ -35,11 +35,11 @@
   width: 50%;
   padding: 10px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
-  color: #F7F4FA;
+  background: #B8BCE6;
+  color: #202747;
   font-weight: 700;
   font-size: 14px;
-  box-shadow: 0 4px 12px rgba(128, 78, 106, 0.35);
+  box-shadow: 0 4px 12px rgba(184, 188, 230, 0.35);
   text-align: center;
   letter-spacing: 0.02em;
   transition: all 0.2s ease;
@@ -49,7 +49,7 @@
   width: 50%;
   padding: 10px;
   border-radius: 12px;
-  color: #B7ACC8;
+  color: #D6DAED;
   font-weight: 500;
   font-size: 14px;
   text-align: center;
@@ -61,14 +61,14 @@
 }
 
 .inactiveTab:hover {
-  color: #F7F4FA;
+  color: #F7F8FC;
 }
 
 .inputField {
   width: 100%;
-  background-color: #141023;
-  border: 1px solid #51465F;
-  color: #F7F4FA;
+  background-color: #39436D;
+  border: 1px solid #A0A9D1;
+  color: #F7F8FC;
   border-radius: 12px;
   padding: 13px 16px;
   font-size: 16px;
@@ -77,21 +77,21 @@
 }
 
 .inputField:focus {
-  border-color: #E7BCD3;
-  box-shadow: 0 0 0 2px rgba(231, 188, 211, 0.35);
+  border-color: #D3D8FF;
+  box-shadow: 0 0 0 2px rgba(211, 216, 255, 0.35);
 }
 
 .submitBtn {
   width: 100%;
   margin-top: 8px;
   padding: 13px 16px;
-  background: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
-  color: #F7F4FA;
+  background: #B8BCE6;
+  color: #202747;
   font-weight: 700;
   font-size: 16px;
   border-radius: 12px;
-  border: 1px solid rgba(231, 188, 211, 0.25);
-  box-shadow: 0 8px 18px rgba(128, 78, 106, 0.35);
+  border: 1px solid rgba(160, 169, 209, 0.35);
+  box-shadow: 0 8px 18px rgba(184, 188, 230, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,7 +101,11 @@
 }
 
 .submitBtn:hover {
-  background: linear-gradient(135deg, #895472 0%, #945E7D 100%);
+  background: #C5C9EC;
+}
+
+.submitBtn:hover {
+  background: linear-gradient(135deg, #C5C9EC 0%, #C5C9EC 100%);
 }
 
 .submitBtn:active {

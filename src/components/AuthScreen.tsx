@@ -26,6 +26,7 @@ import { runDiagnostics, Diagnostics } from '../utils/diagnostics';
 import { DiagnosticDetails } from './DiagnosticDetails';
 import { BrandMark } from './BrandMark';
 import { getInvitationInstruction } from '../utils/invitationGuidance';
+import { validateEmailAddress, validateFullName } from '../utils/validation';
 
 export { getAuthErrorCode, readableError };
 
@@ -86,6 +87,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [nameError, setNameError] = useState(false);
+  const [emailError, setEmailError] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showForgotEmailModal, setShowForgotEmailModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -103,9 +106,46 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setRememberMe,
     retryPersistence,
     controller
-  } = useAuthPersistence(effectiveAuth, true, persistenceAdapter);
+  } = useAuthPersistence(effectiveAuth, false, persistenceAdapter);
 
   const isGoogleReady = isGoogleSignInReady(loading);
+
+  const prevTabRef = useRef(activeTab);
+  useEffect(() => {
+    if (prevTabRef.current !== activeTab) {
+      prevTabRef.current = activeTab;
+    }
+  }, [activeTab]);
+
+  const handleNameChange = (e: React.FormEvent<HTMLInputElement>) => {
+    const val = (e.target as HTMLInputElement).value;
+    setFullName(val);
+    if (nameError && validateFullName(val.trim())) {
+      setNameError(false);
+    }
+  };
+
+  const handleNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (activeTab === 'signup') {
+      const trimmed = (e.target.value !== undefined ? e.target.value : fullName).trim();
+      setNameError(!validateFullName(trimmed));
+    }
+  };
+
+  const handleEmailChange = (e: React.FormEvent<HTMLInputElement>) => {
+    const val = (e.target as HTMLInputElement).value;
+    setEmail(val);
+    if (emailError && validateEmailAddress(val.trim().toLowerCase())) {
+      setEmailError(false);
+    }
+  };
+
+  const handleEmailBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (activeTab === 'signup') {
+      const trimmedLower = (e.target.value !== undefined ? e.target.value : email).trim().toLowerCase();
+      setEmailError(!validateEmailAddress(trimmedLower));
+    }
+  };
 
   useEffect(() => {
     if (persistenceStatus === 'error') {
@@ -151,7 +191,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     const nameEl = formElements.namedItem('fullName') as HTMLInputElement | null;
 
     // Current DOM values authoritative even if React state is nonempty or stale
-    const authoritativeEmail = (emailEl ? emailEl.value : email).trim();
+    const authoritativeEmail = (emailEl ? emailEl.value : email).trim().toLowerCase();
     const authoritativePassword = passEl ? passEl.value : password; // NEVER trim password!
     const authoritativeFullName = (nameEl ? nameEl.value : fullName).trim();
 
@@ -162,6 +202,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     setError('');
     setNotice('');
+
+    if (activeTab === 'signup') {
+      let hasValidationError = false;
+      const isNameValid = validateFullName(authoritativeFullName);
+      setNameError(!isNameValid);
+      if (!isNameValid) {
+        hasValidationError = true;
+      }
+
+      const isEmailValid = validateEmailAddress(authoritativeEmail);
+      setEmailError(!isEmailValid);
+      if (!isEmailValid) {
+        hasValidationError = true;
+      }
+
+      if (hasValidationError) {
+        emailInFlightRef.current = false;
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (!authoritativeEmail) {
@@ -308,30 +369,61 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         <BrandMark size={96} alt="Relationship ID" />
       </div>
 
-      <div className="text-center pt-1 pb-4">
-        {(() => {
-          const currentStep = step ?? 1;
-          const total = totalSteps ?? (isP2InvitationFlow ? 3 : 5);
-          return (
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#392D5A]/70 border border-[#51465F] text-sm font-semibold text-[#E7BCD3] mb-2.5 ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider uppercase'}`}>
-              <Shield className="w-3.5 h-3.5" />
-              <span>{language === 'ar' ? `الخطوة ${currentStep} من ${total}` : `Step ${currentStep} of ${total}`}</span>
-            </div>
-          );
-        })()}
-
-        <h2 className="text-xl font-bold text-white tracking-tight leading-snug max-w-[280px] mx-auto">
-          {isP2InvitationFlow
-            ? (language === 'ar' ? 'تسجيل الدخول لقبول الدعوة' : 'Sign in to accept invitation')
-            : t.authHeroTitle}
-        </h2>
-        <p className="text-base sm:text-sm text-[#B7ACC8] mt-1.5 leading-relaxed max-w-[290px] mx-auto">
-          {isP2InvitationFlow
-            ? (language === 'ar'
+      <div className="text-center pt-1 pb-3">
+        {isP2InvitationFlow ? (
+          <>
+            {(() => {
+              const currentStep = step ?? 1;
+              const total = totalSteps ?? 3;
+              return (
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#39436D]/70 border border-[#A0A9D1] text-sm font-semibold text-[#B8BCE6] mb-2.5 ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider uppercase'}`}>
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>{language === 'ar' ? `الخطوة ${currentStep} من ${total}` : `Step ${currentStep} of ${total}`}</span>
+                </div>
+              );
+            })()}
+            <h2 className="text-xl font-bold text-white tracking-tight leading-snug max-w-[280px] mx-auto">
+              {language === 'ar' ? 'تسجيل الدخول لقبول الدعوة' : 'Sign in to accept invitation'}
+            </h2>
+            <p className="text-base sm:text-sm text-[#D6DAED] mt-1.5 leading-relaxed max-w-[290px] mx-auto">
+              {language === 'ar'
                 ? `سجّل دخولك لإكمال دعوة ${inviterName}.`
-                : `Sign in to continue the invitation from ${inviterName}.`)
-            : t.authHeroDesc}
-        </p>
+                : `Sign in to continue the invitation from ${inviterName}.`}
+            </p>
+          </>
+        ) : (
+          <div className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-2xl p-4 text-start shadow-xl space-y-3">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
+                {t.serviceIntroTitle}
+              </h2>
+              <p className="text-xs sm:text-sm text-[#D6DAED] mt-1 leading-relaxed">
+                {t.serviceIntroDesc}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 py-1.5 px-2 bg-[#39436D] rounded-xl border border-[#A0A9D1]/50 text-xs font-semibold text-[#B8BCE6] text-center">
+              <span>{t.serviceIntroDating}</span>
+              <span className="text-white/40">•</span>
+              <span>{t.serviceIntroEngaged}</span>
+              <span className="text-white/40">•</span>
+              <span>{t.serviceIntroMarried}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-xs font-medium text-white/90 pt-0.5 px-1" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6]" />{t.serviceIntroStep1}</span>
+              <span className="text-[#B8BCE6]" aria-hidden="true">{language === 'ar' ? '←' : '→'}</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6]" />{t.serviceIntroStep2}</span>
+              <span className="text-[#B8BCE6]" aria-hidden="true">{language === 'ar' ? '←' : '→'}</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6]" />{t.serviceIntroStep3}</span>
+            </div>
+
+            <p className="text-[11px] sm:text-xs text-[#B8BED8] pt-1.5 border-t border-white/10 leading-relaxed text-center">
+              {t.serviceIntroClarification}
+            </p>
+          </div>
+        )}
+
         <div className="mt-2.5">
           <a
             href="/about"
@@ -339,7 +431,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               e.preventDefault();
               onNavigate?.('about');
             }}
-            className="inline-flex items-center gap-1.5 text-xs text-[#E7BCD3] hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs text-[#B8BCE6] hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
           >
             <HelpCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{t.aboutStandards}</span>
@@ -348,20 +440,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </div>
 
       {isP2InvitationFlow && (
-        <div className="mb-3.5 w-full rounded-xl bg-[#30264D] border border-[#9D6B87]/40 p-3 flex flex-col gap-2 shadow-sm text-start">
+        <div className="mb-3.5 w-full rounded-xl bg-[#414A75] border border-[#B8BCE6]/40 p-3 flex flex-col gap-2 shadow-sm text-start">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#9D6B87]/20 flex items-center justify-center shrink-0 text-[#E7BCD3]">
+            <div className="w-8 h-8 rounded-lg bg-[#B8BCE6]/20 flex items-center justify-center shrink-0 text-[#B8BCE6]">
               <Lock className="w-4 h-4" />
             </div>
             <div className="flex flex-col min-w-0">
-              <p className="text-sm font-bold text-[#E7BCD3] leading-tight">{t.p2ReturnNoticeTitle}</p>
-              <p className="text-sm text-[#B7ACC8]">
+              <p className="text-sm font-bold text-[#B8BCE6] leading-tight">{t.p2ReturnNoticeTitle}</p>
+              <p className="text-sm text-[#D6DAED]">
                 {language === 'ar' ? `الدعوة من ${inviterName || ''}` : `Invitation from ${inviterName || ''}`}
               </p>
             </div>
           </div>
           {contactRequirement && getInvitationInstruction(contactRequirement, language) && (
-            <div className="pt-2 border-t border-white/10 flex items-start gap-2 text-xs sm:text-sm text-[#E7BCD3]">
+            <div className="pt-2 border-t border-white/10 flex items-start gap-2 text-xs sm:text-sm text-[#B8BCE6]">
               <Shield className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{getInvitationInstruction(contactRequirement, language)}</span>
             </div>
@@ -374,6 +466,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           type="button"
           onClick={() => {
             setError('');
+            setNameError(false);
+            setEmailError(false);
             setActiveTab('login');
           }}
           className={activeTab === 'login' ? styles.activeTab : styles.inactiveTab}
@@ -384,6 +478,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           type="button"
           onClick={() => {
             setError('');
+            setNameError(false);
+            setEmailError(false);
             setActiveTab('signup');
           }}
           className={activeTab === 'signup' ? styles.activeTab : styles.inactiveTab}
@@ -397,7 +493,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         disabled={!isGoogleReady || authInFlight}
         onClick={handleGoogleAuth}
         aria-busy={persistenceStatus === 'pending' || loading || authInFlight}
-        className="w-full py-3 px-4 rounded-xl border border-[#51465F] bg-[#3D305A] hover:bg-[#4D3E70] transition-all flex items-center justify-center gap-2.5 text-base sm:text-sm font-medium text-white shadow-sm mb-3.5 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+        className="w-full py-3 px-4 rounded-xl border border-[#A0A9D1] bg-[#39436D] hover:bg-[#4F5A8C] transition-all flex items-center justify-center gap-2.5 text-base sm:text-sm font-medium text-white shadow-sm mb-3.5 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
       >
         <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z" fill="#4285F4" />
@@ -451,66 +547,92 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       )}
 
       <div className="relative flex items-center justify-center my-1 mb-3.5">
-        <div className="border-t border-[#51465F] w-full" />
-        <span className="bg-[#141023] px-2 text-sm uppercase tracking-widest font-semibold text-[#B7ACC8] absolute">{t.orUseEmail}</span>
+        <div className="border-t border-[#A0A9D1] w-full" />
+        <span className="bg-[#252D52] px-2 text-sm uppercase tracking-widest font-semibold text-[#D6DAED] absolute">{t.orUseEmail}</span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {activeTab === 'signup' && (
           <div>
-            <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="auth-name">{t.fullNameLabel}</label>
+            <label className="block text-sm font-medium text-[#D6DAED] mb-1.5" htmlFor="auth-name">{t.fullNameLabel}</label>
             <input
               id="auth-name"
               name="fullName"
               type="text"
               required
+              minLength={2}
+              maxLength={60}
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              onInput={(e) => setFullName((e.target as HTMLInputElement).value)}
+              onChange={handleNameChange}
+              onInput={handleNameChange}
+              onBlur={handleNameBlur}
               className={styles.inputField}
               placeholder={t.fullNamePlaceholder}
               autoComplete="name"
+              aria-invalid={nameError ? 'true' : 'false'}
+              aria-describedby={nameError ? 'auth-name-error' : undefined}
             />
+            {nameError && (
+              <p
+                id="auth-name-error"
+                role="alert"
+                className="text-xs text-rose-300 mt-1.5 text-start"
+              >
+                {language === 'ar' ? 'الرجاء إدخال اسم صحيح (2–60 حرفاً)' : 'Please enter a valid name (2–60 characters)'}
+              </p>
+            )}
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="auth-email">{t.emailLabel}</label>
+          <label className="block text-sm font-medium text-[#D6DAED] mb-1.5" htmlFor="auth-email">{t.emailLabel}</label>
           <input
             id="auth-email"
             name="email"
             type="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
+            onChange={handleEmailChange}
+            onInput={handleEmailChange}
+            onBlur={handleEmailBlur}
             className={styles.inputField}
             placeholder={t.emailPlaceholder}
             dir="ltr"
             autoComplete="email"
+            aria-invalid={emailError ? 'true' : 'false'}
+            aria-describedby={emailError ? 'auth-email-error' : undefined}
           />
+          {emailError && (
+            <p
+              id="auth-email-error"
+              role="alert"
+              className="text-xs text-rose-300 mt-1.5 text-start"
+            >
+              {language === 'ar' ? 'الرجاء إدخال بريد إلكتروني صحيح' : 'Please enter a valid email address'}
+            </p>
+          )}
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-2 gap-2">
-            <label className="block text-sm font-medium text-[#B7ACC8] shrink-0 select-none" htmlFor="auth-pass">{t.passwordLabel}</label>
+            <label className="block text-sm font-medium text-[#D6DAED] shrink-0 select-none" htmlFor="auth-pass">{t.passwordLabel}</label>
             {activeTab === 'login' && (
               <div className="flex items-center gap-1.5 text-sm font-medium shrink-0">
                 <button
                   type="button"
                   onClick={openResetModal}
-                  className="text-[#E7BCD3] hover:text-white hover:underline transition-colors bg-transparent border-none cursor-pointer p-0"
+                  className="text-[#B8BCE6] hover:text-white hover:underline transition-colors bg-transparent border-none cursor-pointer p-0"
                 >
                   {t.forgotPassword}
                 </button>
-                <span className="text-[#B7ACC8]/40 select-none" aria-hidden="true">|</span>
+                <span className="text-[#D6DAED]/40 select-none" aria-hidden="true">|</span>
                 <button
                   type="button"
                   onClick={() => {
                     setError('');
                     setShowForgotEmailModal(true);
                   }}
-                  className="text-[#B7ACC8] hover:text-[#E7BCD3] hover:underline transition-colors bg-transparent border-none cursor-pointer p-0"
+                  className="text-[#D6DAED] hover:text-[#B8BCE6] hover:underline transition-colors bg-transparent border-none cursor-pointer p-0"
                 >
                   {t.forgotEmail}
                 </button>
@@ -534,7 +656,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               type="button"
               aria-label="Toggle password visibility"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 ltr:right-0 ltr:pr-3 rtl:left-0 rtl:pl-3 flex items-center text-[#B7ACC8] hover:text-white cursor-pointer bg-transparent border-none"
+              className="absolute inset-y-0 ltr:right-0 ltr:pr-3 rtl:left-0 rtl:pl-3 flex items-center text-[#D6DAED] hover:text-white cursor-pointer bg-transparent border-none"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -542,7 +664,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         </div>
 
         <div className="pt-0.5">
-          <label htmlFor="auth-remember" className={`inline-flex items-center gap-2.5 text-sm text-[#B7ACC8] select-none ${loading || authInFlight ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+          <label htmlFor="auth-remember" className={`inline-flex items-center gap-2.5 text-sm text-[#D6DAED] select-none ${loading || authInFlight ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
             <input
               id="auth-remember"
               type="checkbox"
@@ -552,7 +674,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 if (loading || authInFlight) return;
                 setRememberMe(e.target.checked);
               }}
-              className="h-4 w-4 rounded bg-[#141023] border-[#51465F] text-[#85516F] focus:ring-0 cursor-pointer accent-[#85516F] shrink-0 disabled:cursor-not-allowed"
+              className="h-4 w-4 rounded bg-[#252D52] border-[#A0A9D1] text-[#B8BCE6] focus:ring-2 focus:ring-[#D3D8FF] cursor-pointer accent-[#B8BCE6] shrink-0 disabled:cursor-not-allowed"
             />
             <span>{t.keepSignedIn}</span>
           </label>
@@ -579,22 +701,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
         )}
 
-        <button type="submit" disabled={loading || authInFlight} className={`${styles.submitBtn} disabled:opacity-50`}>
+        <button
+          type="submit"
+          disabled={loading || authInFlight || emailInFlightRef.current}
+          className={`${styles.submitBtn} disabled:opacity-50`}
+        >
           <span>{loading ? '...' : activeTab === 'login' ? t.loginBtn : t.signupBtn}</span>
           {language === 'ar' ? <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" /> : <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />}
         </button>
       </form>
 
       <div className="text-center mt-3 space-y-1">
-        <p className="text-sm text-[#8E82A3]">
+        <p className="text-sm text-[#B8BED8]">
           {activeTab === 'login' ? t.dontHaveAccount : t.haveAccount}{' '}
           <button
             type="button"
             onClick={() => {
               setError('');
-              setActiveTab(activeTab === 'login' ? 'signup' : 'login');
+              setNameError(false);
+              setEmailError(false);
+              const nextTab = activeTab === 'login' ? 'signup' : 'login';
+              setActiveTab(nextTab);
             }}
-            className="text-[#E7BCD3] underline hover:text-white font-medium bg-transparent border-none cursor-pointer"
+            className="text-[#B8BCE6] underline hover:text-white font-medium bg-transparent border-none cursor-pointer"
           >
             {activeTab === 'login' ? t.createAccount : t.tabLogin}
           </button>
@@ -611,32 +740,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             if (e.target === e.currentTarget && !resetLoading) setShowResetModal(false);
           }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-[#51465F] p-5 shadow-2xl relative text-start space-y-3.5">
+          <div className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-[#A0A9D1] p-5 shadow-2xl relative text-start space-y-3.5">
             <button
               type="button"
               onClick={() => setShowResetModal(false)}
               disabled={resetLoading}
               aria-label={language === 'ar' ? 'إغلاق' : 'Close'}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[#141023] text-[#B7ACC8] hover:text-white flex items-center justify-center cursor-pointer border border-[#51465F] transition-colors disabled:opacity-40"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[#252D52] text-[#D6DAED] hover:text-white flex items-center justify-center cursor-pointer border border-[#A0A9D1] transition-colors disabled:opacity-40"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#9D6B87]/20 border border-[#9D6B87]/40 flex items-center justify-center text-[#E7BCD3] shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#B8BCE6]/20 border border-[#B8BCE6]/40 flex items-center justify-center text-[#B8BCE6] shrink-0">
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
                 <h3 id="reset-modal-title" className="text-base font-bold text-white leading-tight">
                   {language === 'ar' ? 'استعادة كلمة المرور' : 'Reset Password'}
                 </h3>
-                <p className="text-sm text-[#B7ACC8] mt-0.5">
+                <p className="text-sm text-[#D6DAED] mt-0.5">
                   {language === 'ar' ? 'استعادة الوصول إلى حسابك' : 'Recover access to your account'}
                 </p>
               </div>
             </div>
 
-            <p className="text-sm text-[#B7ACC8] leading-relaxed">
+            <p className="text-sm text-[#D6DAED] leading-relaxed">
               {language === 'ar'
                 ? 'أدخل عنوان بريدك الإلكتروني المسجل، وسنرسل لك رابطاً رسمياً لإعادة تعيين كلمة المرور.'
                 : 'Enter your registered email address, and we will send you an official password reset link.'}
@@ -644,7 +773,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
             <form onSubmit={handleModalPasswordReset} className="space-y-3 pt-1">
               <div>
-                <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="reset-email-input">
+                <label className="block text-sm font-medium text-[#D6DAED] mb-1.5" htmlFor="reset-email-input">
                   {t.emailLabel}
                 </label>
                 <input
@@ -680,7 +809,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 min-h-[40px]"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 min-h-[40px]"
                 >
                   {resetLoading ? (
                     <span>{language === 'ar' ? 'جاري الإرسال...' : 'Sending...'}</span>
@@ -693,7 +822,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   type="button"
                   onClick={() => setShowResetModal(false)}
                   disabled={resetLoading}
-                  className="py-2.5 px-3.5 rounded-xl border border-[#51465F] bg-white/5 hover:bg-white/10 text-sm text-[#B7ACC8] hover:text-white transition cursor-pointer min-h-[40px] disabled:opacity-50"
+                  className="py-2.5 px-3.5 rounded-xl border border-[#A0A9D1] bg-white/5 hover:bg-white/10 text-sm text-[#D6DAED] hover:text-white transition cursor-pointer min-h-[40px] disabled:opacity-50"
                 >
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </button>
@@ -713,61 +842,61 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             if (e.target === e.currentTarget) setShowForgotEmailModal(false);
           }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-[#51465F] p-5 shadow-2xl relative text-start space-y-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-[#A0A9D1] p-5 shadow-2xl relative text-start space-y-4">
             <button
               type="button"
               onClick={() => setShowForgotEmailModal(false)}
               aria-label={language === 'ar' ? 'إغلاق' : 'Close'}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[#141023] text-[#B7ACC8] hover:text-white flex items-center justify-center cursor-pointer border border-[#51465F] transition-colors"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-[#252D52] text-[#D6DAED] hover:text-white flex items-center justify-center cursor-pointer border border-[#A0A9D1] transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#9D6B87]/20 border border-[#9D6B87]/40 flex items-center justify-center text-[#E7BCD3] shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#B8BCE6]/20 border border-[#B8BCE6]/40 flex items-center justify-center text-[#B8BCE6] shrink-0">
                 <Mail className="w-5 h-5" />
               </div>
               <div>
                 <h3 id="forgot-email-modal-title" className="text-base font-bold text-white leading-tight">
                   {language === 'ar' ? 'استعادة البريد الإلكتروني' : 'Forgot Email?'}
                 </h3>
-                <p className="text-sm text-[#B7ACC8] mt-0.5">
+                <p className="text-sm text-[#D6DAED] mt-0.5">
                   {language === 'ar' ? 'إرشادات استرجاع الحساب والوصول' : 'Account access guidance'}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2.5 text-sm text-[#B7ACC8] leading-relaxed">
-              <div className="p-3 rounded-xl bg-[#3D305A] border border-[#51465F] space-y-1">
+            <div className="space-y-2.5 text-sm text-[#D6DAED] leading-relaxed">
+              <div className="p-3 rounded-xl bg-[#39436D] border border-[#A0A9D1] space-y-1">
                 <p className="font-semibold text-white flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#E7BCD3]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6]" />
                   <span>{language === 'ar' ? 'البحث في بريدك الإلكتروني' : 'Search Your Mailbox'}</span>
                 </p>
-                <p className="text-sm text-[#B7ACC8]">
+                <p className="text-sm text-[#D6DAED]">
                   {language === 'ar'
                     ? 'ابحث في صناديق بريدك عن رسائل من "Relationship ID" أو إشعارات الدعوة للتحقق من البريد المستخدم.'
                     : 'Search your email accounts for messages or invitations from "Relationship ID" to verify which email was used.'}
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#3D305A] border border-[#51465F] space-y-1">
+              <div className="p-3 rounded-xl bg-[#39436D] border border-[#A0A9D1] space-y-1">
                 <p className="font-semibold text-white flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#E7BCD3]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6]" />
                   <span>{language === 'ar' ? 'المتابعة باستخدام Google' : 'Try Google Sign-In'}</span>
                 </p>
-                <p className="text-sm text-[#B7ACC8]">
+                <p className="text-sm text-[#D6DAED]">
                   {language === 'ar'
                     ? 'إذا كنت قد سجلت عبر حساب Google، يمكنك النقر على "المتابعة باستخدام Google" لتسجيل الدخول فوراً.'
                     : 'If you originally registered with Google, simply use the "Continue with Google" button.'}
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#3D305A] border border-[#51465F] space-y-1">
+              <div className="p-3 rounded-xl bg-[#39436D] border border-[#A0A9D1] space-y-1">
                 <p className="font-semibold text-white flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#E7BCD3]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6]" />
                   <span>{language === 'ar' ? 'التحقق مع الشريك' : 'Check with Your Partner'}</span>
                 </p>
-                <p className="text-sm text-[#B7ACC8]">
+                <p className="text-sm text-[#D6DAED]">
                   {language === 'ar'
                     ? 'يمكن لشريكك مراجعة تفاصيل الدعوة المشتركة للتأكد من عنوان البريد المسجل في السجل.'
                     : 'Your partner can view the mutual invitation details to confirm the registered email address.'}
@@ -779,7 +908,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowForgotEmailModal(false)}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm transition shadow-sm cursor-pointer min-h-[40px]"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm transition shadow-sm cursor-pointer min-h-[40px]"
               >
                 {language === 'ar' ? 'فهمت ذلك • إغلاق' : 'Got it • Close'}
               </button>

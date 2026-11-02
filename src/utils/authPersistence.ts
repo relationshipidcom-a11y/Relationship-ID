@@ -37,7 +37,7 @@ export class AuthPersistenceController {
 
   constructor(
     auth: Auth | null,
-    initialRememberMe = true,
+    initialRememberMe = false,
     adapter: PersistenceAdapter = defaultPersistenceAdapter
   ) {
     this.auth = auth;
@@ -187,7 +187,7 @@ export class AuthPersistenceController {
 
 export function useAuthPersistence(
   auth: Auth | null,
-  initialRememberMe = true,
+  initialRememberMe = false,
   adapter?: PersistenceAdapter
 ) {
   const [controller] = useState(

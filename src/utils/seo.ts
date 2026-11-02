@@ -12,12 +12,12 @@ interface SeoConfig {
 const SEO_MAP: Record<ScreenId, SeoConfig> = {
   auth: {
     title: {
-      ar: 'ارتباط | Relationship ID – شهادة علاقة مجانية',
-      en: 'Relationship ID | ارتباط – Free Relationship Certificate'
+      ar: 'ارتباط | Relationship ID – شهادة علاقة',
+      en: 'Relationship ID | ارتباط – Relationship Certificate'
     },
     description: {
-      ar: 'توثيق رقمي متبادل ومجاني للعلاقة: يؤكد كلا الشريكين ويحصلان على شهادة رقمية قابلة للتحقق برمز QR. مواعدة، خطوبة أو زواج. بدون إعلانات وبدون رسوم.',
-      en: 'Free mutual relationship verification: both partners confirm and get a QR-verifiable digital certificate. Dating, Engaged or Married. No ads, no fees.'
+      ar: 'توثيق رقمي متبادل لمرحلة العلاقة الحالية: يؤكد كلا الشريكين ويحصلان على شهادة رقمية قابلة للتحقق برمز QR. مواعدة، خطوبة أو زواج.',
+      en: 'Mutual digital documentation of your relationship stage: both partners confirm and get a QR-verifiable digital certificate. Dating, Engaged or Married.'
     },
     canonicalPath: '/',
     robots: 'index, follow'

@@ -6,6 +6,7 @@ import { translations } from '../i18n/translations';
 import { PhoneVerificationField } from './PhoneVerificationField';
 import { SocialAccountsEditor } from './SocialAccountsEditor';
 import { FormSkeleton } from './FormSkeleton';
+import { WheelDatePicker } from './WheelDatePicker';
 import { getDisplaySocialAccounts } from '../utils/social';
 import { auth } from '../lib/firebase';
 import { getLocalizedErrorMessage } from '../utils/api';
@@ -154,6 +155,9 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   const canonicalPhone = useMemo(() => normalizePhoneNumber(phoneCountry, phoneNumber), [phoneCountry, phoneNumber]);
   const phoneIsVerified = Boolean(canonicalPhone && verifiedPhone === canonicalPhone);
   const todayIso = new Date().toISOString().slice(0, 10);
+  const currentYear = parseInt(todayIso.slice(0, 4), 10);
+  const maxDobDate = `${currentYear - 18}-12-31`;
+  const defaultDobDate = `${currentYear - 18}-01-01`;
 
   const handlePhoneVerified = (e164: string | null) => {
     editedFieldsRef.current.add('verifiedPhone');
@@ -227,13 +231,13 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
   if (loadingError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-        <div className="p-5 max-w-md w-full rounded-2xl bg-[#30264D] border border-rose-500/40 text-center space-y-4 shadow-xl">
+        <div className="p-5 max-w-md w-full rounded-2xl bg-[#414A75] border border-rose-500/40 text-center space-y-4 shadow-xl">
           <p className="text-sm sm:text-base text-rose-200 font-semibold leading-relaxed">{loadingError}</p>
           {onRetryLoading && (
             <button
               type="button"
               onClick={onRetryLoading}
-              className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
+              className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D3D8FF]"
             >
               {language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
             </button>
@@ -255,57 +259,57 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
     const p2BirthDate = isoFromParts(record.partner2.birthYear, record.partner2.birthMonth, record.partner2.birthDay);
 
     return (
-      <div className="flex-1 flex flex-col justify-between px-4 py-3" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex-1 flex flex-col justify-between px-4 py-3 max-w-[920px] mx-auto w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <section className="text-center mb-3 mt-2">
           <div className="flex items-center justify-between mb-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-semibold">
               <CheckCircle className="w-4 h-4 text-emerald-400" />
               <span>{language === 'ar' ? 'سجل علاقة نشط' : 'Active Relationship Record'}</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#392D5A] border border-[#51465F] text-sm font-semibold tracking-wider text-[#E7BCD3] uppercase">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#39436D] border border-[#A0A9D1] text-sm font-semibold tracking-wider text-[#B8BCE6] uppercase">
               <Shield className="w-4 h-4" /> #{record.recordNumber || record.verificationRef}
             </div>
           </div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
             {language === 'ar' ? 'سجل العلاقة المعتمد (الطرف الأول والثاني)' : 'Verified Relationship Record (Partner 1 & Partner 2)'}
           </h2>
-          <p className="text-base sm:text-sm text-[#B7ACC8] mt-1 leading-relaxed">
+          <p className="text-base sm:text-sm text-[#D6DAED] mt-1 leading-relaxed">
             {language === 'ar' ? 'بيانات السجل مقفلة للقراءة فقط لحماية موثوقية السجل' : 'Record details are locked as read-only to preserve record integrity'}
           </p>
         </section>
 
         <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto">
           {/* Partner 1 Read-only Card */}
-          <section className="p-4 rounded-2xl bg-[#30264D] border border-[#51465F] space-y-3">
+          <section className="p-4 rounded-2xl bg-[#414A75] border border-[#A0A9D1] space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <div className="flex items-center gap-2 text-[#E7BCD3]">
+              <div className="flex items-center gap-2 text-[#B8BCE6]">
                 <User className="w-4 h-4" />
                 <h3 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الأول' : 'Partner 1 Details'}</h3>
               </div>
-              <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#E7BCD3]/15 border border-[#51465F] text-[#E7BCD3] font-medium flex items-center gap-1">
+              <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#B8BCE6]/15 border border-[#A0A9D1] text-[#B8BCE6] font-medium flex items-center gap-1">
                 <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2.5 text-start">
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.fullNameLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.fullNameLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white">{record.partner1.fullName}</p>
-                {record.partner1.fullNameEn && <p className="text-sm text-[#B7ACC8]">{record.partner1.fullNameEn}</p>}
+                {record.partner1.fullNameEn && <p className="text-sm text-[#D6DAED]">{record.partner1.fullNameEn}</p>}
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.birthdateLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.birthdateLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white">{p1BirthDate || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.emailLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.emailLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white truncate" dir="ltr">{record.partner1.email || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.phoneLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.phoneLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white" dir="ltr">{record.partner1.phoneE164 || record.partner1.phoneNumber || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.socialAccountsLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.socialAccountsLabel}</p>
                 {(() => {
                   const accounts = getDisplaySocialAccounts(record.partner1);
                   return accounts.length > 0 ? (
@@ -325,36 +329,36 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </section>
 
           {/* Partner 2 Read-only Card */}
-          <section className="p-4 rounded-2xl bg-[#30264D] border border-[#51465F] space-y-3">
+          <section className="p-4 rounded-2xl bg-[#414A75] border border-[#A0A9D1] space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <div className="flex items-center gap-2 text-[#E7BCD3]">
+              <div className="flex items-center gap-2 text-[#B8BCE6]">
                 <User className="w-4 h-4" />
                 <h3 className="text-sm sm:text-base font-bold text-white">{language === 'ar' ? 'بيانات الشريك الثاني (P2)' : 'Partner 2 Details (P2)'}</h3>
               </div>
-              <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#E7BCD3]/15 border border-[#51465F] text-[#E7BCD3] font-medium flex items-center gap-1">
+              <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#B8BCE6]/15 border border-[#A0A9D1] text-[#B8BCE6] font-medium flex items-center gap-1">
                 <Lock className="w-3 h-3" /> {language === 'ar' ? 'للقراءة فقط' : 'Read-only'}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2.5 text-start">
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.fullNameLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.fullNameLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white">{record.partner2.fullName}</p>
-                {record.partner2.fullNameEn && <p className="text-sm text-[#B7ACC8]">{record.partner2.fullNameEn}</p>}
+                {record.partner2.fullNameEn && <p className="text-sm text-[#D6DAED]">{record.partner2.fullNameEn}</p>}
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.birthdateLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.birthdateLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white">{p2BirthDate || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.emailLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.emailLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white truncate" dir="ltr">{record.partner2.email || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.phoneLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.phoneLabel}</p>
                 <p className="text-sm sm:text-base font-semibold text-white" dir="ltr">{record.partner2.phoneE164 || record.partner2.phoneNumber || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-[#B7ACC8]">{t.socialAccountsLabel}</p>
+                <p className="text-sm text-[#D6DAED]">{t.socialAccountsLabel}</p>
                 {(() => {
                   const accounts = getDisplaySocialAccounts(record.partner2);
                   return accounts.length > 0 ? (
@@ -374,13 +378,13 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
           </section>
 
           {/* Relationship Stage & Date */}
-          <section className="p-4 rounded-2xl bg-[#30264D] border border-[#51465F] flex items-center justify-between text-start">
+          <section className="p-4 rounded-2xl bg-[#414A75] border border-[#A0A9D1] flex items-center justify-between text-start">
             <div>
-              <p className="text-sm text-[#B7ACC8]">{t.relationshipDetailsTitle}</p>
+              <p className="text-sm text-[#D6DAED]">{t.relationshipDetailsTitle}</p>
               <p className="text-sm sm:text-base font-bold text-white">{stageLabel}</p>
             </div>
             <div>
-              <p className="text-sm text-[#B7ACC8]">{t.startDateLabel}</p>
+              <p className="text-sm text-[#D6DAED]">{t.startDateLabel}</p>
               <p className="text-sm sm:text-base font-semibold text-white">{language === 'ar' ? record.startDateAr : record.startDate}</p>
             </div>
           </section>
@@ -402,7 +406,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <button
               type="button"
               onClick={onRequestChange}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg border border-[#51465F] transition-all active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg border border-[#A0A9D1] transition-all active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D3D8FF]"
             >
               <Edit3 className="w-4 h-4" />
               <span>{t.requestChangeBtn}</span>
@@ -412,9 +416,9 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             <button
               type="button"
               onClick={onViewControls}
-              className="w-full py-3 px-4 rounded-xl bg-[#3D305A] hover:bg-[#4D3E70] border border-[#51465F] text-[#B7ACC8] hover:text-white font-medium text-sm sm:text-base flex items-center justify-center gap-2 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
+              className="w-full py-3 px-4 rounded-xl bg-[#39436D] hover:bg-[#4F5A8C] border border-[#A0A9D1] text-[#D6DAED] hover:text-white font-medium text-sm sm:text-base flex items-center justify-center gap-2 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D3D8FF]"
             >
-              <Sliders className="w-4 h-4 text-[#E7BCD3]" />
+              <Sliders className="w-4 h-4 text-[#B8BCE6]" />
               <span>{language === 'ar' ? 'عرض الشهادة ولوحة التحكم' : 'View Certificate & Controls'}</span>
             </button>
           )}
@@ -425,33 +429,33 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
 
   // State 4: Editable Form
   return (
-    <div className="flex-1 flex flex-col justify-between px-4 py-3">
+    <div className="flex-1 flex flex-col justify-between px-4 py-3 max-w-[920px] mx-auto w-full">
       <section className="text-center mb-3 mt-2">
         <div className="flex items-center justify-end mb-2">
-          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#392D5A] border border-[#51465F] text-sm font-semibold text-[#E7BCD3] ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider uppercase'}`}>
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#39436D] border border-[#A0A9D1] text-sm font-semibold text-[#B8BCE6] ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider uppercase'}`}>
             <Shield className="w-3.5 h-3.5" />
             <span>{language === 'ar' ? 'الخطوة 2 من 5' : 'Step 2 of 5'}</span>
           </div>
         </div>
         <h2 className="text-xl font-extrabold text-white tracking-tight">{t.p1FormTitle}</h2>
-        <p className="text-base text-[#B7ACC8] mt-0.5 leading-relaxed">{t.p1FormDesc}</p>
+        <p className="text-base text-[#D6DAED] mt-0.5 leading-relaxed">{t.p1FormDesc}</p>
       </section>
 
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-3.5">
         {/* Verified Identity Section */}
         <section className={styles.cardSection}>
           <div className={styles.sectionHeader}>
-            <div className="flex items-center gap-2 text-[#E7BCD3]">
+            <div className="flex items-center gap-2 text-[#B8BCE6]">
               <Shield className="w-4 h-4" />
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.verifiedIdentityTitle}</h3>
-                <p className="text-sm text-[#B7ACC8] mt-0.5">{language === 'ar' ? 'أدخل بياناتك الحقيقية لإكمال السجل.' : 'Enter your real information to continue.'}</p>
+                <p className="text-sm text-[#D6DAED] mt-0.5">{language === 'ar' ? 'أدخل بياناتك الحقيقية لإكمال السجل.' : 'Enter your real information to continue.'}</p>
               </div>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p1-name">{t.fullNameLabel}</label>
+              <label className="block text-sm font-medium text-[#D6DAED] mb-1.5" htmlFor="p1-name">{t.fullNameLabel}</label>
               <input
                 id="p1-name"
                 type="text"
@@ -471,14 +475,28 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-[#B7ACC8]" htmlFor="p1-dob">{t.birthdateLabel}</label>
-                {birthDate && isAtLeast18(birthDate) && <span className="text-sm text-[#E7BCD3] font-medium">18+ ✓</span>}
+                <label className="text-sm font-medium text-[#D6DAED]" htmlFor="p1-dob-button">{t.birthdateLabel}</label>
+                {birthDate && isAtLeast18(birthDate) && <span className="text-sm text-[#B8BCE6] font-medium">18+ ✓</span>}
               </div>
+              <WheelDatePicker
+                id="p1-dob-button"
+                value={birthDate}
+                onChange={(val) => {
+                  editedFieldsRef.current.add('birthDate');
+                  setBirthDate(val);
+                }}
+                language={language}
+                minDate="1900-01-01"
+                maxDate={maxDobDate}
+                defaultDate={defaultDobDate}
+                className={styles.inputControl}
+              />
               <input
                 id="p1-dob"
                 type="date"
-                required
-                max={todayIso}
+                tabIndex={-1}
+                aria-hidden="true"
+                className="sr-only"
                 value={birthDate}
                 onChange={(e) => {
                   editedFieldsRef.current.add('birthDate');
@@ -488,7 +506,6 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                   editedFieldsRef.current.add('birthDate');
                   setBirthDate((e.target as HTMLInputElement).value);
                 }}
-                className={styles.inputControl}
                 dir="ltr"
               />
             </div>
@@ -498,17 +515,17 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         {/* Contact Details Section */}
         <section className={styles.cardSection}>
           <div className={styles.sectionHeader}>
-            <div className="flex items-center gap-2 text-[#E7BCD3]">
+            <div className="flex items-center gap-2 text-[#B8BCE6]">
               <Mail className="w-4 h-4" />
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.contactDetailsTitle}</h3>
-                <p className="text-sm text-[#B7ACC8] mt-0.5">{language === 'ar' ? 'بيانات التواصل لتأكيد السجل واستلام الإشعارات.' : 'Used to confirm your relationship and deliver updates.'}</p>
+                <p className="text-sm text-[#D6DAED] mt-0.5">{language === 'ar' ? 'بيانات التواصل لتأكيد السجل واستلام الإشعارات.' : 'Used to confirm your relationship and deliver updates.'}</p>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p1-email">{t.emailLabel}</label>
+              <label className="block text-sm font-medium text-[#D6DAED] mb-1.5" htmlFor="p1-email">{t.emailLabel}</label>
               <input
                 id="p1-email"
                 type="email"
@@ -580,17 +597,17 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         {/* Relationship Details Section */}
         <section className={styles.cardSection}>
           <div className={styles.sectionHeader}>
-            <div className="flex items-center gap-2 text-[#E7BCD3]">
+            <div className="flex items-center gap-2 text-[#B8BCE6]">
               <Heart className="w-4 h-4" />
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-white leading-tight">{t.relationshipDetailsTitle}</h3>
-                <p className="text-sm text-[#B7ACC8] mt-0.5">{t.relationshipDetailsDesc}</p>
+                <p className="text-sm text-[#D6DAED] mt-0.5">{t.relationshipDetailsDesc}</p>
               </div>
             </div>
           </div>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5">{t.relationshipStage}</label>
+              <label className="block text-sm font-medium text-[#D6DAED] mb-1.5">{t.relationshipStage}</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { id: 'dating', label: t.dating },
@@ -603,8 +620,8 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                     onClick={() => setRelType(stage.id as RelationshipType)}
                     className={`py-2 px-3 rounded-xl border text-sm font-semibold transition-all ${
                       relType === stage.id
-                        ? 'bg-[#804E6A] border-[#E7BCD3] text-[#F7F4FA] shadow-md'
-                        : 'bg-[#221B38] border-[#51465F] text-[#B7ACC8] hover:border-[#8E82A3]'
+                        ? 'bg-[#B8BCE6] border-[#B8BCE6] text-[#202747] shadow-md'
+                        : 'bg-[#39436D] border-[#A0A9D1] text-[#D6DAED] hover:border-[#B8BED8]'
                     }`}
                   >
                     {stage.label}
@@ -613,15 +630,25 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#B7ACC8] mb-1.5" htmlFor="p1-start-date">{t.startDateLabel}</label>
+              <label className="block text-sm font-medium text-[#D6DAED] mb-1.5" htmlFor="p1-start-date-button">{t.startDateLabel}</label>
+              <WheelDatePicker
+                id="p1-start-date-button"
+                value={startDate}
+                onChange={(val) => setStartDate(val)}
+                language={language}
+                minDate="1900-01-01"
+                maxDate={todayIso}
+                defaultDate={todayIso}
+                className={styles.inputControl}
+              />
               <input
                 id="p1-start-date"
                 type="date"
-                required
-                max={todayIso}
+                tabIndex={-1}
+                aria-hidden="true"
+                className="sr-only"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className={styles.inputControl}
                 dir="ltr"
               />
             </div>
@@ -629,15 +656,15 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
         </section>
 
         {/* Legal Consent Checkbox */}
-        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#30264D]/60 border border-[#51465F]/60">
+        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#414A75]/60 border border-[#A0A9D1]/60">
           <input
             id="p1-terms"
             type="checkbox"
             checked={acceptedLegal}
             onChange={(e) => setAcceptedLegal(e.target.checked)}
-            className="mt-1 w-4 h-4 rounded border-[#51465F] bg-[#221B38] text-[#804E6A] focus:ring-[#E7BCD3] cursor-pointer"
+            className="mt-1 w-4 h-4 rounded border-[#A0A9D1] bg-[#39436D] text-[#B8BCE6] focus:ring-[#D3D8FF] cursor-pointer"
           />
-          <label htmlFor="p1-terms" className="text-sm text-[#B7ACC8] leading-relaxed cursor-pointer select-none">
+          <label htmlFor="p1-terms" className="text-sm text-[#D6DAED] leading-relaxed cursor-pointer select-none">
             {language === 'ar' ? (
               <>
                 أوافق على{' '}
@@ -647,7 +674,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                     e.preventDefault();
                     onOpenTerms?.();
                   }}
-                  className="text-[#E7BCD3] underline hover:text-white"
+                  className="text-[#B8BCE6] underline hover:text-white"
                 >
                   شروط الخدمة
                 </a>{' '}
@@ -658,7 +685,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                     e.preventDefault();
                     onOpenPrivacy?.();
                   }}
-                  className="text-[#E7BCD3] underline hover:text-white"
+                  className="text-[#B8BCE6] underline hover:text-white"
                 >
                   سياسة الخصوصية
                 </a>
@@ -673,7 +700,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                     e.preventDefault();
                     onOpenTerms?.();
                   }}
-                  className="text-[#E7BCD3] underline hover:text-white"
+                  className="text-[#B8BCE6] underline hover:text-white"
                 >
                   Terms of Service
                 </a>{' '}
@@ -684,7 +711,7 @@ export const P1RegistrationScreen: React.FC<P1RegistrationScreenProps> = ({
                     e.preventDefault();
                     onOpenPrivacy?.();
                   }}
-                  className="text-[#E7BCD3] underline hover:text-white"
+                  className="text-[#B8BCE6] underline hover:text-white"
                 >
                   Privacy Policy
                 </a>

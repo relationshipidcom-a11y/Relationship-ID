@@ -8,3 +8,6 @@ coverage/
 !.env.example
 bun.lock
 bun.lockb
+*.zip
+*.tar.gz
+.aistudio/

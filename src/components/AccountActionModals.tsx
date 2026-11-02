@@ -57,7 +57,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
     >
       {/* EXIT RELATIONSHIP CONFIRMATION DIALOG */}
       {showExitModal && (
-        <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
+        <div className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
@@ -72,13 +72,13 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               disabled={loading}
               onClick={onCloseExitModal}
               aria-label={t.cancelBtn}
-              className="w-10 h-10 rounded-full bg-[#141023] hover:bg-[#30264D] text-[#B7ACC8] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#51465F] disabled:opacity-50 shrink-0"
+              className="w-10 h-10 rounded-full bg-[#252D52] hover:bg-[#414A75] text-[#D6DAED] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#A0A9D1] disabled:opacity-50 shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed whitespace-pre-line">
+          <p className="text-base sm:text-sm text-[#D6DAED] leading-relaxed whitespace-pre-line">
             {t.exitRelationshipDesc}
           </p>
 
@@ -94,7 +94,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseExitModal}
-              className="flex-1 py-2.5 px-3 rounded-xl border border-[#51465F] bg-[#141023] text-sm font-semibold text-[#B7ACC8] hover:text-white transition cursor-pointer disabled:opacity-50 min-h-[44px]"
+              className="flex-1 py-2.5 px-3 rounded-xl border border-[#A0A9D1] bg-[#252D52] text-sm font-semibold text-[#D6DAED] hover:text-white transition cursor-pointer disabled:opacity-50 min-h-[44px]"
             >
               {t.cancelBtn}
             </button>
@@ -113,7 +113,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
 
       {/* DELETE MY ACCOUNT DESTRUCTIVE CONFIRMATION DIALOG */}
       {showDeleteModal && (
-        <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
+        <div className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-rose-500/40 p-5 shadow-2xl relative text-start space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
@@ -128,13 +128,13 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               disabled={loading}
               onClick={onCloseDeleteModal}
               aria-label={t.cancelBtn}
-              className="w-10 h-10 rounded-full bg-[#141023] hover:bg-[#30264D] text-[#B7ACC8] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#51465F] disabled:opacity-50 shrink-0"
+              className="w-10 h-10 rounded-full bg-[#252D52] hover:bg-[#414A75] text-[#D6DAED] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#A0A9D1] disabled:opacity-50 shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed whitespace-pre-line">
+          <p className="text-base sm:text-sm text-[#D6DAED] leading-relaxed whitespace-pre-line">
             {hasActiveRelationship ? t.deleteAccountDesc : t.deleteAccountDescNoRelationship}
           </p>
 
@@ -155,7 +155,7 @@ export const AccountActionModals: React.FC<AccountActionModalsProps> = ({
               type="button"
               disabled={loading}
               onClick={onCloseDeleteModal}
-              className="flex-1 py-2.5 px-3 rounded-xl border border-[#51465F] bg-[#141023] text-sm font-semibold text-[#B7ACC8] hover:text-white transition cursor-pointer disabled:opacity-50 min-h-[44px]"
+              className="flex-1 py-2.5 px-3 rounded-xl border border-[#A0A9D1] bg-[#252D52] text-sm font-semibold text-[#D6DAED] hover:text-white transition cursor-pointer disabled:opacity-50 min-h-[44px]"
             >
               {t.cancelBtn}
             </button>

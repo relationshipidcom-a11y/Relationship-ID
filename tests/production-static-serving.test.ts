@@ -220,6 +220,66 @@ test('Production static serving and artifact disclosure protection suite', async
         assert.equal(text.includes('<!DOCTYPE html>'), false, `Auth helper route ${p} returned index.html SPA fallback`);
       }
     });
+
+    // 7. GET /assets/<existing file> -> Cache-Control contains "immutable"
+    await t.test('7. GET /assets/<existing file> returns Cache-Control containing immutable', async () => {
+      const assetsDir = path.join(staticDir, 'assets');
+      if (!fs.existsSync(assetsDir)) {
+        fs.mkdirSync(assetsDir, { recursive: true });
+      }
+      const files = fs.readdirSync(assetsDir);
+      let existingAsset = files.find((f) => f.endsWith('.js') || f.endsWith('.css'));
+      let createdTestAsset = false;
+      const testAssetPath = path.join(assetsDir, 'sample-bundle-test.js');
+
+      if (!existingAsset) {
+        fs.writeFileSync(testAssetPath, 'console.log("asset test");', 'utf8');
+        existingAsset = 'sample-bundle-test.js';
+        createdTestAsset = true;
+      }
+
+      try {
+        const res = await fetch(`${baseUrl}/assets/${existingAsset}`);
+        assert.equal(res.status, 200, `Asset ${existingAsset} should return 200`);
+        const cacheControl = res.headers.get('cache-control') || '';
+        assert.ok(cacheControl.includes('immutable'), `Cache-Control "${cacheControl}" must contain "immutable"`);
+        assert.ok(cacheControl.includes('public'), `Cache-Control "${cacheControl}" must contain "public"`);
+        assert.ok(cacheControl.includes('max-age=31536000'), `Cache-Control "${cacheControl}" must contain "max-age=31536000"`);
+      } finally {
+        if (createdTestAsset && fs.existsSync(testAssetPath)) {
+          fs.unlinkSync(testAssetPath);
+        }
+      }
+    });
+
+    // 8. GET / and GET /about -> Cache-Control is "no-cache" and the body is index.html
+    await t.test('8. GET / and GET /about return Cache-Control: no-cache and index.html body', async () => {
+      for (const route of ['/', '/about']) {
+        const res = await fetch(`${baseUrl}${route}`);
+        assert.equal(res.status, 200, `${route} should return 200`);
+        const cacheControl = res.headers.get('cache-control') || '';
+        assert.equal(cacheControl, 'no-cache', `${route} Cache-Control should be "no-cache", got "${cacheControl}"`);
+        const body = await res.text();
+        assert.ok(body.includes('<div id="root"></div>') || body.includes('<!DOCTYPE html>'), `${route} body should be index.html`);
+      }
+    });
+
+    // 9. GET /assets/missing.js -> still 404 (not index.html)
+    await t.test('9. GET /assets/missing.js returns 404 and not index.html', async () => {
+      const res = await fetch(`${baseUrl}/assets/missing.js`);
+      assert.equal(res.status, 404, 'GET /assets/missing.js must return 404');
+      const text = await res.text();
+      assert.equal(text.includes('<!DOCTYPE html>'), false, 'GET /assets/missing.js must not return index.html');
+      assert.equal(text.includes('<div id="root"></div>'), false, 'GET /assets/missing.js must not contain root element');
+    });
+
+    // 10. GET /robots.txt -> Cache-Control is "no-cache"
+    await t.test('10. GET /robots.txt returns Cache-Control: no-cache', async () => {
+      const res = await fetch(`${baseUrl}/robots.txt`);
+      assert.equal(res.status, 200, 'GET /robots.txt should return 200');
+      const cacheControl = res.headers.get('cache-control') || '';
+      assert.equal(cacheControl, 'no-cache', `robots.txt Cache-Control should be "no-cache", got "${cacheControl}"`);
+    });
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));

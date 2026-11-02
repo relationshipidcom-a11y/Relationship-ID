@@ -244,7 +244,7 @@ test('AuthScreen DOM & lifecycle integration test suite', async (t) => {
     // Check rememberMe checkbox exists
     const rememberCheckbox = div.querySelector('input#auth-remember') as HTMLInputElement | null;
     assert.ok(rememberCheckbox, 'Remember me checkbox must exist');
-    assert.equal(rememberCheckbox?.checked, true, 'Remember me should default to checked');
+    assert.equal(rememberCheckbox?.checked, false, 'Remember me should default to unchecked');
 
     await cleanup();
   });

@@ -10,6 +10,8 @@ export interface DiagnosticErrorEntry {
 }
 
 export const ALLOWED_ERROR_CODES = new Set([
+  'app_check_failed',
+  'APP_CHECK_FAILED',
   'AUTH_REQUIRED',
   'INVALID_AUTH_TOKEN',
   'UNAUTHORIZED',
@@ -81,13 +83,31 @@ export const ALLOWED_ERROR_CODES = new Set([
   'INVALID_PLATFORM',
   'FIELD_TOO_LONG',
   'INVALID_INPUT',
+  'EMAIL_MUST_MATCH_ACCOUNT',
+  'REAUTH_REQUIRED',
   'SUBMISSION_IN_PROGRESS'
 ]);
 
 export const ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
+  app_check_failed: {
+    en: 'Security verification failed or is temporarily throttled. Please try again.',
+    ar: 'فشل التحقق الأمني أو تم تقييد الخدمة مؤقتاً. يرجى المحاولة لاحقاً.'
+  },
+  APP_CHECK_FAILED: {
+    en: 'Security verification failed or is temporarily throttled. Please try again.',
+    ar: 'فشل التحقق الأمني أو تم تقييد الخدمة مؤقتاً. يرجى المحاولة لاحقاً.'
+  },
   SUBMISSION_IN_PROGRESS: {
     en: 'A submission is already in progress. Please wait.',
     ar: 'يتم إرسال الطلب حالياً. يرجى الانتظار.'
+  },
+  EMAIL_MUST_MATCH_ACCOUNT: {
+    en: 'Your partner email must match your verified account email.',
+    ar: 'يجب أن يطابق بريد الشريك البريد الإلكتروني المؤكد لحسابك.'
+  },
+  REAUTH_REQUIRED: {
+    en: 'Recent login required for account deletion. Please re-authenticate and try again.',
+    ar: 'يلزم تسجيل الدخول الحديث لحذف الحساب. يرجى إعادة المصادقة والمحاولة مرة أخرى.'
   },
   AUTH_REQUIRED: {
     en: 'Authentication required. Please sign in.',
@@ -509,27 +529,69 @@ export async function authFetch(
   init: RequestInit = {},
   timeoutMs = 25000
 ): Promise<Response> {
-  if (!auth?.currentUser) {
+  // Wait for initial auth state resolution if supported
+  if (auth && typeof (auth as any).authStateReady === 'function') {
+    await (auth as any).authStateReady().catch(() => {});
+  }
+
+  const initialUser = auth?.currentUser;
+  if (!initialUser || !initialUser.uid) {
     throw new Error('AUTH_REQUIRED');
   }
+  const initialUid = initialUser.uid;
 
   let prepTimeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     prepTimeoutId = setTimeout(() => reject(new Error('NETWORK_TIMEOUT')), timeoutMs);
   });
 
-  const prepareHeaders = async (): Promise<Headers> => {
-    // Avoid forcing full network refresh if existing token is valid
-    const token = await auth!.currentUser!.getIdToken(false);
+  const prepareHeaders = async (forceRefresh = false): Promise<Headers> => {
+    if (!auth?.currentUser || auth.currentUser.uid !== initialUid) {
+      throw new Error('AUTH_REQUIRED');
+    }
+    const token = await initialUser.getIdToken(forceRefresh);
+    if (!auth?.currentUser || auth.currentUser.uid !== initialUid) {
+      throw new Error('AUTH_REQUIRED');
+    }
     const headers = await withAppCheckHeaders(init.headers);
     headers.set('Authorization', `Bearer ${token}`);
     return headers;
   };
 
   try {
-    const headers = await Promise.race([prepareHeaders(), timeoutPromise]);
+    const headers = await Promise.race([prepareHeaders(false), timeoutPromise]);
     if (prepTimeoutId) clearTimeout(prepTimeoutId);
-    return await fetchWithTimeout(input, { ...init, headers }, timeoutMs);
+
+    if (!auth?.currentUser || auth.currentUser.uid !== initialUid) {
+      throw new Error('AUTH_REQUIRED');
+    }
+
+    let res = await fetchWithTimeout(input, { ...init, headers }, timeoutMs);
+
+    // Retry only a proven refreshable authentication failure (INVALID_AUTH_TOKEN), at most once; no retry loops
+    if (res.status === 401) {
+      if (!auth?.currentUser || auth.currentUser.uid !== initialUid) {
+        return res;
+      }
+      try {
+        const cloned = res.clone();
+        const data = await cloned.json().catch(() => ({}));
+        if (data?.error === 'INVALID_AUTH_TOKEN') {
+          if (!auth?.currentUser || auth.currentUser.uid !== initialUid) {
+            return res;
+          }
+          const refreshedHeaders = await prepareHeaders(true);
+          if (!auth?.currentUser || auth.currentUser.uid !== initialUid) {
+            return res;
+          }
+          res = await fetchWithTimeout(input, { ...init, headers: refreshedHeaders }, timeoutMs);
+        }
+      } catch {
+        // Fall back to original response if parsing clone fails
+      }
+    }
+
+    return res;
   } finally {
     if (prepTimeoutId) clearTimeout(prepTimeoutId);
   }

@@ -88,7 +88,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Modal Top Bar */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#392D5A] text-[#E7BCD3] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#39436D] text-[#B8BCE6] flex items-center justify-center">
               <Share2 className="w-4 h-4" />
             </div>
             <h3 className="text-base font-bold text-white">
@@ -99,17 +99,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="w-10 h-10 rounded-full bg-[#141023] hover:bg-[#30264D] text-[#B7ACC8] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#51465F]"
+            className="w-10 h-10 rounded-full bg-[#252D52] hover:bg-[#414A75] text-[#D6DAED] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#A0A9D1]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Certificate Preview Badge Inside Modal */}
-        <div className="mt-4 p-3 rounded-2xl bg-[#141023] border border-[#51465F] flex items-center justify-between gap-3 shadow-inner">
+        <div className="mt-4 p-3 rounded-2xl bg-[#252D52] border border-[#A0A9D1] flex items-center justify-between gap-3 shadow-inner">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#9a7b2c] via-[#e2bd59] to-[#bf953f] p-0.5 shrink-0 flex items-center justify-center">
-              <div className="w-full h-full rounded-[10px] bg-[#141023] flex items-center justify-center text-[#e2bd59] font-bold text-xs">
+              <div className="w-full h-full rounded-[10px] bg-[#252D52] flex items-center justify-center text-[#e2bd59] font-bold text-xs">
                 RID
               </div>
             </div>
@@ -119,7 +119,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   {record.partner1.fullName} &amp; {record.partner2.fullName}
                 </p>
               </div>
-              <p className="font-mono text-sm text-[#E7BCD3] mt-0.5 tracking-wider truncate">
+              <p className="font-mono text-sm text-[#B8BCE6] mt-0.5 tracking-wider truncate">
                 {record.verificationRef}
               </p>
             </div>
@@ -131,7 +131,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         {/* Direct Share Channels */}
         <div className="mt-4">
-          <p className="text-sm font-semibold text-[#B7ACC8] mb-2">
+          <p className="text-sm font-semibold text-[#D6DAED] mb-2">
             {t.shareChannelsTitle}
           </p>
           <div className={styles.channelGrid}>
@@ -189,7 +189,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               onClick={() => handleChannelShare('sms')}
               className={styles.channelBtn}
             >
-              <div className="w-9 h-9 rounded-full bg-[#85516F]/20 text-[#E7BCD3] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-full bg-[#B8BCE6]/20 text-[#B8BCE6] flex items-center justify-center">
                 <Smartphone className="w-4 h-4" />
               </div>
               <span className="text-sm font-medium text-slate-200 leading-tight text-center truncate w-full sm:break-words">{t.smsChannel}</span>
@@ -199,10 +199,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         {/* Copy Link Section */}
         <div className="mt-4">
-          <label className="block text-sm font-semibold text-[#B7ACC8] mb-1.5" htmlFor="certShareLink">
+          <label className="block text-sm font-semibold text-[#D6DAED] mb-1.5" htmlFor="certShareLink">
             {t.secureCertLinkLabel}
           </label>
-          <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-[#141023] border border-[#51465F] focus-within:border-[#E7BCD3]">
+          <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-[#252D52] border border-[#A0A9D1] focus-within:border-[#B8BCE6]">
             <input
               id="certShareLink"
               type="text"
@@ -214,7 +214,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="shrink-0 px-3 py-2 rounded-lg bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-bold text-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer min-h-[40px]"
+              className="shrink-0 px-3 py-2 rounded-lg bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-bold text-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer min-h-[40px]"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? t.copiedBtn : t.copyCertLinkBtn}</span>
@@ -227,18 +227,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#141023] hover:bg-[#3D305A] text-white text-sm font-medium border border-[#51465F] transition-all active:scale-95 cursor-pointer min-h-[40px]"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#252D52] hover:bg-[#39436D] text-white text-sm font-medium border border-[#A0A9D1] transition-all active:scale-95 cursor-pointer min-h-[40px]"
           >
-            <Download className="w-4 h-4 text-[#E7BCD3]" />
+            <Download className="w-4 h-4 text-[#B8BCE6]" />
             <span>{language === 'ar' ? 'طباعة / حفظ PDF' : 'Print / Save PDF'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopyLink}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#141023] hover:bg-[#3D305A] text-white text-sm font-medium border border-[#51465F] transition-all active:scale-95 cursor-pointer min-h-[40px]"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-[#252D52] hover:bg-[#39436D] text-white text-sm font-medium border border-[#A0A9D1] transition-all active:scale-95 cursor-pointer min-h-[40px]"
           >
-            <QrCode className="w-4 h-4 text-[#E7BCD3]" />
+            <QrCode className="w-4 h-4 text-[#B8BCE6]" />
             <span>{language === 'ar' ? 'نسخ رابط التحقق' : 'Copy Verify Link'}</span>
           </button>
         </div>

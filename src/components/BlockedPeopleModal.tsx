@@ -90,7 +90,7 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
         }
       }}
     >
-      <div className="w-full max-w-md rounded-2xl bg-[#30264D] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
+      <div className="w-full max-w-md rounded-2xl bg-[#414A75] border border-amber-500/40 p-5 shadow-2xl relative text-start space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <UserX className="w-5 h-5 text-amber-400" />
@@ -103,7 +103,7 @@ export const BlockedPeopleModal: React.FC<BlockedPeopleModalProps> = ({
             onClick={onClose}
             disabled={Boolean(actionLoadingUid)}
             aria-label={t.cancelBtn}
-            className="w-10 h-10 rounded-full bg-[#141023] hover:bg-[#30264D] text-[#B7ACC8] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#51465F] disabled:opacity-50 shrink-0"
+            className="w-10 h-10 rounded-full bg-[#252D52] hover:bg-[#414A75] text-[#D6DAED] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#A0A9D1] disabled:opacity-50 shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

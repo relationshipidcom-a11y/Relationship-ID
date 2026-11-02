@@ -166,7 +166,13 @@ if (typeof self !== 'undefined') {
 export const appCheck: AppCheck | null = (() => {
   if (!firebaseApp || typeof window === 'undefined') return null;
   const siteKey = (import.meta as any)?.env?.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY;
-  if (!siteKey) return null;
+  const isProdBuild = Boolean((import.meta as any)?.env?.PROD);
+  if (!siteKey) {
+    if (isProdBuild) {
+      console.warn('[AppCheck] VITE_RECAPTCHA_ENTERPRISE_SITE_KEY missing — all /api calls will fail');
+    }
+    return null;
+  }
   try {
     return initializeAppCheck(firebaseApp, {
       provider: new ReCaptchaEnterpriseProvider(siteKey),
@@ -178,18 +184,38 @@ export const appCheck: AppCheck | null = (() => {
   }
 })();
 
-/**
- * Shared helper that retrieves the current App Check token and attaches the X-Firebase-AppCheck header.
- */
+let appCheckThrottledUntil = 0;
+
+export function resetAppCheckThrottling(): void {
+  appCheckThrottledUntil = 0;
+}
+
+export function getAppCheckThrottledUntil(): number {
+  return appCheckThrottledUntil;
+}
+
 export async function withAppCheckHeaders(initHeaders?: HeadersInit): Promise<Headers> {
   const headers = new Headers(initHeaders || {});
   if (appCheck) {
+    const now = Date.now();
+    if (now < appCheckThrottledUntil) {
+      // Respect throttling: avoid firing repeated token requests while throttled
+      return headers;
+    }
     try {
       const result = await getToken(appCheck, false);
       if (result?.token) {
         headers.set('X-Firebase-AppCheck', result.token);
       }
-    } catch (err) {
+    } catch (err: any) {
+      const errMsg = String(err?.message || err);
+      if (errMsg.includes('throttled') || errMsg.includes('403') || errMsg.includes('resourceExhausted') || errMsg.includes('backoff')) {
+        const match = errMsg.match(/retry[- ]after[:\s]+(\d+)/i);
+        const retryAfterMs = match ? parseInt(match[1], 10) * 1000 : 60000;
+        appCheckThrottledUntil = Date.now() + retryAfterMs;
+      } else {
+        appCheckThrottledUntil = Date.now() + 60000;
+      }
       console.warn('[Firebase AppCheck] Failed to get App Check token:', err);
     }
   }

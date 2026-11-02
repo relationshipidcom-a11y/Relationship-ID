@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -10,10 +11,19 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAppCheck } from 'firebase-admin/app-check';
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import twilio from 'twilio';
+import webpush from 'web-push';
 import { checkHealth, defaultHealthCheckManager, type HealthStatus } from './src/utils/health';
+import {
+  calculateActiveOccasions,
+  getLocalDateParts,
+  isValidIanaTimezone,
+  type OccasionItem
+} from './src/utils/reminders';
 import {
   normalizeCanonicalEmail,
   normalizeCanonicalPhone,
+  validateEmailAddress,
+  validateFullName,
   hashContact,
   extractCanonicalContacts,
   isContactStillUsedByRelationship,
@@ -113,14 +123,78 @@ const RELATIONSHIPS_COL = 'relationships';
 const INVITATIONS_COL = 'invitations';
 const CERTIFICATES_COL = 'certificates';
 const CHANGE_REQUESTS_COL = 'change_requests';
+const CHANGE_REQUEST_LOCKS_COL = 'change_request_locks';
 const NOTIFICATIONS_COL = 'notifications';
 const CONTACT_RESERVATIONS_COL = 'contact_reservations';
 const PUBLIC_CONTACT_INDEX_COL = 'public_contact_index';
-const ACCOUNT_DELETIONS_COL = 'account_deletions';
+export const ACCOUNT_DELETIONS_COL = 'account_deletions';
 const RELATIONSHIP_DELETIONS_COL = 'relationship_deletions';
 const INVITATION_BLOCKS_COL = 'invitation_blocks';
 export const WHATSAPP_VERIFY_ATTEMPTS_COL = 'whatsapp_verify_attempts';
 export const WHATSAPP_VERIFY_LIMITS_COL = 'whatsapp_verify_limits';
+export const REMINDER_SETTINGS_COL = 'reminder_settings';
+export const PUSH_SUBSCRIPTIONS_COL = 'push_subscriptions';
+export const IN_APP_DISMISSALS_COL = 'in_app_dismissals';
+export const REMINDER_DELIVERIES_COL = 'reminder_deliveries';
+
+export interface ReminderSettingsDoc {
+  userId: string;
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  pushEnabled: boolean;
+  timezone: string;
+  language: 'ar' | 'en';
+  updatedAt: string;
+}
+
+export interface PushSubscriptionDoc {
+  id: string;
+  userId: string;
+  subscription: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+  userAgent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InAppDismissalDoc {
+  id: string;
+  userId: string;
+  occasionType: string;
+  localDate: string;
+  recordId?: string;
+  dismissedAt: string;
+}
+
+export const REMINDER_CLAIM_LEASE_MS = 5 * 60 * 1000; // 5 minutes bounded lease for crash recovery
+export const REMINDER_MAX_ATTEMPTS = 3; // Maximum retry attempts per local occurrence
+export const REMINDER_RETRY_BACKOFF_MS = 15 * 60 * 1000; // 15 minutes minimum backoff between retries
+
+export interface ReminderDeliveryDoc {
+  id: string;
+  userId: string;
+  channel: 'email' | 'push';
+  localDate: string;
+  occasions?: Array<{ type: string; recordId?: string }>;
+  deliveredAt?: string;
+  failedAt?: string;
+  status: 'success' | 'failed' | 'claiming';
+  claimId?: string;
+  claimedAt?: string;
+  claimedAtMs?: number;
+  firstAttemptAtMs?: number;
+  emailPayloadHash?: string;
+  attempts?: number;
+  lastAttemptAtMs?: number;
+  error?: string | null;
+  uncertain?: boolean;
+  permanent?: boolean;
+}
 
 export interface WhatsAppVerificationAttempt {
   attemptId: string;
@@ -198,18 +272,29 @@ try {
   adminDb = null as any;
 }
 
-export function __setTestDeps(db: any, auth: any): void {
-  if (process.env.NODE_ENV !== 'test') {
+const isTestEnvironment =
+  process.env.NODE_ENV === 'test' ||
+  process.argv.includes('--test') ||
+  Boolean(process.env.NODE_TEST_CONTEXT) ||
+  process.argv.some(arg => arg.includes('.test.'));
+
+let testProjectIdOverride: string | undefined = undefined;
+
+export function __setTestDeps(db: any, auth: any, testProjectId?: string): void {
+  if (process.env.NODE_ENV !== 'test' && !isTestEnvironment) {
     throw new Error('__setTestDeps is only allowed in test environment');
   }
   adminDb = db;
   adminAuth = auth;
+  if (testProjectId !== undefined) {
+    testProjectIdOverride = testProjectId;
+  }
 }
 
 let twilioClientOverride: any = null;
 
 export function __setTwilioClient(mockClient: any): void {
-  if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== 'test' && !isTestEnvironment) {
     throw new Error('__setTwilioClient is only allowed in test environment');
   }
   twilioClientOverride = mockClient;
@@ -218,17 +303,363 @@ export function __setTwilioClient(mockClient: any): void {
 let adminAppCheckOverride: any = null;
 
 export function __setTestAppCheck(mockAppCheck: any): void {
-  if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== 'test' && !isTestEnvironment) {
     throw new Error('__setTestAppCheck is only allowed in test environment');
   }
   adminAppCheckOverride = mockAppCheck;
 }
 
+let testEmailSenderOverride: ((toEmail: string, subject: string, textBody: string, idempotencyKey?: string) => Promise<{ success: boolean; mocked?: boolean; error?: string; uncertain?: boolean; permanent?: boolean }>) | null = null;
+let testPushSenderOverride: ((subscription: any, payloadObj: any) => Promise<{ success: boolean; expired?: boolean; mocked?: boolean; error?: string; uncertain?: boolean }>) | null = null;
+
+export function __setTestEmailSender(fn: typeof testEmailSenderOverride): void {
+  if (process.env.NODE_ENV !== 'test' && !isTestEnvironment) {
+    throw new Error('__setTestEmailSender is only allowed in test environment');
+  }
+  testEmailSenderOverride = fn;
+}
+
+export function __setTestPushSender(fn: typeof testPushSenderOverride): void {
+  if (process.env.NODE_ENV !== 'test' && !isTestEnvironment) {
+    throw new Error('__setTestPushSender is only allowed in test environment');
+  }
+  testPushSenderOverride = fn;
+}
+
+export async function sendReminderEmail(
+  toEmail: string,
+  subject: string,
+  textBody: string,
+  idempotencyKey?: string
+): Promise<{ success: boolean; mocked?: boolean; error?: string; uncertain?: boolean; permanent?: boolean }> {
+  if (testEmailSenderOverride) {
+    return testEmailSenderOverride(toEmail, subject, textBody, idempotencyKey);
+  }
+
+  if (process.env.RESEND_API_KEY) {
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), 10000);
+    try {
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      };
+      if (idempotencyKey) {
+        headers['Idempotency-Key'] = idempotencyKey;
+      }
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM || 'reminders@relationshipid.org',
+          to: [toEmail],
+          subject,
+          text: textBody
+        })
+      });
+      const response = await res.json().catch(() => null);
+      if (res.ok) {
+        return response && typeof response.id === 'string' && response.id.trim().length > 0
+          ? { success: true }
+          : { success: false, error: 'EMAIL_RESPONSE_UNCERTAIN', uncertain: true };
+      }
+      const isPermanent = res.status >= 400 && res.status < 500 && ![408, 409, 429].includes(res.status);
+      return {
+        success: false,
+        error: `EMAIL_SEND_FAILED_${res.status}`,
+        permanent: isPermanent,
+        uncertain: res.status === 408 || res.status >= 500
+      };
+    } catch (e: any) {
+      const isTimeout = controller.signal.aborted || e?.name === 'AbortError' || e?.code === 'ETIMEDOUT' || e?.cause?.code === 'ETIMEDOUT';
+      return {
+        success: false,
+        error: isTimeout ? 'TIMEOUT_UNCERTAIN' : 'EMAIL_NETWORK_UNCERTAIN',
+        uncertain: true
+      };
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
+  }
+
+  return { success: false, error: 'SERVICE_UNCONFIGURED', permanent: false };
+}
+
+export async function sendReminderPushNotification(
+  subscription: webpush.PushSubscription,
+  payloadObj: { title: string; body: string; data?: any }
+): Promise<{ success: boolean; expired?: boolean; mocked?: boolean; error?: string; uncertain?: boolean }> {
+  if (testPushSenderOverride) {
+    return testPushSenderOverride(subscription, payloadObj);
+  }
+
+  if (!subscription || typeof subscription !== 'object' || !subscription.endpoint || typeof subscription.endpoint !== 'string') {
+    return { success: false, expired: true, error: 'INVALID_SUBSCRIPTION' };
+  }
+
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:support@relationshipid.org';
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return { success: false, error: 'SERVICE_UNCONFIGURED' };
+  }
+
+  try {
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    // Use web-push's native timeout option to destroy the underlying request on socket timeout
+    await webpush.sendNotification(subscription, JSON.stringify(payloadObj), {
+      TTL: 86400,
+      urgency: 'normal',
+      timeout: 10000
+    });
+    return { success: true };
+  } catch (err: any) {
+    if (err?.statusCode === 404 || err?.statusCode === 410) {
+      return { success: false, expired: true, error: 'SUBSCRIPTION_EXPIRED' };
+    }
+    const isTimeout =
+      err?.name === 'TimeoutError' ||
+      err?.code === 'ETIMEDOUT' ||
+      err?.code === 'ESOCKETTIMEDOUT' ||
+      err?.code === 'ECONNRESET' ||
+      err?.message?.includes('timeout') ||
+      err?.message === 'PUSH_TIMEOUT_UNCERTAIN';
+    return {
+      success: false,
+      error: isTimeout ? 'TIMEOUT_UNCERTAIN' : (err?.message || 'PUSH_FAILED'),
+      uncertain: isTimeout
+    };
+  }
+}
+
+export interface ClaimReminderDeliveryParams {
+  db: FirebaseFirestore.Firestore;
+  claimRef: FirebaseFirestore.DocumentReference;
+  deliveryDocId: string;
+  userId: string;
+  channel: 'email' | 'push';
+  localDate: string;
+  leaseDurationMs?: number;
+  maxAttempts?: number;
+  retryBackoffMs?: number;
+  nowMs?: number;
+  emailPayloadHash?: string;
+}
+
+export interface ClaimReminderDeliveryResult {
+  claimed: boolean;
+  claimId?: string;
+  attemptCount?: number;
+  previousUncertain?: boolean;
+  reason?: 'ALREADY_SUCCEEDED' | 'LEASE_ACTIVE' | 'MAX_ATTEMPTS_EXCEEDED' | 'BACKOFF_ACTIVE' | 'UNSAFE_RETRY';
+}
+
+export async function claimReminderDelivery(params: ClaimReminderDeliveryParams): Promise<ClaimReminderDeliveryResult> {
+  const leaseMs = params.leaseDurationMs ?? REMINDER_CLAIM_LEASE_MS;
+  const maxAttempts = params.maxAttempts ?? REMINDER_MAX_ATTEMPTS;
+  const backoffMs = params.retryBackoffMs ?? REMINDER_RETRY_BACKOFF_MS;
+  const nowMs = params.nowMs ?? Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
+  return await params.db.runTransaction(async (transaction) => {
+    const docSnap = await transaction.get(params.claimRef);
+    let previousUncertain = false;
+
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      previousUncertain = Boolean(data?.uncertain);
+
+      // Success is permanent for this local calendar occurrence: never dispatch again
+      if (data?.status === 'success') {
+        return { claimed: false, reason: 'ALREADY_SUCCEEDED' };
+      }
+
+      // A stable key is safe only for an unchanged payload inside Resend's 24-hour retention.
+      if (params.channel === 'email' && params.emailPayloadHash) {
+        const firstAttempt = data?.firstAttemptAtMs;
+        if (data?.emailPayloadHash !== params.emailPayloadHash ||
+            typeof firstAttempt !== 'number' || !Number.isFinite(firstAttempt) ||
+            nowMs < firstAttempt || nowMs - firstAttempt >= 23 * 60 * 60 * 1000) {
+          return { claimed: false, reason: 'UNSAFE_RETRY' };
+        }
+      }
+      // Push has no provider idempotency: leave uncertain outcomes visible for manual review.
+      if (params.channel === 'push' && previousUncertain) {
+        return { claimed: false, reason: 'UNSAFE_RETRY' };
+      }
+
+      // If currently claiming, check if the lease has expired (abandoned worker recovery)
+      if (data?.status === 'claiming') {
+        const claimStartMs = typeof data?.claimedAtMs === 'number'
+          ? data.claimedAtMs
+          : (data?.claimedAt ? new Date(data.claimedAt).getTime() : 0);
+        const isLeaseExpired = nowMs - claimStartMs > leaseMs;
+        if (!isLeaseExpired) {
+          return { claimed: false, reason: 'LEASE_ACTIVE' };
+        }
+        if (params.channel === 'push') return { claimed: false, reason: 'UNSAFE_RETRY' };
+        // Lease expired; recover claim if attempts not exhausted
+        const attemptsSoFar = typeof data?.attempts === 'number' ? data.attempts : 1;
+        if (attemptsSoFar >= maxAttempts) {
+          return { claimed: false, reason: 'MAX_ATTEMPTS_EXCEEDED' };
+        }
+      }
+
+      // If status === 'failed', check attempt limits, permanent rejection, and backoff
+      if (data?.status === 'failed') {
+        // Confirmed permanent failure (e.g. 4xx unrecoverable client rejection, invalid recipient) -> never retry
+        if (data?.permanent) {
+          return { claimed: false, reason: 'MAX_ATTEMPTS_EXCEEDED' };
+        }
+        const attemptsSoFar = typeof data?.attempts === 'number' ? data.attempts : 1;
+        if (attemptsSoFar >= maxAttempts) {
+          return { claimed: false, reason: 'MAX_ATTEMPTS_EXCEEDED' };
+        }
+        const lastAttemptMs = typeof data?.lastAttemptAtMs === 'number'
+          ? data.lastAttemptAtMs
+          : (data?.failedAt ? new Date(data.failedAt).getTime() : 0);
+        if (nowMs - lastAttemptMs < backoffMs) {
+          return { claimed: false, reason: 'BACKOFF_ACTIVE' };
+        }
+      }
+    }
+
+    const currentAttempts = docSnap.exists
+      ? (typeof docSnap.data()?.attempts === 'number' ? docSnap.data()!.attempts : 1)
+      : 0;
+    const nextAttempt = currentAttempts + 1;
+    const claimId = crypto.randomUUID();
+
+    const claimDoc: Partial<ReminderDeliveryDoc> = {
+      id: params.deliveryDocId,
+      userId: params.userId,
+      channel: params.channel,
+      localDate: params.localDate,
+      status: 'claiming',
+      claimId,
+      claimedAt: nowIso,
+      claimedAtMs: nowMs,
+      attempts: nextAttempt,
+      lastAttemptAtMs: nowMs
+    };
+
+    if (params.emailPayloadHash) {
+      claimDoc.emailPayloadHash = params.emailPayloadHash;
+      claimDoc.firstAttemptAtMs = docSnap.exists ? docSnap.data()!.firstAttemptAtMs : nowMs;
+    }
+    transaction.set(params.claimRef, claimDoc, { merge: true });
+
+    return { claimed: true, claimId, attemptCount: nextAttempt, previousUncertain };
+  });
+}
+
+export async function ownsReminderClaim(
+  db: FirebaseFirestore.Firestore,
+  claimRef: FirebaseFirestore.DocumentReference,
+  claimId: string,
+  nowMs?: number
+): Promise<boolean> {
+  const snap = await claimRef.get();
+  nowMs ??= Date.now();
+  const data = snap.data();
+  return Boolean(snap.exists && data?.status === 'claiming' && data.claimId === claimId &&
+    typeof data.claimedAtMs === 'number' && nowMs >= data.claimedAtMs &&
+    nowMs - data.claimedAtMs < REMINDER_CLAIM_LEASE_MS - 15000);
+}
+
+export interface RecordDeliveryOutcomeParams {
+  db: FirebaseFirestore.Firestore;
+  claimRef: FirebaseFirestore.DocumentReference;
+  expectedClaimId: string;
+  outcome: {
+    status: 'success' | 'failed';
+    occasions?: Array<{ type: string; recordId?: string }>;
+    error?: string;
+    uncertain?: boolean;
+    permanent?: boolean;
+    nowMs?: number;
+  };
+}
+
+export async function recordReminderDeliveryOutcome(
+  params: RecordDeliveryOutcomeParams
+): Promise<{ recorded: boolean; superseded?: boolean }> {
+  const nowMs = params.outcome.nowMs ?? Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
+  return await params.db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(params.claimRef);
+    if (!snap.exists) {
+      return { recorded: false, superseded: true };
+    }
+    const data = snap.data();
+    if (data?.claimId !== params.expectedClaimId) {
+      // Fencing check: claim was stolen by lease expiration or reclaimed by another worker
+      return { recorded: false, superseded: true };
+    }
+
+    if (params.outcome.status === 'success') {
+      transaction.set(
+        params.claimRef,
+        {
+          status: 'success',
+          deliveredAt: nowIso,
+          occasions: params.outcome.occasions || [],
+          error: null,
+          uncertain: false,
+          permanent: false
+        },
+        { merge: true }
+      );
+    } else {
+      transaction.set(
+        params.claimRef,
+        {
+          status: 'failed',
+          failedAt: nowIso,
+          lastAttemptAtMs: nowMs,
+          occasions: params.outcome.occasions || [],
+          error: params.outcome.error || 'FAILED',
+          uncertain: Boolean(params.outcome.uncertain),
+          permanent: Boolean(params.outcome.permanent)
+        },
+        { merge: true }
+      );
+    }
+    return { recorded: true };
+  });
+}
+
+export async function cleanUserRemindersInBatches(db: FirebaseFirestore.Firestore, uid: string): Promise<void> {
+  await db.collection(REMINDER_SETTINGS_COL).doc(uid).delete();
+
+  for (const collectionName of [PUSH_SUBSCRIPTIONS_COL, IN_APP_DISMISSALS_COL, REMINDER_DELIVERIES_COL]) {
+    while (true) {
+      const snap = await db.collection(collectionName).where('userId', '==', uid).limit(50).get();
+      if (snap.empty) break;
+      const batch = db.batch();
+      snap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  }
+}
+
 export const requireAppCheck = async (req: Request, res: Response, next: NextFunction) => {
-  if (req.path === '/health' || req.originalUrl === '/api/health') {
+  const rawUrl = req.originalUrl || req.url || req.path || '';
+  const cleanUrl = rawUrl.split('?')[0];
+  const cleanPath = (req.path || '').split('?')[0];
+
+  const isExactHealth = req.method === 'GET' && (cleanUrl === '/api/health' || cleanPath === '/health');
+  const isExactReminderProcessor =
+    req.method === 'POST' &&
+    (cleanUrl === '/api/reminders/process' || (req.baseUrl === '/api' && cleanPath === '/reminders/process'));
+
+  if (isExactHealth || isExactReminderProcessor) {
     return next();
   }
-  if (process.env.NODE_ENV === 'test' && !adminAppCheckOverride) {
+  if ((process.env.NODE_ENV === 'test' || isTestEnvironment) && !adminAppCheckOverride) {
     return next();
   }
 
@@ -277,6 +708,52 @@ const emptyPartner = (): PartnerData => ({
   whatsappNumber: ''
 });
 
+export function sanitizePartnerInput(raw: any): PartnerData {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return emptyPartner();
+  }
+
+  const str = (v: any) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v).trim() : '');
+
+  const fullName = str(raw.fullName);
+  const fullNameEn = str(raw.fullNameEn);
+  const birthDay = str(raw.birthDay);
+  const birthMonth = str(raw.birthMonth);
+  const birthYear = str(raw.birthYear);
+  const email = str(raw.email);
+  const phoneCountry = str(raw.phoneCountry) || 'SA +966';
+  const phoneNumber = str(raw.phoneNumber);
+  const phoneE164 = str(raw.phoneE164);
+  const sameWhatsapp = typeof raw.sameWhatsapp === 'boolean' ? raw.sameWhatsapp : undefined;
+  const whatsappCountry = str(raw.whatsappCountry) || 'SA +966';
+  const whatsappNumber = str(raw.whatsappNumber);
+  const whatsappE164 = str(raw.whatsappE164);
+  const socialHandle = str(raw.socialHandle);
+
+  let socialAccounts: SocialAccount[] | undefined = undefined;
+  if (Array.isArray(raw.socialAccounts)) {
+    socialAccounts = raw.socialAccounts;
+  }
+
+  return {
+    fullName,
+    fullNameEn,
+    birthDay,
+    birthMonth,
+    birthYear,
+    email,
+    phoneCountry,
+    phoneNumber,
+    phoneE164: phoneE164 || undefined,
+    sameWhatsapp,
+    whatsappCountry,
+    whatsappNumber,
+    whatsappE164: whatsappE164 || undefined,
+    socialHandle,
+    socialAccounts
+  };
+}
+
 const randomId = (prefix: string, bytes = 12) => `${prefix}_${crypto.randomBytes(bytes).toString('hex')}`;
 
 const formatDate = (iso: string, locale: string) => {
@@ -304,7 +781,7 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   if (!token) return res.status(401).json({ error: 'AUTH_REQUIRED' });
 
   try {
-    res.locals.firebaseUser = await adminAuth.verifyIdToken(token);
+    res.locals.firebaseUser = await adminAuth.verifyIdToken(token, true);
     return next();
   } catch (error) {
     console.error('verifyIdToken failed', (error as { code?: string })?.code);
@@ -448,6 +925,8 @@ export { checkHealth, type HealthStatus } from './src/utils/health';
 export {
   normalizeCanonicalEmail,
   normalizeCanonicalPhone,
+  validateEmailAddress,
+  validateFullName,
   hashContact,
   extractCanonicalContacts,
   isContactStillUsedByRelationship,
@@ -727,6 +1206,78 @@ const SERVER_LOCALIZED_ERRORS: Record<string, { en: string; ar: string }> = {
   INVALID_VERIFICATION_CHANNEL: {
     en: 'Invalid verification channel.',
     ar: 'قناة التحقق غير صالحة.'
+  },
+  EMAIL_MUST_MATCH_ACCOUNT: {
+    en: 'Your partner email must match your verified account email.',
+    ar: 'يجب أن يطابق بريد الشريك البريد الإلكتروني المؤكد لحسابك.'
+  },
+  REAUTH_REQUIRED: {
+    en: 'Recent login required for account deletion. Please re-authenticate and try again.',
+    ar: 'يلزم تسجيل الدخول الحديث لحذف الحساب. يرجى إعادة المصادقة والمحاولة مرة أخرى.'
+  },
+  INVALID_START_DATE: {
+    en: 'Please enter a valid start date (YYYY-MM-DD, 1900 to present).',
+    ar: 'يرجى إدخال تاريخ بدء صحيح (YYYY-MM-DD، من 1900 إلى اليوم).'
+  },
+  PENDING_INVITATION_EXISTS: {
+    en: 'A pending invitation already exists.',
+    ar: 'توجد دعوة معلقة بالفعل.'
+  },
+  RELATIONSHIP_DRAFT_NOT_FOUND: {
+    en: 'No relationship draft found.',
+    ar: 'لم يتم العثور على مسودة علاقة.'
+  },
+  VALUE_UNCHANGED: {
+    en: 'Proposed value is unchanged.',
+    ar: 'القيمة المقترحة لم تتغير.'
+  },
+  PENDING_CHANGE_REQUEST_EXISTS: {
+    en: 'A pending change request already exists for this field.',
+    ar: 'يوجد طلب تغيير معلق بالفعل لهذا الحقل.'
+  },
+  INVALID_RELATIONSHIP_TYPE: {
+    en: 'Invalid relationship type.',
+    ar: 'نوع العلاقة غير صالح.'
+  },
+  NAME_REQUIRED: {
+    en: 'Name is required.',
+    ar: 'الاسم مطلوب.'
+  },
+  INVALID_CHANGE_FIELD: {
+    en: 'Invalid field for change request.',
+    ar: 'حقل غير صالح لطلب التغيير.'
+  },
+  PARTNER_NAME_REQUIRED: {
+    en: 'Partner name is required.',
+    ar: 'اسم الشريك مطلوب.'
+  },
+  PARTNER_CONTACT_REQUIRED: {
+    en: 'Partner contact information is required.',
+    ar: 'بيانات تواصل الشريك مطلوبة.'
+  },
+  RELATIONSHIP_NOT_FOUND: {
+    en: 'Relationship record not found.',
+    ar: 'لم يتم العثور على سجل العلاقة.'
+  },
+  REQUEST_NOT_FOUND: {
+    en: 'Change request not found.',
+    ar: 'لم يتم العثور على طلب التغيير.'
+  },
+  UNAUTHORIZED: {
+    en: 'Unauthorized.',
+    ar: 'غير مصرح.'
+  },
+  UNAUTHORIZED_APPROVER: {
+    en: 'You are not authorized to approve this change request.',
+    ar: 'غير مصرح لك بالموافقة على طلب التغيير هذا.'
+  },
+  NOT_RELATIONSHIP_PARTICIPANT: {
+    en: 'You are not a participant in this relationship.',
+    ar: 'أنت لست طرفاً في هذه العلاقة.'
+  },
+  CANNOT_EDIT_PARTNER_INFO: {
+    en: 'You cannot edit your partner info directly.',
+    ar: 'لا يمكنك تعديل بيانات الشريك مباشرة.'
   }
 };
 
@@ -774,6 +1325,27 @@ export const isAtLeast18 = (
 
   return age >= 18;
 };
+
+export function isValidIsoDate(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parts = value.split('-').map(Number);
+  const year = parts[0];
+  const month = parts[1];
+  const day = parts[2];
+  if (year < 1900) return false;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() !== month - 1 ||
+    d.getUTCDate() !== day
+  ) {
+    return false;
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (value > todayIso) return false;
+  return true;
+}
 
 export const rateLimitMap = new Map<string, number[]>();
 
@@ -870,7 +1442,8 @@ export type FieldValidationResult = { valid: true } | { valid: false; error: 'FI
 export function validateFieldLength(
   value: unknown,
   field: 'fullName' | 'fullNameEn' | 'socialHandle' | 'email' | 'phone' | 'whatsapp' | 'changeRequestValue',
-  required: boolean = false
+  required: boolean = false,
+  maxLenOverride?: number
 ): FieldValidationResult {
   if (value === null || value === undefined) {
     if (required) return { valid: false, error: 'INVALID_INPUT' };
@@ -890,13 +1463,15 @@ export function validateFieldLength(
   let maxLen = 100;
   switch (field) {
     case 'fullName':
-      maxLen = 100;
+      maxLen = maxLenOverride !== undefined ? maxLenOverride : 60;
       if (trimmedLen === 0 && required) return { valid: false, error: 'INVALID_INPUT' };
       if (rawLen > maxLen) return { valid: false, error: 'FIELD_TOO_LONG' };
+      if (trimmedLen > 0 && (trimmedLen < 2 || /[<>]/.test(trimmed))) return { valid: false, error: 'INVALID_INPUT' };
       break;
     case 'fullNameEn':
-      maxLen = 100;
+      maxLen = maxLenOverride !== undefined ? maxLenOverride : 100;
       if (rawLen > maxLen) return { valid: false, error: 'FIELD_TOO_LONG' };
+      if (trimmedLen > 0 && (trimmedLen < 2 || /[<>]/.test(trimmed))) return { valid: false, error: 'INVALID_INPUT' };
       break;
     case 'socialHandle':
       maxLen = 50;
@@ -905,6 +1480,7 @@ export function validateFieldLength(
     case 'email':
       maxLen = 254;
       if (rawLen > maxLen) return { valid: false, error: 'FIELD_TOO_LONG' };
+      if (trimmedLen > 0 && !validateEmailAddress(trimmed)) return { valid: false, error: 'INVALID_INPUT' };
       break;
     case 'phone':
     case 'whatsapp':
@@ -932,20 +1508,115 @@ export function isValidRefCodeParam(param: unknown, maxLen = 64): boolean {
   return /^[A-Za-z0-9-]+$/.test(param);
 }
 
+/**
+ * Constant-time comparison of a supplied secret against a configured secret.
+ * Both values are hashed with SHA-256 before comparison with crypto.timingSafeEqual
+ * to avoid timing leaks, raw buffer length leaks, or dummy self-comparisons.
+ */
+export function verifySecret(suppliedSecret: unknown, configuredSecret?: unknown): boolean {
+  if (typeof configuredSecret !== 'string' || configuredSecret.length < 32) {
+    return false;
+  }
+  if (typeof suppliedSecret !== 'string' || suppliedSecret.length === 0) {
+    return false;
+  }
+  const configuredHash = crypto.createHash('sha256').update(configuredSecret).digest();
+  const suppliedHash = crypto.createHash('sha256').update(suppliedSecret).digest();
+  return crypto.timingSafeEqual(configuredHash, suppliedHash);
+}
+
 export function verifyReconcileSecret(headerSecret: unknown, envSecret?: string): boolean {
-  if (!envSecret || typeof envSecret !== 'string' || envSecret.length < 32) {
-    return false;
+  return verifySecret(headerSecret, envSecret);
+}
+
+export interface HeaderExtractResult {
+  value?: string;
+  error: 'NONE' | 'MISSING' | 'AMBIGUOUS' | 'DUPLICATE' | 'INVALID';
+}
+
+/**
+ * Inspects request headers and rawHeaders to safely extract a single header value,
+ * rejecting duplicate headers, case variations, conflicting aliases, and malformed values.
+ */
+export function extractValidatedHeader(
+  req: Request,
+  primaryName: string,
+  aliasName?: string
+): HeaderExtractResult {
+  const primaryLower = primaryName.toLowerCase();
+  const aliasLower = aliasName ? aliasName.toLowerCase() : null;
+
+  const rawHeaders = req.rawHeaders || [];
+  let primaryCount = 0;
+  let aliasCount = 0;
+  let primaryValue: string | undefined;
+  let aliasValue: string | undefined;
+
+  if (rawHeaders.length > 0) {
+    for (let i = 0; i < rawHeaders.length; i += 2) {
+      const name = (rawHeaders[i] || '').toLowerCase();
+      const val = rawHeaders[i + 1];
+
+      if (name === primaryLower) {
+        primaryCount++;
+        primaryValue = val;
+      } else if (aliasLower && name === aliasLower) {
+        aliasCount++;
+        aliasValue = val;
+      }
+    }
+
+    if (primaryCount > 0 && aliasCount > 0) {
+      return { error: 'AMBIGUOUS' };
+    }
+
+    if (primaryCount > 1 || aliasCount > 1) {
+      return { error: 'DUPLICATE' };
+    }
   }
-  if (!headerSecret || typeof headerSecret !== 'string') {
-    return false;
+
+  const parsedPrimary = req.headers ? req.headers[primaryLower] : undefined;
+  const parsedAlias = (req.headers && aliasLower) ? req.headers[aliasLower] : undefined;
+
+  if (Array.isArray(parsedPrimary) || Array.isArray(parsedAlias)) {
+    return { error: 'DUPLICATE' };
   }
-  const envBuf = Buffer.from(envSecret, 'utf-8');
-  const headerBuf = Buffer.from(headerSecret, 'utf-8');
-  if (envBuf.length !== headerBuf.length) {
-    crypto.timingSafeEqual(envBuf, envBuf);
-    return false;
+
+  if (parsedPrimary !== undefined && parsedAlias !== undefined) {
+    return { error: 'AMBIGUOUS' };
   }
-  return crypto.timingSafeEqual(envBuf, headerBuf);
+
+  if (rawHeaders.length === 0) {
+    if (parsedPrimary !== undefined) {
+      if (typeof parsedPrimary !== 'string' || parsedPrimary.length === 0 || parsedPrimary.includes(',')) {
+        return { error: 'INVALID' };
+      }
+      return { value: parsedPrimary, error: 'NONE' };
+    }
+    if (parsedAlias !== undefined) {
+      if (typeof parsedAlias !== 'string' || parsedAlias.length === 0 || parsedAlias.includes(',')) {
+        return { error: 'INVALID' };
+      }
+      return { value: parsedAlias, error: 'NONE' };
+    }
+    return { error: 'MISSING' };
+  }
+
+  if (primaryCount === 1) {
+    if (typeof primaryValue !== 'string' || primaryValue.length === 0) {
+      return { error: 'INVALID' };
+    }
+    return { value: primaryValue, error: 'NONE' };
+  }
+
+  if (aliasCount === 1) {
+    if (typeof aliasValue !== 'string' || aliasValue.length === 0) {
+      return { error: 'INVALID' };
+    }
+    return { value: aliasValue, error: 'NONE' };
+  }
+
+  return { error: 'MISSING' };
 }
 
 const respondWithError = (res: Response, statusCode: number, errorKey: string, retryAfterSeconds: number = 60) => {
@@ -1139,11 +1810,17 @@ export async function terminateActiveRelationship(
   const relRef = db.collection(RELATIONSHIPS_COL).doc(recordId);
   const progressRef = db.collection(RELATIONSHIP_DELETIONS_COL).doc(recordId);
 
+  let originalStatus = '';
+  let otherUid: string | null = null;
+
   // Phase 1: Atomic Lock & Immediate Public Deactivation
   await db.runTransaction(async (transaction) => {
     const relDoc = await transaction.get(relRef);
     if (!relDoc.exists) throw new Error('ACTIVE_RELATIONSHIP_NOT_FOUND');
     const record = relDoc.data() as RelationshipRecord;
+    originalStatus = record.status;
+    otherUid = record.p1Uid === callerUid ? (record.p2Uid || null) : (record.p2Uid === callerUid ? record.p1Uid : null);
+
     if (
       record.status !== 'active' &&
       record.status !== 'deleting' &&
@@ -1234,6 +1911,7 @@ export async function terminateActiveRelationship(
   // Phase 2: Bounded Batch Cleanup of related sub-documents
   await cleanRelatedDocsInBatches(db, INVITATIONS_COL, recordId, 50);
   await cleanRelatedDocsInBatches(db, CHANGE_REQUESTS_COL, recordId, 50);
+  await cleanRelatedDocsInBatches(db, CHANGE_REQUEST_LOCKS_COL, recordId, 50);
   await cleanRelatedDocsInBatches(db, NOTIFICATIONS_COL, recordId, 50);
 
   // Phase 3: Final Record Deletion & Progress Cleanup
@@ -1269,6 +1947,7 @@ export async function reconcilePendingRelationshipDeletions(
       if (!relDoc.exists) {
         await cleanRelatedDocsInBatches(db, INVITATIONS_COL, recId, 50);
         await cleanRelatedDocsInBatches(db, CHANGE_REQUESTS_COL, recId, 50);
+        await cleanRelatedDocsInBatches(db, CHANGE_REQUEST_LOCKS_COL, recId, 50);
         await cleanRelatedDocsInBatches(db, NOTIFICATIONS_COL, recId, 50);
         await doc.ref.delete();
         completed.push(recId);
@@ -1287,6 +1966,34 @@ export async function reconcilePendingRelationshipDeletions(
     }
   }
   return { processed: snap.size, completed };
+}
+
+async function cleanUserInvitationsInBatches(db: FirebaseFirestore.Firestore, uid: string, batchSize: number = 50): Promise<void> {
+  while (true) {
+    const snap = await db.collection(INVITATIONS_COL)
+      .where('p2Uid', '==', uid)
+      .limit(batchSize)
+      .get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    for (const doc of snap.docs) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+
+  while (true) {
+    const snap = await db.collection(INVITATIONS_COL)
+      .where('p1Uid', '==', uid)
+      .limit(batchSize)
+      .get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    for (const doc of snap.docs) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
 }
 
 async function cleanUserBlocksInBatches(db: FirebaseFirestore.Firestore, uid: string, batchSize: number = 50): Promise<void> {
@@ -1380,7 +2087,11 @@ export async function reconcilePendingAccountDeletions(
       }
 
       // 3. Delete Firestore profile doc and progress doc
+      await cleanUserInvitationsInBatches(db, uid);
       await cleanUserBlocksInBatches(db, uid);
+      await cleanUserRemindersInBatches(db, uid);
+      await db.collection(WHATSAPP_VERIFY_ATTEMPTS_COL).doc(uid).delete();
+      await db.collection(WHATSAPP_VERIFY_LIMITS_COL).doc(uid).delete();
       await db.collection(USERS_COL).doc(uid).delete();
       await doc.ref.delete();
       completed.push(uid);
@@ -1441,6 +2152,7 @@ export async function isRelationshipDeletionPending(
 
 export interface CreateAppOptions {
   staticDir?: string;
+  isDev?: boolean;
 }
 
 export const getPublicStaticDir = (): string => {
@@ -1449,9 +2161,73 @@ export const getPublicStaticDir = (): string => {
   return path.join(process.cwd(), 'dist');
 };
 
+export function canonicalApexRedirectMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  // Only redirect GET and HEAD methods for public page/asset visits
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return next();
+  }
+
+  // Never redirect API endpoints, authentication helpers, internal reconciliation, or health checks
+  const rawPath = req.path || '';
+  if (
+    rawPath === '/api' ||
+    rawPath.startsWith('/api/') ||
+    rawPath === '/internal' ||
+    rawPath.startsWith('/internal/') ||
+    rawPath === '/__' ||
+    rawPath.startsWith('/__/')
+  ) {
+    return next();
+  }
+
+  // Determine request hostname without port.
+  // Express req.hostname utilizes trust-proxy settings safely and strips any port.
+  // Fall back to Host header only if req.hostname is unavailable.
+  let host = '';
+  if (typeof req.hostname === 'string' && req.hostname) {
+    host = req.hostname.toLowerCase().trim();
+  } else if (typeof req.headers.host === 'string') {
+    const rawHost = req.headers.host;
+    const colonIdx = rawHost.lastIndexOf(':');
+    const bracketIdx = rawHost.lastIndexOf(']');
+    host = (colonIdx > bracketIdx ? rawHost.slice(0, colonIdx) : rawHost).toLowerCase().trim();
+  }
+
+  // Strictly target only the exact apex domain relationshipid.org
+  // Subdomains like www.relationshipid.org, localhost, preview domains, and Cloud Run run.app domains are never matched.
+  if (host !== 'relationshipid.org') {
+    return next();
+  }
+
+  // Construct destination URL: permanently redirect to fixed canonical origin https://www.relationshipid.org
+  // Never construct the target host or protocol from client headers or request properties.
+  const rawUrl = req.originalUrl || req.url || '/';
+  let cleanUrl = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+  // Prevent protocol-relative URL bypass (e.g. //attacker.com)
+  if (cleanUrl.startsWith('//')) {
+    cleanUrl = '/' + cleanUrl.replace(/^\/+/, '');
+  }
+  const sanitizedPath = cleanUrl.replace(/[\r\n]/g, '');
+
+  return res.redirect(301, `https://www.relationshipid.org${sanitizedPath}`);
+}
+
 export function mountProductionStatic(app: express.Express, staticDir: string): void {
   // Public static asset serving
-  app.use(express.static(staticDir, { dotfiles: 'ignore', index: false }));
+  app.use(
+    express.static(staticDir, {
+      dotfiles: 'ignore',
+      index: false,
+      setHeaders: (res, filePath) => {
+        const rel = path.relative(staticDir, filePath).replace(/\\/g, '/');
+        if (rel === 'assets' || rel.startsWith('assets/')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    })
+  );
 
   // SPA fallback for HTML page routing
   app.get('*', (req, res) => {
@@ -1484,6 +2260,7 @@ export function mountProductionStatic(app: express.Express, staticDir: string): 
       if (!isPublicInformational) {
         res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       }
+      res.setHeader('Cache-Control', 'no-cache');
       return res.sendFile(indexPath);
     }
     return res.status(404).end();
@@ -1491,9 +2268,11 @@ export function mountProductionStatic(app: express.Express, staticDir: string): 
 }
 
 export function createApp(options?: CreateAppOptions): express.Express {
+  const isDevServing = Boolean(options?.isDev) && process.env.NODE_ENV !== 'production';
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', parseTrustProxyHops(process.env.TRUST_PROXY_HOPS));
+  app.use(compression());
   app.use(securityHeadersMiddleware);
 
   // SECURITY: Prevent direct access to server build artifacts, sourcemaps, environment files, backups, and dotfiles
@@ -1514,30 +2293,38 @@ export function createApp(options?: CreateAppOptions): express.Express {
     const normalized = path.posix.normalize(decodedPath);
     const lower = normalized.toLowerCase();
 
+    // Development serving only: permit the exact Vite client environment bootstrap module to reach Vite middleware
+    const isViteClientEnvModule =
+      isDevServing &&
+      normalized === '/node_modules/vite/dist/client/env.mjs';
+
     if (
-      lower.startsWith('/.env') ||
-      lower.startsWith('/.git') ||
-      lower.endsWith('.cjs') ||
-      lower.endsWith('.mjs') ||
-      lower === '/server.ts' ||
-      lower.endsWith('/server.ts') ||
-      ((process.env.NODE_ENV === 'production' || !lower.startsWith('/src/')) && (lower.endsWith('.ts') || lower.endsWith('.tsx'))) ||
-      lower.endsWith('.map') ||
-      lower.endsWith('.zip') ||
-      lower.endsWith('.tar') ||
-      lower.endsWith('.gz') ||
-      lower.endsWith('.bak') ||
-      lower.endsWith('.sql') ||
-      lower === '/server.cjs' ||
-      lower === '/server.cjs.map' ||
-      lower === '/package.json' ||
-      lower === '/package-lock.json' ||
-      lower === '/bun.lock' ||
-      lower === '/tsconfig.json' ||
-      lower === '/relationship-id.zip' ||
-      normalized.includes('/../server.cjs') ||
-      normalized.endsWith('/server.cjs') ||
-      normalized.endsWith('/server.cjs.map')
+      !isViteClientEnvModule &&
+      (
+        lower.startsWith('/.env') ||
+        lower.startsWith('/.git') ||
+        lower.endsWith('.cjs') ||
+        lower.endsWith('.mjs') ||
+        lower === '/server.ts' ||
+        lower.endsWith('/server.ts') ||
+        ((process.env.NODE_ENV === 'production' || !lower.startsWith('/src/')) && (lower.endsWith('.ts') || lower.endsWith('.tsx'))) ||
+        lower.endsWith('.map') ||
+        lower.endsWith('.zip') ||
+        lower.endsWith('.tar') ||
+        lower.endsWith('.gz') ||
+        lower.endsWith('.bak') ||
+        lower.endsWith('.sql') ||
+        lower === '/server.cjs' ||
+        lower === '/server.cjs.map' ||
+        lower === '/package.json' ||
+        lower === '/package-lock.json' ||
+        lower === '/bun.lock' ||
+        lower === '/tsconfig.json' ||
+        lower === '/relationship-id.zip' ||
+        normalized.includes('/../server.cjs') ||
+        normalized.endsWith('/server.cjs') ||
+        normalized.endsWith('/server.cjs.map')
+      )
     ) {
       return res.status(404).end();
     }
@@ -1571,7 +2358,10 @@ export function createApp(options?: CreateAppOptions): express.Express {
   });
 
   app.get('/api/health', async (_req, res) => {
-    const health = await defaultHealthCheckManager.getHealth(adminDb, projectId, 5000);
+    const effectiveProjectId = (process.env.NODE_ENV === 'test' && testProjectIdOverride !== undefined)
+      ? testProjectIdOverride
+      : (projectId || process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID);
+    const health = await defaultHealthCheckManager.getHealth(adminDb, effectiveProjectId, 5000);
     return res.status(health.statusCode).json(health.body);
   });
 
@@ -2087,19 +2877,35 @@ export function createApp(options?: CreateAppOptions): express.Express {
       if (!limiter(`save_relationship:${user.uid}`, 5, 60000)) {
         return respondWithError(res, 429, 'RATE_LIMITED');
       }
-      const { partner1, type, startDate } = req.body as {
-        partner1?: PartnerData;
-        type?: RelationshipType;
-        startDate?: string;
-      };
+      const rawPartner1 = (req.body as any)?.partner1;
+      const type = (req.body as any)?.type as RelationshipType | undefined;
+      const startDate = (req.body as any)?.startDate as string | undefined;
 
-      if (!partner1 || !['dating', 'engagement', 'marriage'].includes(type || '')) {
+      if (!rawPartner1 || !['dating', 'engagement', 'marriage'].includes(type || '')) {
         return res.status(400).json({ error: 'INVALID_RELATIONSHIP_DRAFT' });
       }
 
-      const nameCheck = validateFieldLength(partner1.fullName, 'fullName', true);
+      const partner1 = sanitizePartnerInput(rawPartner1);
+
+      // Bind partner email to verified account identity
+      const submittedP1EmailNorm = normalizeCanonicalEmail(partner1.email);
+      const tokenEmailNorm = normalizeCanonicalEmail(user.email);
+
+      if (submittedP1EmailNorm.canonical !== '') {
+        if (!tokenEmailNorm.canonical || submittedP1EmailNorm.canonical !== tokenEmailNorm.canonical) {
+          return respondWithError(res, 400, 'EMAIL_MUST_MATCH_ACCOUNT');
+        }
+      }
+
+      if (tokenEmailNorm.canonical && user.email_verified === true) {
+        partner1.email = tokenEmailNorm.canonical;
+      } else {
+        partner1.email = '';
+      }
+
+      const nameCheck = validateFieldLength(partner1.fullName, 'fullName', true, 100);
       if (!nameCheck.valid) return respondWithError(res, 400, nameCheck.error);
-      const nameEnCheck = validateFieldLength(partner1.fullNameEn, 'fullNameEn', false);
+      const nameEnCheck = validateFieldLength(partner1.fullNameEn, 'fullNameEn', false, 100);
       if (!nameEnCheck.valid) return respondWithError(res, 400, nameEnCheck.error);
       const socialCheck = validateFieldLength(partner1.socialHandle, 'socialHandle', false);
       if (!socialCheck.valid) return respondWithError(res, 400, socialCheck.error);
@@ -2122,8 +2928,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
       if (!isAtLeast18(partner1.birthYear, partner1.birthMonth, partner1.birthDay)) {
         return respondWithError(res, 400, 'AGE_REQUIREMENT_NOT_MET');
       }
-      if (!startDate || startDate > new Date().toISOString().slice(0, 10)) {
-        return res.status(400).json({ error: 'INVALID_START_DATE' });
+      if (!isValidIsoDate(startDate)) {
+        return respondWithError(res, 400, 'INVALID_START_DATE');
       }
       const p1PrePhone = normalizeCanonicalPhone(partner1.phoneE164 || partner1.phoneNumber, partner1.phoneCountry);
       if (!p1PrePhone.isValid || !p1PrePhone.canonical) {
@@ -2255,8 +3061,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
             issuedDate: '',
             issuedDateAr: '',
             type: type as RelationshipType,
-            startDate: formatDate(startDate, 'en'),
-            startDateAr: formatDate(startDate, 'ar'),
+            startDate: formatDate(startDate!, 'en'),
+            startDateAr: formatDate(startDate!, 'ar'),
             startDateIso: startDate,
             partner1,
             partner2: emptyPartner(),
@@ -2291,8 +3097,8 @@ export function createApp(options?: CreateAppOptions): express.Express {
             ...existingRecord,
             partner1: mergedPartner1,
             type: type as RelationshipType,
-            startDate: formatDate(startDate, 'en'),
-            startDateAr: formatDate(startDate, 'ar'),
+            startDate: formatDate(startDate!, 'en'),
+            startDateAr: formatDate(startDate!, 'ar'),
             startDateIso: startDate
           };
           transaction.set(existingRecordRef!, targetRecord, { merge: true });
@@ -2344,7 +3150,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
       } = req.body as Partial<Invitation>;
 
       if (!partner2Name?.trim()) return res.status(400).json({ error: 'PARTNER_NAME_REQUIRED' });
-      const p2NameCheck = validateFieldLength(partner2Name, 'fullName', true);
+      const p2NameCheck = validateFieldLength(partner2Name, 'fullName', true, 100);
       if (!p2NameCheck.valid) return respondWithError(res, 400, p2NameCheck.error);
       if (partner2Email) {
         const p2EmailCheck = validateFieldLength(partner2Email, 'email', false);
@@ -2377,22 +3183,41 @@ export function createApp(options?: CreateAppOptions): express.Express {
       if (p2PhoneNorm.canonical) targetHashes.push(hashContact(p2PhoneNorm.canonical));
       if (p2WaNorm.canonical) targetHashes.push(hashContact(p2WaNorm.canonical));
 
-      if (targetHashes.length > 0) {
-        const blocksSnap = await adminDb.collection(INVITATION_BLOCKS_COL)
-          .where('p1Uid', '==', user.uid)
-          .where('blocked', '==', true)
-          .get();
+      const result = await adminDb.runTransaction(async (transaction) => {
+        if (targetHashes.length > 0) {
+          const [blocksOnUserSnap, userBlocksSnap] = await Promise.all([
+            transaction.get(adminDb.collection(INVITATION_BLOCKS_COL)
+              .where('p1Uid', '==', user.uid)
+              .where('blocked', '==', true)),
+            transaction.get(adminDb.collection(INVITATION_BLOCKS_COL)
+              .where('p2Uid', '==', user.uid)
+              .where('blocked', '==', true))
+          ]);
 
-        for (const bDoc of blocksSnap.docs) {
-          const bData = bDoc.data();
-          const hashes: string[] = Array.isArray(bData?.contactHashes) ? bData.contactHashes : [];
-          if (targetHashes.some((h) => hashes.includes(h))) {
-            return respondWithError(res, 403, 'INVITATION_NOT_ALLOWED');
+          for (const bDoc of [...blocksOnUserSnap.docs, ...userBlocksSnap.docs]) {
+            const bData = bDoc.data();
+            const hashes: string[] = Array.isArray(bData?.contactHashes) ? bData.contactHashes : [];
+            if (targetHashes.some((h) => hashes.includes(h))) throw new Error('INVITATION_NOT_ALLOWED');
+            // Symmetric matching: Resolve opposite participant's current canonical contacts regardless of who is user.uid
+            const oppositeUid = bData?.p1Uid === user.uid ? bData?.p2Uid : bData?.p2Uid === user.uid ? bData?.p1Uid : null;
+            if (typeof oppositeUid === 'string' && oppositeUid.length > 0) {
+              const oppositeUserDoc = await transaction.get(adminDb.collection(USERS_COL).doc(oppositeUid));
+              if (oppositeUserDoc.exists) {
+                const profile = oppositeUserDoc.data();
+                const contacts = [
+                  normalizeCanonicalEmail(profile?.email || '').canonical,
+                  normalizeCanonicalPhone(profile?.phoneE164 || '').canonical,
+                  normalizeCanonicalPhone(profile?.whatsappE164 || '').canonical
+                ].filter((value): value is string => Boolean(value));
+                if (contacts.some(value => targetHashes.includes(hashContact(value)))) {
+                  throw new Error('INVITATION_NOT_ALLOWED');
+                }
+              }
+            }
           }
         }
-      }
 
-      const result = await adminDb.runTransaction(async (transaction) => {
+
         if (await isUserDeletionPending(adminDb, user.uid, transaction)) {
           throw new Error('ACCOUNT_DELETION_PENDING');
         }
@@ -2446,20 +3271,6 @@ export function createApp(options?: CreateAppOptions): express.Express {
         const userConflict = await checkUserActiveRelationshipConflict(adminDb, user.uid, record.id, transaction);
         if (userConflict) throw new Error('ACTIVE_RELATIONSHIP_EXISTS');
 
-        // Enforce: Proposed P2 contact cannot belong to an active relationship
-        const contactCheck = await validateContactUniqueness(
-          adminDb,
-          {
-            emails: [p2EmailNorm.canonical],
-            phones: [p2PhoneNorm.canonical],
-            whatsapps: [p2WaNorm.canonical]
-          },
-          record.id,
-          transaction
-        );
-        if (!contactCheck.valid) {
-          throw new Error(contactCheck.error?.code || 'CONTACT_IN_ACTIVE_RELATIONSHIP');
-        }
 
         if (record.inviteId) {
           const oldInviteRef = adminDb.collection(INVITATIONS_COL).doc(record.inviteId);
@@ -2583,7 +3394,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
         if (token) {
           let decoded: any = null;
           try {
-            decoded = await adminAuth.verifyIdToken(token);
+            decoded = await adminAuth.verifyIdToken(token, true);
           } catch {
             tokenVerificationFailed = true;
           }
@@ -2693,6 +3504,101 @@ export function createApp(options?: CreateAppOptions): express.Express {
     }
   });
 
+  async function notifyP1OfInvitationDecision(params: {
+    inviteId: string;
+    p1Uid: string;
+    p1Email?: string;
+    notification: {
+      id: string;
+      userId: string;
+      type: 'invitation_accepted' | 'invitation_declined';
+      recordId?: string;
+      senderName?: string;
+      createdAt: string;
+      read: boolean;
+      messageAr: string;
+      messageEn: string;
+      secondaryAr?: string;
+      secondaryEn?: string;
+    };
+  }): Promise<void> {
+    if (!adminDb) return;
+    const { inviteId, p1Uid, p1Email, notification } = params;
+
+    try {
+      await Promise.allSettled([
+        // Email delivery
+        (async () => {
+          try {
+            const normalized = normalizeCanonicalEmail(p1Email);
+            if (!normalized.isValid || !normalized.canonical) {
+              console.warn('P1_DECISION_EMAIL_SKIPPED', inviteId);
+              return;
+            }
+            const subject = notification.type === 'invitation_accepted'
+              ? 'Relationship ID — تم قبول دعوتك | Your invitation was accepted'
+              : 'Relationship ID — تم رفض دعوتك | Your invitation was declined';
+
+            const arParts = [notification.messageAr];
+            if (notification.secondaryAr) arParts.push(notification.secondaryAr);
+            arParts.push('https://www.relationshipid.org');
+
+            const enParts = [notification.messageEn];
+            if (notification.secondaryEn) enParts.push(notification.secondaryEn);
+            enParts.push('https://www.relationshipid.org');
+
+            const textBody = `${arParts.join('\n')}\n\n${enParts.join('\n')}`;
+
+            const result = await sendReminderEmail(normalized.canonical, subject, textBody, notification.id);
+            if (!result.success) {
+              console.error('P1_DECISION_EMAIL_FAILED', inviteId, result.error);
+            }
+          } catch (emailErr) {
+            console.error('P1_DECISION_EMAIL_FAILED', inviteId, emailErr instanceof Error ? emailErr.message : String(emailErr));
+          }
+        })(),
+
+        // Phone push delivery
+        (async () => {
+          try {
+            const pushSnap = await adminDb.collection(PUSH_SUBSCRIPTIONS_COL).where('userId', '==', p1Uid).get();
+            if (pushSnap.empty) {
+              console.info('P1_DECISION_PUSH_NO_SUBSCRIPTION', inviteId);
+              return;
+            }
+            const payload = {
+              title: 'Relationship ID',
+              body: 'لديك تحديث على دعوتك. افتح التطبيق للاطلاع عليه.\nYour invitation has an update. Open the app to view it.',
+              data: { url: '/' }
+            };
+            for (const doc of pushSnap.docs) {
+              const subData = doc.data();
+              const docId = doc.id;
+              try {
+                const pushResult = await sendReminderPushNotification(subData.subscription as any, payload);
+                if (pushResult.expired) {
+                  try {
+                    await adminDb.collection(PUSH_SUBSCRIPTIONS_COL).doc(docId).delete();
+                  } catch (delErr) {
+                    console.error('P1_DECISION_PUSH_SUB_DELETE_FAILED', docId);
+                  }
+                } else if (!pushResult.success) {
+                  console.error('P1_DECISION_PUSH_FAILED', inviteId, pushResult.error);
+                }
+              } catch (singlePushErr) {
+                console.error('P1_DECISION_PUSH_FAILED', inviteId, singlePushErr instanceof Error ? singlePushErr.message : String(singlePushErr));
+              }
+            }
+          } catch (pushErr) {
+            console.error('P1_DECISION_PUSH_FAILED', inviteId, pushErr instanceof Error ? pushErr.message : String(pushErr));
+          }
+        })()
+      ]);
+    } catch {
+      // Helper never throws
+    }
+  }
+
   app.post('/api/invitations/:inviteId/accept', requireAuth, async (req, res) => {
     try {
       if (!isValidIdentifierParam(req.params.inviteId)) {
@@ -2710,12 +3616,30 @@ export function createApp(options?: CreateAppOptions): express.Express {
         return respondWithError(res, 400, 'CANNOT_ACCEPT_OWN_INVITATION');
       }
 
-      const partner2 = (req.body as { partner2?: PartnerData }).partner2;
-      if (!partner2) return res.status(400).json({ error: 'PARTNER2_PROFILE_REQUIRED' });
+      const rawPartner2 = (req.body as { partner2?: unknown }).partner2;
+      if (!rawPartner2) return res.status(400).json({ error: 'PARTNER2_PROFILE_REQUIRED' });
 
-      const nameCheck = validateFieldLength(partner2.fullName, 'fullName', true);
+      const partner2 = sanitizePartnerInput(rawPartner2);
+
+      // Bind partner email to verified account identity
+      const submittedP2EmailNorm = normalizeCanonicalEmail(partner2.email);
+      const tokenEmailNorm = normalizeCanonicalEmail(user.email);
+
+      if (submittedP2EmailNorm.canonical !== '') {
+        if (!tokenEmailNorm.canonical || submittedP2EmailNorm.canonical !== tokenEmailNorm.canonical) {
+          return respondWithError(res, 400, 'EMAIL_MUST_MATCH_ACCOUNT');
+        }
+      }
+
+      if (tokenEmailNorm.canonical && user.email_verified === true) {
+        partner2.email = tokenEmailNorm.canonical;
+      } else {
+        partner2.email = '';
+      }
+
+      const nameCheck = validateFieldLength(partner2.fullName, 'fullName', true, 100);
       if (!nameCheck.valid) return respondWithError(res, 400, nameCheck.error);
-      const nameEnCheck = validateFieldLength(partner2.fullNameEn, 'fullNameEn', false);
+      const nameEnCheck = validateFieldLength(partner2.fullNameEn, 'fullNameEn', false, 100);
       if (!nameEnCheck.valid) return respondWithError(res, 400, nameEnCheck.error);
       const socialCheck = validateFieldLength(partner2.socialHandle, 'socialHandle', false);
       if (!socialCheck.valid) return respondWithError(res, 400, socialCheck.error);
@@ -2793,6 +3717,17 @@ export function createApp(options?: CreateAppOptions): express.Express {
 
         if (record.status !== 'pending_partner' || record.p1Uid !== invitation.p1Uid) {
           throw new Error('RELATIONSHIP_NOT_PENDING');
+        }
+
+        // Check if there is an active pair block between inviter and recipient in either direction
+        const blockId1 = `${user.uid}_${invitation.p1Uid}`;
+        const blockId2 = `${invitation.p1Uid}_${user.uid}`;
+        const [blockDoc1, blockDoc2] = await Promise.all([
+          transaction.get(adminDb.collection(INVITATION_BLOCKS_COL).doc(blockId1)),
+          transaction.get(adminDb.collection(INVITATION_BLOCKS_COL).doc(blockId2))
+        ]);
+        if ((blockDoc1.exists && blockDoc1.data()?.blocked) || (blockDoc2.exists && blockDoc2.data()?.blocked)) {
+          throw new Error('INVITATION_NOT_ALLOWED');
         }
 
         // Check if P1 is already bound to an active relationship
@@ -3008,13 +3943,43 @@ export function createApp(options?: CreateAppOptions): express.Express {
           });
         }
 
+        // 7. Atomically create in-app notification for P1
+        const notifId = `${req.params.inviteId}_accepted`;
+        const notifRef = adminDb.collection(NOTIFICATIONS_COL).doc(notifId);
+        const notification = {
+          id: notifId,
+          userId: invitation.p1Uid!,
+          type: 'invitation_accepted' as const,
+          recordId: invitation.recordId,
+          senderName: invitation.partner2Name,
+          createdAt: nowIso,
+          read: false,
+          messageAr: `تم قبول دعوتك من ${invitation.partner2Name}`,
+          messageEn: `${invitation.partner2Name} accepted your invitation`,
+          secondaryAr: 'يمكنك الآن مراجعة سجل الارتباط.',
+          secondaryEn: 'You can now review your relationship record.'
+        };
+        transaction.set(notifRef, notification);
+
+        const p1Email = p1UserDoc.exists ? p1UserDoc.data()?.email : undefined;
+
         return {
           invitation: { ...invitation, status: 'accepted' as const, p2Uid: user.uid },
-          record: updatedRecord
+          record: updatedRecord,
+          p1Email,
+          p1Uid: invitation.p1Uid!,
+          notification
         };
       });
 
-      return res.json({ success: true, ...result });
+      await notifyP1OfInvitationDecision({
+        inviteId: req.params.inviteId,
+        p1Uid: result.p1Uid,
+        p1Email: result.p1Email,
+        notification: result.notification
+      });
+
+      return res.json({ success: true, invitation: result.invitation, record: result.record });
     } catch (error) {
       console.error('Error accepting invitation:', error);
       const msg = error instanceof Error ? error.message : String(error);
@@ -3024,6 +3989,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
         INVITATION_EXPIRED: 410,
         CANNOT_ACCEPT_OWN_INVITATION: 400,
         SELF_RELATIONSHIP_NOT_ALLOWED: 400,
+        INVITATION_NOT_ALLOWED: 403,
         INVITATION_IDENTITY_MISMATCH: 403,
         VERIFICATION_REQUIRED: 403,
         RELATIONSHIP_ALREADY_ACTIVE: 409,
@@ -3122,6 +4088,24 @@ export function createApp(options?: CreateAppOptions): express.Express {
           const c = normalizeCanonicalPhone(invitation.partner2Whatsapp, invitation.partner2WhatsappCountry).canonical;
           if (c) p2Hashes.push(hashContact(c));
         }
+
+        const p1UserDoc = await transaction.get(adminDb.collection(USERS_COL).doc(invitation.p1Uid));
+        if (p1UserDoc.exists) {
+          const p1Data = p1UserDoc.data();
+          if (p1Data?.email) {
+            const c = normalizeCanonicalEmail(p1Data.email).canonical;
+            if (c) p2Hashes.push(hashContact(c));
+          }
+          if (p1Data?.phoneE164) {
+            const c = normalizeCanonicalPhone(p1Data.phoneE164).canonical;
+            if (c) p2Hashes.push(hashContact(c));
+          }
+          if (p1Data?.whatsappE164) {
+            const c = normalizeCanonicalPhone(p1Data.whatsappE164).canonical;
+            if (c) p2Hashes.push(hashContact(c));
+          }
+        }
+
         const combinedHashes = Array.from(new Set([...(existingBlock?.contactHashes || []), ...p2Hashes].filter(Boolean)));
 
         const shouldBlock = declineCount >= 3 || Boolean(req.body?.block);
@@ -3139,15 +4123,43 @@ export function createApp(options?: CreateAppOptions): express.Express {
           updatedAt: nowIso
         });
 
+        const notifId = `${req.params.inviteId}_declined`;
+        const notifRef = adminDb.collection(NOTIFICATIONS_COL).doc(notifId);
+        const notification = {
+          id: notifId,
+          userId: invitation.p1Uid!,
+          type: 'invitation_declined' as const,
+          recordId: invitation.recordId,
+          senderName: invitation.partner2Name,
+          createdAt: nowIso,
+          read: false,
+          messageAr: `تم رفض دعوتك من ${invitation.partner2Name}`,
+          messageEn: `${invitation.partner2Name} declined your invitation`
+        };
+        transaction.set(notifRef, notification);
+
+        const p1Email = p1UserDoc.exists ? p1UserDoc.data()?.email : undefined;
+
         transaction.update(inviteRef, {
           status: 'declined',
           p2Uid: user.uid
         });
         return {
           invitation: { ...invitation, status: 'declined' as const, p2Uid: user.uid },
-          blocked: isBlocked
+          blocked: isBlocked,
+          p1Email,
+          p1Uid: invitation.p1Uid!,
+          notification
         };
       });
+
+      await notifyP1OfInvitationDecision({
+        inviteId: req.params.inviteId,
+        p1Uid: result.p1Uid,
+        p1Email: result.p1Email,
+        notification: result.notification
+      });
+
       return res.json({ success: true, invitation: result.invitation, blocked: result.blocked });
     } catch (error) {
       console.error('Error declining invitation:', error);
@@ -3869,11 +4881,11 @@ export function createApp(options?: CreateAppOptions): express.Express {
       const rawPartner = (body.partner || body.partner1 || body.profile || body) as Record<string, any>;
 
       if (rawPartner.fullName !== undefined) {
-        const check = validateFieldLength(rawPartner.fullName, 'fullName', false);
+        const check = validateFieldLength(rawPartner.fullName, 'fullName', false, 100);
         if (!check.valid) return respondWithError(res, 400, check.error);
       }
       if (rawPartner.fullNameEn !== undefined) {
-        const check = validateFieldLength(rawPartner.fullNameEn, 'fullNameEn', false);
+        const check = validateFieldLength(rawPartner.fullNameEn, 'fullNameEn', false, 100);
         if (!check.valid) return respondWithError(res, 400, check.error);
       }
       if (rawPartner.socialHandle !== undefined) {
@@ -3981,26 +4993,41 @@ export function createApp(options?: CreateAppOptions): express.Express {
         );
         const waVerifiedAt = isWaTrusted ? (userData?.whatsappVerifiedAt as string | undefined) : undefined;
 
+        const existingProf = (userData?.profile as PartnerData | undefined) || (currentRel ? (currentRel.p1Uid === user.uid ? currentRel.partner1 : currentRel.partner2) : null);
+
+        const fnVal = rawPartner.fullName !== undefined ? String(rawPartner.fullName).trim() : (existingProf?.fullName || '');
+        const fnEnVal = rawPartner.fullNameEn !== undefined ? (rawPartner.fullNameEn ? String(rawPartner.fullNameEn).trim() : undefined) : existingProf?.fullNameEn;
+        const bdVal = rawPartner.birthDay !== undefined ? String(rawPartner.birthDay).trim() : (existingProf?.birthDay || '');
+        const bmVal = rawPartner.birthMonth !== undefined ? String(rawPartner.birthMonth).trim() : (existingProf?.birthMonth || '');
+        const byVal = rawPartner.birthYear !== undefined ? String(rawPartner.birthYear).trim() : (existingProf?.birthYear || '');
+        const emailVal = rawPartner.email !== undefined ? String(rawPartner.email).trim() : (existingProf?.email || user.email || '');
+        const pcVal = rawPartner.phoneCountry !== undefined ? String(rawPartner.phoneCountry) : (existingProf?.phoneCountry || 'SA +966');
+        const pnVal = rawPartner.phoneNumber !== undefined ? String(rawPartner.phoneNumber).trim() : (existingProf?.phoneNumber || '');
+        const shVal = rawPartner.socialHandle !== undefined ? (rawPartner.socialHandle ? String(rawPartner.socialHandle).trim().replace(/^@/, '') : undefined) : existingProf?.socialHandle;
+        const saVal = rawPartner.socialAccounts !== undefined ? (Array.isArray(rawPartner.socialAccounts) ? rawPartner.socialAccounts : undefined) : existingProf?.socialAccounts;
+        const wcVal = rawPartner.whatsappCountry !== undefined ? (rawPartner.whatsappCountry ? String(rawPartner.whatsappCountry) : undefined) : existingProf?.whatsappCountry;
+        const wnVal = rawPartner.whatsappNumber !== undefined ? (rawPartner.whatsappNumber ? String(rawPartner.whatsappNumber).trim() : undefined) : existingProf?.whatsappNumber;
+
         const nowIso = new Date().toISOString();
         const cleanProfile: PartnerData = {
-          fullName: typeof rawPartner.fullName === 'string' ? rawPartner.fullName.trim() : '',
-          fullNameEn: typeof rawPartner.fullNameEn === 'string' ? rawPartner.fullNameEn.trim() : undefined,
-          birthDay: typeof rawPartner.birthDay === 'string' ? rawPartner.birthDay : '',
-          birthMonth: typeof rawPartner.birthMonth === 'string' ? rawPartner.birthMonth : '',
-          birthYear: typeof rawPartner.birthYear === 'string' ? rawPartner.birthYear : '',
-          email: typeof rawPartner.email === 'string' ? rawPartner.email.trim() : (user.email || ''),
-          phoneCountry: typeof rawPartner.phoneCountry === 'string' ? rawPartner.phoneCountry : 'SA +966',
-          phoneNumber: typeof rawPartner.phoneNumber === 'string' ? rawPartner.phoneNumber.trim() : (canonicalPhone || ''),
-          phoneE164: canonicalPhone || undefined,
+          fullName: fnVal,
+          fullNameEn: fnEnVal,
+          birthDay: bdVal,
+          birthMonth: bmVal,
+          birthYear: byVal,
+          email: emailVal,
+          phoneCountry: pcVal,
+          phoneNumber: pnVal,
+          phoneE164: canonicalPhone || existingProf?.phoneE164,
           phoneVerified: effectivePhoneVerified,
           sameWhatsapp: sameWa,
-          whatsappCountry: typeof rawPartner.whatsappCountry === 'string' ? rawPartner.whatsappCountry : undefined,
-          whatsappNumber: typeof rawPartner.whatsappNumber === 'string' ? rawPartner.whatsappNumber.trim() : undefined,
-          whatsappE164: canonicalWa || undefined,
+          whatsappCountry: wcVal,
+          whatsappNumber: wnVal,
+          whatsappE164: canonicalWa || existingProf?.whatsappE164,
           whatsappTrusted: isWaTrusted,
           whatsappVerifiedAt: waVerifiedAt,
-          socialAccounts: Array.isArray(rawPartner.socialAccounts) ? rawPartner.socialAccounts : undefined,
-          socialHandle: typeof rawPartner.socialHandle === 'string' ? rawPartner.socialHandle.trim().replace(/^@/, '') : undefined
+          socialAccounts: saVal,
+          socialHandle: shVal
         };
 
         // Write phase:
@@ -4164,7 +5191,7 @@ export function createApp(options?: CreateAppOptions): express.Express {
         if (!check.valid) return respondWithError(res, 400, check.error);
       }
       if (fullNameEn !== undefined) {
-        const check = validateFieldLength(fullNameEn, 'fullNameEn', false);
+        const check = validateFieldLength(fullNameEn, 'fullNameEn', false, 100);
         if (!check.valid) return respondWithError(res, 400, check.error);
       }
       if (whatsappNumber !== undefined) {
@@ -4616,6 +5643,14 @@ export function createApp(options?: CreateAppOptions): express.Express {
     try {
       if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
       const user = userFromResponse(res);
+
+      const authTimeSec = typeof user.auth_time === 'number' ? user.auth_time : 0;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const diffSec = nowSec - authTimeSec;
+      if (!authTimeSec || diffSec < 0 || diffSec > 300) {
+        return respondWithError(res, 401, 'REAUTH_REQUIRED');
+      }
+
       if (!limiter(`delete_account:${user.uid}`, 3, 60000)) {
         return respondWithError(res, 429, 'RATE_LIMITED');
       }
@@ -4699,8 +5734,10 @@ export function createApp(options?: CreateAppOptions): express.Express {
         updatedAt: new Date().toISOString()
       });
 
-      // 6. Delete ONLY the requesting user's Firestore document & invitation blocks
+      // 6. Delete ONLY the requesting user's Firestore document & invitation blocks & invitations
+      await cleanUserInvitationsInBatches(adminDb, user.uid);
       await cleanUserBlocksInBatches(adminDb, user.uid);
+      await cleanUserRemindersInBatches(adminDb, user.uid);
       await adminDb.collection(USERS_COL).doc(user.uid).delete();
       await adminDb.collection(WHATSAPP_VERIFY_ATTEMPTS_COL).doc(user.uid).delete();
       await adminDb.collection(WHATSAPP_VERIFY_LIMITS_COL).doc(user.uid).delete();
@@ -4817,11 +5854,603 @@ export function createApp(options?: CreateAppOptions): express.Express {
     }
   });
 
+  // --- REMINDER API ENDPOINTS ---
+
+  app.get('/api/reminders/settings', requireAuth, async (_req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const docRef = adminDb.collection(REMINDER_SETTINGS_COL).doc(user.uid);
+      const docSnap = await docRef.get();
+
+      const serverEmailConfigured = Boolean(process.env.RESEND_API_KEY);
+      const serverPushConfigured = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+      const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
+
+      const settings = docSnap.exists
+        ? (docSnap.data() as ReminderSettingsDoc)
+        : {
+            userId: user.uid,
+            inAppEnabled: false,
+            emailEnabled: false,
+            pushEnabled: false,
+            timezone: 'UTC',
+            language: 'en',
+            updatedAt: new Date().toISOString()
+          };
+
+      return res.json({
+        settings,
+        serverEmailConfigured,
+        serverPushConfigured,
+        vapidPublicKey
+      });
+    } catch (error) {
+      console.error('Error fetching reminder settings:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.put('/api/reminders/settings', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      if (!limiter(`put_reminder_settings:${user.uid}`, 20, 60000)) {
+        return respondWithError(res, 429, 'RATE_LIMITED');
+      }
+
+      const { inAppEnabled, emailEnabled, pushEnabled, timezone, language } = req.body || {};
+
+      const safeTimezone = (typeof timezone === 'string' && isValidIanaTimezone(timezone)) ? timezone : 'UTC';
+      const safeLanguage = language === 'ar' ? 'ar' : 'en';
+
+      const newSettings: ReminderSettingsDoc = {
+        userId: user.uid,
+        inAppEnabled: Boolean(inAppEnabled),
+        emailEnabled: Boolean(emailEnabled),
+        pushEnabled: Boolean(pushEnabled),
+        timezone: safeTimezone,
+        language: safeLanguage,
+        updatedAt: new Date().toISOString()
+      };
+
+      await adminDb.collection(REMINDER_SETTINGS_COL).doc(user.uid).set(newSettings, { merge: true });
+
+      return res.json({ success: true, settings: newSettings });
+    } catch (error) {
+      console.error('Error updating reminder settings:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.post('/api/reminders/push-subscription', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      if (!limiter(`post_push_sub:${user.uid}`, 20, 60000)) {
+        return respondWithError(res, 429, 'RATE_LIMITED');
+      }
+
+      const { subscription } = req.body || {};
+      if (!subscription || typeof subscription !== 'object' || !subscription.endpoint || !subscription.keys) {
+        return respondWithError(res, 400, 'INVALID_REQUEST_PARAMETERS');
+      }
+
+      const endpoint = String(subscription.endpoint).trim();
+      if (!endpoint.startsWith('https://') && !endpoint.startsWith('http://localhost')) {
+        return respondWithError(res, 400, 'INVALID_REQUEST_PARAMETERS');
+      }
+
+      const subHash = crypto.createHash('sha256').update(`${user.uid}:${endpoint}`).digest('hex');
+      const subDocId = `${user.uid}_${subHash.slice(0, 32)}`;
+
+      const docData: PushSubscriptionDoc = {
+        id: subDocId,
+        userId: user.uid,
+        subscription: {
+          endpoint,
+          keys: {
+            p256dh: String(subscription.keys.p256dh || ''),
+            auth: String(subscription.keys.auth || '')
+          }
+        },
+        userAgent: req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 200) : undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await adminDb.collection(PUSH_SUBSCRIPTIONS_COL).doc(subDocId).set(docData, { merge: true });
+
+      return res.json({ success: true, id: subDocId });
+    } catch (error) {
+      console.error('Error saving push subscription:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.delete('/api/reminders/push-subscription', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const { endpoint } = req.body || {};
+
+      if (endpoint && typeof endpoint === 'string') {
+        const subHash = crypto.createHash('sha256').update(`${user.uid}:${endpoint.trim()}`).digest('hex');
+        const subDocId = `${user.uid}_${subHash.slice(0, 32)}`;
+        await adminDb.collection(PUSH_SUBSCRIPTIONS_COL).doc(subDocId).delete().catch(() => {});
+      } else {
+        const snap = await adminDb.collection(PUSH_SUBSCRIPTIONS_COL).where('userId', '==', user.uid).get();
+        const batch = adminDb.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit().catch(() => {});
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting push subscription:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.get('/api/reminders/active', requireAuth, async (_req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+
+      const settingsDoc = await adminDb.collection(REMINDER_SETTINGS_COL).doc(user.uid).get();
+      const settings = settingsDoc.exists ? (settingsDoc.data() as ReminderSettingsDoc) : null;
+
+      if (!settings || !settings.inAppEnabled) {
+        return res.json({ occasions: [] });
+      }
+
+      const timeZone = settings.timezone || 'UTC';
+
+      const userDoc = await adminDb.collection(USERS_COL).doc(user.uid).get();
+      const userData = userDoc.exists ? userDoc.data() : null;
+
+      const record = await getOwnedRecord(user.uid);
+      let hasActiveRecord = Boolean(record && record.status === 'active');
+
+      if (hasActiveRecord && record?.id) {
+        if (await isRelationshipDeletionPending(adminDb, record.id)) {
+          hasActiveRecord = false;
+        }
+      }
+
+      const isP1 = Boolean(record && record.p1Uid === user.uid);
+      const isP2 = Boolean(record && record.p2Uid === user.uid);
+      const otherUid = isP1 ? record?.p2Uid : isP2 ? record?.p1Uid : null;
+
+      if (hasActiveRecord && otherUid) {
+        if (await isUserDeletionPending(adminDb, otherUid)) {
+          hasActiveRecord = false;
+        }
+      }
+
+      if (hasActiveRecord && otherUid) {
+        const blockId1 = `${user.uid}_${otherUid}`;
+        const blockId2 = `${otherUid}_${user.uid}`;
+        try {
+          const [b1Snap, b2Snap] = await Promise.all([
+            adminDb.collection(INVITATION_BLOCKS_COL).doc(blockId1).get(),
+            adminDb.collection(INVITATION_BLOCKS_COL).doc(blockId2).get()
+          ]);
+          if ((b1Snap.exists && b1Snap.data()?.blocked) || (b2Snap.exists && b2Snap.data()?.blocked)) {
+            hasActiveRecord = false;
+          }
+        } catch (blockErr) {
+          console.error('Error checking blocks for in-app reminders:', blockErr);
+          hasActiveRecord = false;
+        }
+      }
+
+      const userPartner = isP1 ? record?.partner1 : isP2 ? record?.partner2 : null;
+      const partnerData = isP1 ? record?.partner2 : isP2 ? record?.partner1 : null;
+
+      const userBirthDay = userPartner?.birthDay || userData?.birthDay;
+      const userBirthMonth = userPartner?.birthMonth || userData?.birthMonth;
+      const userBirthYear = userPartner?.birthYear || userData?.birthYear;
+
+      const partnerBirthDay = partnerData?.birthDay;
+      const partnerBirthMonth = partnerData?.birthMonth;
+      const partnerBirthYear = partnerData?.birthYear;
+
+      const occasions = calculateActiveOccasions({
+        userBirthDay,
+        userBirthMonth,
+        userBirthYear,
+        partnerBirthDay,
+        partnerBirthMonth,
+        partnerBirthYear,
+        relationshipStartDateIso: record?.startDateIso,
+        relationshipStatus: hasActiveRecord ? 'active' : 'inactive',
+        relationshipRecordId: record?.id,
+        timeZone
+      });
+
+      if (occasions.length === 0) {
+        return res.json({ occasions: [] });
+      }
+
+      const localDate = getLocalDateParts(timeZone).isoDate;
+      const activeOccasions: OccasionItem[] = [];
+
+      for (const occ of occasions) {
+        const dismissDocId = `${user.uid}_${occ.type}_${localDate}_${occ.recordId || 'self'}`;
+        const dismissSnap = await adminDb.collection(IN_APP_DISMISSALS_COL).doc(dismissDocId).get();
+        if (!dismissSnap.exists) {
+          activeOccasions.push(occ);
+        }
+      }
+
+      return res.json({ occasions: activeOccasions });
+    } catch (error) {
+      console.error('Error fetching active reminders:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  app.post('/api/reminders/dismiss', requireAuth, async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+      const user = userFromResponse(res);
+      const { occasionType, localDate, recordId } = req.body || {};
+
+      if (!occasionType || typeof occasionType !== 'string' || !localDate || typeof localDate !== 'string') {
+        return respondWithError(res, 400, 'INVALID_REQUEST_PARAMETERS');
+      }
+
+      const dismissDocId = `${user.uid}_${occasionType.trim()}_${localDate.trim()}_${recordId ? String(recordId).trim() : 'self'}`;
+
+      const dismissalDoc: InAppDismissalDoc = {
+        id: dismissDocId,
+        userId: user.uid,
+        occasionType: occasionType.trim(),
+        localDate: localDate.trim(),
+        recordId: recordId ? String(recordId).trim() : undefined,
+        dismissedAt: new Date().toISOString()
+      };
+
+      await adminDb.collection(IN_APP_DISMISSALS_COL).doc(dismissDocId).set(dismissalDoc, { merge: true });
+
+      return res.json({ success: true, id: dismissDocId });
+    } catch (error) {
+      console.error('Error dismissing reminder:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
+  async function resolveActiveOccasions(userId: string, timeZone: string, referenceDate?: Date) {
+    const record = await getOwnedRecord(userId);
+    let hasActiveRecord = Boolean(record && record.status === 'active');
+
+    if (hasActiveRecord && record?.id) {
+      if (await isRelationshipDeletionPending(adminDb, record.id)) {
+        hasActiveRecord = false;
+      }
+    }
+
+    const isP1 = Boolean(record && record.p1Uid === userId);
+    const isP2 = Boolean(record && record.p2Uid === userId);
+    const otherUid = isP1 ? record?.p2Uid : isP2 ? record?.p1Uid : null;
+
+    if (hasActiveRecord && otherUid) {
+      if (await isUserDeletionPending(adminDb, otherUid)) {
+        hasActiveRecord = false;
+      }
+    }
+
+    if (hasActiveRecord && otherUid) {
+      const blockId1 = `${userId}_${otherUid}`;
+      const blockId2 = `${otherUid}_${userId}`;
+      try {
+        const [b1Snap, b2Snap] = await Promise.all([
+          adminDb.collection(INVITATION_BLOCKS_COL).doc(blockId1).get(),
+          adminDb.collection(INVITATION_BLOCKS_COL).doc(blockId2).get()
+        ]);
+        if ((b1Snap.exists && b1Snap.data()?.blocked) || (b2Snap.exists && b2Snap.data()?.blocked)) {
+          hasActiveRecord = false;
+        }
+      } catch (blockErr) {
+        console.error('Reminder partner eligibility check unavailable');
+        hasActiveRecord = false;
+      }
+    }
+
+    const userPartner = isP1 ? record?.partner1 : isP2 ? record?.partner2 : null;
+    const partnerData = isP1 ? record?.partner2 : isP2 ? record?.partner1 : null;
+
+    const userDoc = await adminDb.collection(USERS_COL).doc(userId).get();
+    const userData = userDoc.exists ? userDoc.data() : null;
+
+    const userBirthDay = userPartner?.birthDay || userData?.birthDay;
+    const userBirthMonth = userPartner?.birthMonth || userData?.birthMonth;
+    const userBirthYear = userPartner?.birthYear || userData?.birthYear;
+
+    const partnerBirthDay = partnerData?.birthDay;
+    const partnerBirthMonth = partnerData?.birthMonth;
+    const partnerBirthYear = partnerData?.birthYear;
+
+    return calculateActiveOccasions({
+      userBirthDay,
+      userBirthMonth,
+      userBirthYear,
+      partnerBirthDay,
+      partnerBirthMonth,
+      partnerBirthYear,
+      relationshipStartDateIso: record?.startDateIso,
+      relationshipStatus: hasActiveRecord ? 'active' : 'inactive',
+      relationshipRecordId: record?.id,
+      timeZone,
+      referenceDate
+    });
+  }
+
+  async function resolveReminderDispatch(
+    userId: string,
+    channel: 'email' | 'push',
+    referenceDate?: Date,
+    ignoreTimeWindow = false
+  ) {
+    const settingsDoc = await adminDb.collection(REMINDER_SETTINGS_COL).doc(userId).get();
+    const settings = settingsDoc.exists ? settingsDoc.data() as ReminderSettingsDoc : null;
+    if (!settings || !(channel === 'email' ? settings.emailEnabled : settings.pushEnabled)) return null;
+    if (await isUserDeletionPending(adminDb, userId)) return null;
+
+    let userAuthRecord;
+    try {
+      userAuthRecord = await adminAuth.getUser(userId);
+    } catch {
+      return null;
+    }
+    if (!userAuthRecord || userAuthRecord.disabled) return null;
+    if (channel === 'email' && (!userAuthRecord.emailVerified || !userAuthRecord.email || !validateEmailAddress(userAuthRecord.email))) return null;
+
+    const timeZone = isValidIanaTimezone(settings.timezone) ? settings.timezone : 'UTC';
+    // Calendar overrides are test-only; lease and outcome helpers always use their live clock.
+    const calendarDate = referenceDate || new Date();
+    const local = getLocalDateParts(timeZone, calendarDate);
+    if (local.hour !== 9 && !ignoreTimeWindow) return null;
+    const occasions = await resolveActiveOccasions(userId, timeZone, calendarDate);
+    if (occasions.length === 0) return null;
+    return { settings, userAuthRecord, localDate: local.isoDate, occasions };
+  }
+
+  app.post('/api/reminders/process', async (req, res) => {
+    try {
+      if (!adminDb) return res.status(500).json({ error: 'DATABASE_UNAVAILABLE' });
+
+      const extracted = extractValidatedHeader(req, 'x-reminder-scheduler-secret', 'x-scheduler-secret');
+      if (extracted.error !== 'NONE' || !extracted.value) {
+        return respondWithError(res, 403, 'UNAUTHORIZED');
+      }
+
+      const schedulerSecret = process.env.REMINDER_SCHEDULER_SECRET;
+      if (!verifySecret(extracted.value, schedulerSecret)) {
+        return respondWithError(res, 403, 'UNAUTHORIZED');
+      }
+
+      const settingsSnap = await adminDb.collection(REMINDER_SETTINGS_COL).get();
+      let processedCount = 0;
+      let emailsSent = 0;
+      let pushSent = 0;
+
+      for (const doc of settingsSnap.docs) {
+        try {
+          const userId = doc.id;
+          const settings = doc.data() as ReminderSettingsDoc;
+          const isTestEnv = process.env.NODE_ENV === 'test' || isTestEnvironment;
+          const ignoreTimeWindow = isTestEnv && req.query.ignoreTimeWindow === 'true';
+          let referenceDate: Date | undefined;
+          if (isTestEnv && typeof req.query.referenceDate === 'string') {
+            const parsed = new Date(req.query.referenceDate);
+            if (!isNaN(parsed.getTime())) referenceDate = parsed;
+          }
+
+          const timeZone = isValidIanaTimezone(settings.timezone) ? settings.timezone : 'UTC';
+          const calendarDate = referenceDate || new Date();
+          const local = getLocalDateParts(timeZone, calendarDate);
+          if (local.hour !== 9 && !ignoreTimeWindow) {
+            processedCount++;
+            continue;
+          }
+
+          const emailDispatch = await resolveReminderDispatch(userId, 'email', referenceDate, ignoreTimeWindow);
+          if (emailDispatch?.userAuthRecord.email) {
+            const { settings, userAuthRecord, localDate, occasions: emailOccasions } = emailDispatch;
+            const emailDeliveryDocId = `${settings.userId}_email_${localDate}`;
+            const emailClaimRef = adminDb.collection(REMINDER_DELIVERIES_COL).doc(emailDeliveryDocId);
+
+            const isAr = settings.language === 'ar';
+            const subject = isAr ? 'تذكيرك من Relationship ID' : 'Your Relationship ID reminder';
+            const bodyText = isAr
+              ? `مرحباً،\n\nلديك تذكير بمناسبة قادمة اليوم في حسابك لدى Relationship ID.\n\nيرجى تسجيل الدخول إلى التطبيق للاطلاع على التفاصيل:\nhttps://www.relationshipid.org\n\nشكراً لك.`
+              : `Hello,\n\nYou have an upcoming occasion reminder today on Relationship ID.\n\nPlease sign in to your account to view details:\nhttps://www.relationshipid.org\n\nThank you.`;
+
+            const emailPayloadHash = crypto.createHash('sha256').update(JSON.stringify({
+              from: process.env.EMAIL_FROM || 'reminders@relationshipid.org',
+              to: [userAuthRecord.email], subject, text: bodyText
+            })).digest('hex');
+
+            const claimResult = await claimReminderDelivery({
+              db: adminDb,
+              claimRef: emailClaimRef,
+              deliveryDocId: emailDeliveryDocId,
+              userId: settings.userId,
+              channel: 'email',
+              emailPayloadHash,
+              localDate
+            });
+
+            if (claimResult.claimed && claimResult.claimId) {
+
+              // Stable idempotency key across all attempts and recoveries for this calendar occurrence
+              const idempotencyKey = emailDeliveryDocId;
+              if (await ownsReminderClaim(adminDb, emailClaimRef, claimResult.claimId)) {
+                const result = await sendReminderEmail(emailDispatch.userAuthRecord.email, subject, bodyText, idempotencyKey);
+
+                if (result.success) {
+                  const outcome = await recordReminderDeliveryOutcome({
+                    db: adminDb,
+                    claimRef: emailClaimRef,
+                    expectedClaimId: claimResult.claimId,
+                    outcome: {
+                      status: 'success',
+                      occasions: emailOccasions.map(o => ({ type: o.type, recordId: o.recordId }))
+                    }
+                  });
+                  if (outcome.recorded) {
+                    emailsSent++;
+                  }
+                } else {
+                  await recordReminderDeliveryOutcome({
+                    db: adminDb,
+                    claimRef: emailClaimRef,
+                    expectedClaimId: claimResult.claimId,
+                    outcome: {
+                      status: 'failed',
+                      occasions: emailOccasions.map(o => ({ type: o.type, recordId: o.recordId })),
+                      error: result.error || 'FAILED',
+                      uncertain: Boolean(result.uncertain),
+                      permanent: Boolean(result.permanent)
+                    }
+                  });
+                }
+              }
+            }
+
+          }
+
+          const pushDispatch = await resolveReminderDispatch(userId, 'push', referenceDate, ignoreTimeWindow);
+          if (pushDispatch) {
+            const { settings, localDate, occasions: pushOccasions } = pushDispatch;
+            const pushDeliveryDocId = `${settings.userId}_push_${localDate}`;
+            const pushClaimRef = adminDb.collection(REMINDER_DELIVERIES_COL).doc(pushDeliveryDocId);
+
+            const claimResult = await claimReminderDelivery({
+              db: adminDb,
+              claimRef: pushClaimRef,
+              deliveryDocId: pushDeliveryDocId,
+              userId: settings.userId,
+              channel: 'push',
+              localDate
+            });
+
+            if (claimResult.claimed && claimResult.claimId) {
+              const pushSubsSnap = await adminDb.collection(PUSH_SUBSCRIPTIONS_COL).where('userId', '==', settings.userId).get();
+
+              if (!pushSubsSnap.empty) {
+                const isAr = settings.language === 'ar';
+                const payload = {
+                  title: 'Relationship ID',
+                  body: isAr ? 'لديك تذكير. افتح التطبيق للاطلاع عليه.' : 'You have a reminder. Open the app to view it.',
+                  data: { url: '/' }
+                };
+
+                let sentAny = false;
+                let anyUncertain = false;
+                let lastError = 'NO_PUSH_DELIVERED';
+                const pushStartTime = Date.now();
+                const MAX_PUSH_DISPATCH_TIME_MS = REMINDER_CLAIM_LEASE_MS - 30000;
+
+                for (const subDoc of pushSubsSnap.docs) {
+                  // Bound multi-subscription loop so total dispatch cannot outlive the claim lease
+                  if (Date.now() - pushStartTime > MAX_PUSH_DISPATCH_TIME_MS) {
+                    anyUncertain = true;
+                    lastError = 'TIMEOUT_UNCERTAIN';
+                    break;
+                  }
+
+                  if (!await ownsReminderClaim(adminDb, pushClaimRef, claimResult.claimId)) {
+                    anyUncertain = true;
+                    lastError = 'CLAIM_OWNERSHIP_UNCERTAIN';
+                    break;
+                  }
+                  const subData = subDoc.data() as PushSubscriptionDoc;
+                  const pushResult = await sendReminderPushNotification(subData.subscription as any, payload);
+
+                  if (pushResult.success) {
+                    sentAny = true;
+                  } else {
+                    if (pushResult.uncertain) {
+                      anyUncertain = true;
+                    }
+                    lastError = pushResult.error || 'PUSH_FAILED';
+                    if (pushResult.expired) {
+                      await subDoc.ref.delete().catch(() => {});
+                    }
+                  }
+                }
+
+                if (sentAny) {
+                  const outcome = await recordReminderDeliveryOutcome({
+                    db: adminDb,
+                    claimRef: pushClaimRef,
+                    expectedClaimId: claimResult.claimId,
+                    outcome: {
+                      status: 'success',
+                      occasions: pushOccasions.map(o => ({ type: o.type, recordId: o.recordId }))
+                    }
+                  });
+                  if (outcome.recorded) {
+                    pushSent++;
+                  }
+                } else {
+                  await recordReminderDeliveryOutcome({
+                    db: adminDb,
+                    claimRef: pushClaimRef,
+                    expectedClaimId: claimResult.claimId,
+                    outcome: {
+                      status: 'failed',
+                      occasions: pushOccasions.map(o => ({ type: o.type, recordId: o.recordId })),
+                      error: anyUncertain ? 'TIMEOUT_UNCERTAIN' : lastError,
+                      uncertain: anyUncertain
+                    }
+                  });
+                }
+              } else {
+                await recordReminderDeliveryOutcome({
+                  db: adminDb,
+                  claimRef: pushClaimRef,
+                  expectedClaimId: claimResult.claimId,
+                  outcome: {
+                    status: 'failed',
+                    occasions: pushOccasions.map(o => ({ type: o.type, recordId: o.recordId })),
+                    error: 'NO_SUBSCRIPTIONS'
+                  }
+                });
+              }
+            }
+          }
+
+          processedCount++;
+        } catch {
+          console.error('[reminders] User processing failed; skipping user');
+        }
+      }
+
+      return res.json({
+        success: true,
+        processedCount,
+        emailsSent,
+        pushSent
+      });
+    } catch (error) {
+      console.error('Error processing background reminders:', error);
+      return respondWithError(res, 500, 'DATABASE_ERROR');
+    }
+  });
+
   app.post('/internal/reconcile', async (req, res) => {
     try {
+      const extracted = extractValidatedHeader(req, 'x-reconcile-secret');
+      if (extracted.error !== 'NONE' || !extracted.value) {
+        return res.status(404).json({ error: 'NOT_FOUND' });
+      }
+
       const envSecret = process.env.RECONCILE_SECRET;
-      const headerSecret = req.headers['x-reconcile-secret'];
-      if (!verifyReconcileSecret(headerSecret, envSecret)) {
+      if (!verifySecret(extracted.value, envSecret)) {
         return res.status(404).json({ error: 'NOT_FOUND' });
       }
 
@@ -4847,6 +6476,9 @@ export function createApp(options?: CreateAppOptions): express.Express {
     res.status(404).json({ error: 'NOT_FOUND' });
   });
 
+  // Canonical apex domain redirect: redirect public page visits from relationshipid.org to https://www.relationshipid.org permanently
+  app.use(canonicalApexRedirectMiddleware);
+
   if (options?.staticDir) {
     mountProductionStatic(app, options.staticDir);
   }
@@ -4863,37 +6495,68 @@ export function createApp(options?: CreateAppOptions): express.Express {
 }
 
 async function startServer() {
+  if (process.env.K_SERVICE && !process.env.K_SERVICE.startsWith('ais-dev-') && process.env.NODE_ENV !== 'production') {
+    console.warn('[Server] K_SERVICE is set but NODE_ENV is not production. Treating server as production.');
+    process.env.NODE_ENV = 'production';
+  }
+
+  const isProd = process.env.NODE_ENV === 'production';
+
   if (process.env.NODE_ENV !== 'test') {
     if (!process.env.CONTACT_HASH_SECRET || process.env.CONTACT_HASH_SECRET.length < 32) {
       throw new Error('CONTACT_HASH_SECRET environment variable is missing or shorter than 32 characters');
     }
+    if (isProd) {
+      const missingProdVars: string[] = [];
+      if (!process.env.FIREBASE_PROJECT_ID) missingProdVars.push('FIREBASE_PROJECT_ID');
+      if (!process.env.RECONCILE_SECRET) missingProdVars.push('RECONCILE_SECRET');
+      if (missingProdVars.length > 0) {
+        console.warn(`[Server] Missing production configuration variables: ${missingProdVars.join(', ')}`);
+      }
+    }
   }
-  const isProd = process.env.NODE_ENV === 'production';
-  const app = createApp(isProd ? { staticDir: getPublicStaticDir() } : undefined);
+
+  const app = createApp(isProd ? { staticDir: getPublicStaticDir() } : { isDev: true });
   const PORT = Number(process.env.PORT || 3000);
 
+  let vite: Awaited<ReturnType<typeof createViteServer>> | null = null;
   if (!isProd) {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
+    vite = await createViteServer({
+      server: { middlewareMode: true, hmr: false, watch: null },
+      appType: 'spa'
+    });
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Relationship ID server running on http://localhost:${PORT}`);
-    runDeletionReconciliation().catch((err: any) => {
-      console.error('Initial deletion reconciliation failed:', err?.code || err?.message || String(err));
-    });
-    const timer = setInterval(() => {
+  await new Promise<void>((resolve, reject) => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      server.off('error', reject);
+      console.log(`Relationship ID server running on http://localhost:${PORT}`);
       runDeletionReconciliation().catch((err: any) => {
-        console.error('Scheduled deletion reconciliation failed:', err?.code || err?.message || String(err));
+        console.error('Initial deletion reconciliation failed:', err?.code || err?.message || String(err));
       });
-    }, 10 * 60 * 1000);
-    timer.unref();
+      const timer = setInterval(() => {
+        runDeletionReconciliation().catch((err: any) => {
+          console.error('Scheduled deletion reconciliation failed:', err?.code || err?.message || String(err));
+        });
+      }, 10 * 60 * 1000);
+      timer.unref();
+      resolve();
+    });
+
+    server.on('error', async (err: any) => {
+      server.off('error', reject);
+      if (vite) {
+        try {
+          await vite.close();
+        } catch (closeErr) {
+          // ignore
+        }
+      }
+      reject(err);
+    });
   });
 }
-
-const isTestEnvironment =
-  process.env.NODE_ENV === 'test' ||
-  process.argv.includes('--test');
 
 if (!isTestEnvironment) {
   startServer().catch((error) => {

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="1024" height="1024">
+  <defs>
+    <linearGradient id="rid-heart-left-grad" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#FFD600"/>
+      <stop offset="28%" stop-color="#FF6D00"/>
+      <stop offset="62%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="rid-heart-right-grad" x1="1" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#D946EF"/>
+      <stop offset="50%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Partner 1: left lobe (yellow -> orange -> red -> pink) -->
+    <path d="M92 58 C 78 34, 32 32, 30 76 C 29 108, 62 134, 100 168" stroke="url(#rid-heart-left-grad)" stroke-width="20"/>
+    <!-- Partner 2: right lobe (magenta -> purple -> blue) -->
+    <path d="M108 58 C 122 34, 168 32, 170 76 C 171 108, 138 134, 100 168" stroke="url(#rid-heart-right-grad)" stroke-width="20"/>
+    <!-- Verified checkmark -->
+    <path d="M70 98 L 92 120 L 132 78" stroke="#FFFFFF" stroke-width="16"/>
+  </g>
+</svg>

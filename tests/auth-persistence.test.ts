@@ -649,4 +649,96 @@ test('AuthPersistenceController regression test suite', async (t) => {
       assert.equal(res2.reason, 'busy');
     }
   });
+
+  await t.test('16. Explicit choice & persistence behavior acceptance criteria suite', async (st) => {
+    await st.test('16a. Fresh controller starts unchecked by default', () => {
+      const mockAuth = createMockAuth();
+      const controller = new AuthPersistenceController(mockAuth);
+      assert.equal(controller.getState().rememberMe, false, 'Default rememberMe state must be false');
+    });
+
+    await st.test('16b. Unchecked applies session persistence, checked applies local persistence', async () => {
+      const mockAuth = createMockAuth();
+      let appliedPersistence: Persistence | null = null;
+      const adapter: PersistenceAdapter = {
+        localPersistence: mockLocalPersistence,
+        sessionPersistence: mockSessionPersistence,
+        setPersistence: async (_auth, p) => {
+          appliedPersistence = p;
+        },
+      };
+
+      const controller = new AuthPersistenceController(mockAuth, false, adapter);
+
+      // Unchecked -> sessionPersistence
+      await controller.apply(false);
+      assert.equal(appliedPersistence, mockSessionPersistence);
+
+      // Checked -> localPersistence
+      await controller.apply(true);
+      assert.equal(appliedPersistence, mockLocalPersistence);
+    });
+
+    await st.test('16c. Both email/password and Google sign-in honor the persistence selection', async () => {
+      const mockAuth = createMockAuth();
+      let appliedPersistence: Persistence | null = null;
+      const adapter: PersistenceAdapter = {
+        localPersistence: mockLocalPersistence,
+        sessionPersistence: mockSessionPersistence,
+        setPersistence: async (_auth, p) => {
+          appliedPersistence = p;
+        },
+      };
+
+      const controller = new AuthPersistenceController(mockAuth, false, adapter);
+      await controller.apply(false); // Unchecked
+
+      // Email/password attempt
+      let emailExecuted = false;
+      await controller.runAuthAttempt(async () => {
+        emailExecuted = true;
+      });
+      assert.equal(emailExecuted, true);
+      assert.equal(appliedPersistence, mockSessionPersistence);
+
+      // Google sign-in attempt
+      let googleExecuted = false;
+      await runGoogleSignIn(controller, {
+        popup: async () => {
+          googleExecuted = true;
+          return { user: { uid: 'u1' } };
+        },
+      });
+      assert.equal(googleExecuted, true);
+      assert.equal(appliedPersistence, mockSessionPersistence);
+
+      // Toggle to Checked
+      await controller.apply(true);
+
+      let emailExecutedChecked = false;
+      await controller.runAuthAttempt(async () => {
+        emailExecutedChecked = true;
+      });
+      assert.equal(emailExecutedChecked, true);
+      assert.equal(appliedPersistence, mockLocalPersistence);
+    });
+
+    await st.test('16d. Existing authenticated users are not signed out when rememberMe defaults to false', async () => {
+      const authenticatedUser = { uid: 'auth-user-999', email: 'active@example.com' };
+      const mockAuthWithUser = { currentUser: authenticatedUser } as unknown as Auth;
+
+      const adapter: PersistenceAdapter = {
+        localPersistence: mockLocalPersistence,
+        sessionPersistence: mockSessionPersistence,
+        setPersistence: async () => {},
+      };
+
+      const controller = new AuthPersistenceController(mockAuthWithUser, false, adapter);
+      await controller.apply(false);
+
+      // User session remains intact on Auth instance
+      assert.ok(mockAuthWithUser.currentUser);
+      assert.equal(mockAuthWithUser.currentUser.uid, 'auth-user-999');
+    });
+  });
 });

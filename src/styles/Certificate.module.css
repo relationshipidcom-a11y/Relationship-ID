@@ -1,3 +1,10 @@
+:root,
+.certificateCard {
+  --cert-gold: #E2C27A;
+  --cert-gold-strong: #F0D59A;
+  --cert-gold-deep: #B8903F;
+}
+
 .certificateCard {
   position: relative;
   background: linear-gradient(155deg, #19142F 0%, #2A2045 52%, #382A55 100%);
@@ -79,6 +86,14 @@
   pointer-events: none;
 }
 
+.stageBadge {
+  background-color: #1A1735;
+  border: 1.5px solid var(--cert-gold);
+  color: var(--cert-gold-strong);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .partnerBox {
   border: 1px solid #51465F;
   background-color: rgba(231, 188, 211, 0.04);
@@ -101,13 +116,26 @@
   align-items: center;
   justify-content: center;
   background-color: rgba(48, 38, 77, 0.75);
-  border: 1px solid rgba(231, 188, 211, 0.40);
-  box-shadow: 
-    0 0 0 1px rgba(247, 244, 250, 0.22),
-    0 0 0 5px transparent,
-    0 0 0 6px rgba(247, 244, 250, 0.16),
-    0 0 0 10px transparent,
-    0 0 0 11px rgba(247, 244, 250, 0.08);
+  border: 1.5px solid var(--cert-gold);
+  box-shadow: 0 0 24px rgba(226, 194, 122, 0.25);
+  color: var(--cert-gold-strong);
+}
+
+.concentricSeal::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 9999px;
+  border: 1px solid var(--cert-gold-deep);
+  pointer-events: none;
+}
+
+.concentricSeal svg {
+  color: var(--cert-gold-strong);
+}
+
+.concentricSeal span {
+  color: var(--cert-gold-strong);
 }
 
 @media (min-width: 640px) {

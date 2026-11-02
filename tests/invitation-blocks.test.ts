@@ -631,6 +631,78 @@ test('Invitation blocks and decline limits test suite', async (t) => {
         }
       }
     });
+
+    await t.test('Legacy recipient-only hashes still block reverse invitations by current normalized inviter contacts', async () => {
+      for (const contact of [
+        { partner2Email: ' P1@EXAMPLE.COM ' },
+        { partner2Phone: '050 000 0001', partner2PhoneCountry: 'SA +966' },
+        { partner2Phone: '+966500000001', partner2PhoneCountry: 'SA +966' }
+      ]) {
+        resetState();
+        const legacy = { p1Uid: 'uid_p1', p2Uid: 'uid_p2', blocked: true,
+          contactHashes: [hashContact('p2@example.com'), hashContact(SAUDI_P2_PHONE)] };
+        mockDb.seed('invitation_blocks', 'uid_p2_uid_p1', legacy);
+        const res = await fetch(`${baseUrl}/api/invite/create`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p2' },
+          body: JSON.stringify({ partner2Name: 'Fahad Al-Harbi', ...contact })
+        });
+        assert.equal(res.status, 403);
+        assert.equal(((await res.json()) as any).error, 'INVITATION_NOT_ALLOWED');
+        assert.deepEqual(mockDb.getDoc('invitation_blocks', 'uid_p2_uid_p1'), legacy);
+      }
+    });
+
+    await t.test('Block created at transaction entry prevents invitation creation', async () => {
+      resetState();
+      const originalTransaction = mockDb.runTransaction.bind(mockDb);
+      mockDb.runTransaction = (async (fn: any) => {
+        mockDb.seed('invitation_blocks', 'uid_p2_uid_p1', {
+          p1Uid: 'uid_p1', p2Uid: 'uid_p2', blocked: true,
+          contactHashes: [hashContact('p2@example.com')]
+        });
+        return originalTransaction(fn);
+      }) as any;
+      try {
+        const res = await fetch(`${baseUrl}/api/invite/create`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' },
+          body: JSON.stringify({ partner2Name: 'Sara Al-Otaibi', partner2Email: 'p2@example.com' })
+        });
+        assert.equal(res.status, 403);
+        assert.equal(((await res.json()) as any).error, 'INVITATION_NOT_ALLOWED');
+      } finally { mockDb.runTransaction = originalTransaction; }
+    });
+
+    await t.test('Blocked P1 cannot invite P2 even after P2 updates email or phone', async () => {
+      resetState();
+      const blockDoc = {
+        p1Uid: 'uid_p1', p2Uid: 'uid_p2', blocked: true,
+        contactHashes: [hashContact('old_p2@example.com')]
+      };
+      mockDb.seed('invitation_blocks', 'uid_p2_uid_p1', blockDoc);
+      mockDb.seed('users', 'uid_p2', {
+        uid: 'uid_p2', email: 'new_p2@example.com', phoneE164: '+966509998887'
+      });
+
+      const resEmail = await fetch(`${baseUrl}/api/invite/create`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' },
+        body: JSON.stringify({ partner2Name: 'Sara', partner2Email: ' new_p2@example.com ' })
+      });
+      assert.equal(resEmail.status, 403);
+      assert.equal(((await resEmail.json()) as any).error, 'INVITATION_NOT_ALLOWED');
+
+      const resPhone = await fetch(`${baseUrl}/api/invite/create`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' },
+        body: JSON.stringify({ partner2Name: 'Sara', partner2Phone: '050 999 8887', partner2PhoneCountry: 'SA +966' })
+      });
+      assert.equal(resPhone.status, 403);
+      assert.equal(((await resPhone.json()) as any).error, 'INVITATION_NOT_ALLOWED');
+
+      const resAllowed = await fetch(`${baseUrl}/api/invite/create`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token_p1' },
+        body: JSON.stringify({ partner2Name: 'Unrelated Person', partner2Email: 'unrelated@example.com' })
+      });
+      assert.equal(resAllowed.status, 200);
+    });
   } finally {
     server.closeAllConnections?.();
     await new Promise<void>((resolve, reject) => {

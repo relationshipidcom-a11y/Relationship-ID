@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import React, { useEffect, useMemo, useRef, useState, Suspense, lazy } from 'react';
+import { onAuthStateChanged, signOut, reauthenticateWithPopup, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import {
   Language,
   AuthUser,
@@ -11,7 +11,7 @@ import {
   CertificateSettings,
   ScreenId
 } from './types';
-import { auth, db } from './lib/firebase';
+import { auth, db, googleProvider } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { authFetch, fetchWithTimeout, parseApiError, getLocalizedErrorMessage, ALLOWED_ERROR_CODES, withAppCheckHeaders } from './utils/api';
 import {
@@ -35,14 +35,19 @@ import { WaitingScreen } from './components/WaitingScreen';
 import { P2LandingScreen } from './components/P2LandingScreen';
 import { P2RegistrationScreen } from './components/P2RegistrationScreen';
 import { ReviewControlsScreen } from './components/ReviewControlsScreen';
-import { CertificateScreen } from './components/CertificateScreen';
 import { VerifyPortalModal } from './components/VerifyPortalModal';
 import { AccountActionModals } from './components/AccountActionModals';
 import { ChangeRequestModal } from './components/ChangeRequestModal';
 import { BlockedPeopleModal } from './components/BlockedPeopleModal';
-import { LegalPage } from './components/LegalPage';
+import { ReminderBanner } from './components/ReminderBanner';
+import { ReminderSettingsModal } from './components/ReminderSettingsModal';
+import { OccasionItem } from './utils/reminders';
 import { LegalFooter } from './components/LegalFooter';
+import { FormSkeleton } from './components/FormSkeleton';
 import { LEGAL_VERSION } from './content/legal';
+
+const CertificateScreen = lazy(() => import('./components/CertificateScreen').then(m => ({ default: m.CertificateScreen })));
+const LegalPage = lazy(() => import('./components/LegalPage').then(m => ({ default: m.LegalPage })));
 import { ChangeRequest, AppNotification, SocialAccount } from './types';
 import { getRouteState } from './utils/routing';
 import { updateSeoMetadata } from './utils/seo';
@@ -129,6 +134,8 @@ export default function App() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [showReminderSettingsModal, setShowReminderSettingsModal] = useState(false);
+  const [activeOccasions, setActiveOccasions] = useState<OccasionItem[]>([]);
   const [accountActionLoading, setAccountActionLoading] = useState(false);
   const [accountActionError, setAccountActionError] = useState('');
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
@@ -137,6 +144,12 @@ export default function App() {
   const activeAuthUidRef = useRef<string | null>(null);
   const clearedRecordIdRef = useRef<string | null>(null);
   const privateRecordRequestIdRef = useRef(0);
+  const privateRecordInFlightRef = useRef<{
+    uid: string;
+    requestId: number;
+    promise: Promise<any>;
+    routeAfterLoad: boolean;
+  } | null>(null);
   const invitationRequestIdRef = useRef(0);
   const changeRequestsRequestIdRef = useRef(0);
   const notificationsRequestIdRef = useRef(0);
@@ -200,13 +213,48 @@ export default function App() {
   };
 
   const handleDismissNotification = async (notifId: string) => {
+    const isRelationshipEnded = activeNotification?.type === 'relationship_ended';
     try {
       await authFetch(`/api/notifications/${notifId}/dismiss`, { method: 'POST' });
     } catch {
       // ignore
     }
     setActiveNotification(null);
-    navigateTo('p1_details', '/');
+    if (isRelationshipEnded) {
+      navigateTo('p1_details', '/');
+    }
+  };
+
+  const fetchActiveOccasions = async () => {
+    if (!auth?.currentUser) return;
+    try {
+      const res = await authFetch('/api/reminders/active');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.occasions)) {
+          setActiveOccasions(data.occasions);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDismissOccasion = async (occ: OccasionItem) => {
+    try {
+      await authFetch('/api/reminders/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: occ.type,
+          occurrenceDate: occ.date,
+          relationshipId: occ.recordId
+        })
+      });
+    } catch {
+      // ignore
+    }
+    setActiveOccasions((prev) => prev.filter((o) => !(o.type === occ.type && o.date === occ.date)));
   };
 
   const navigateTo = (screen: ScreenId, path?: string) => {
@@ -224,46 +272,73 @@ export default function App() {
   const loadPrivateRecord = async (routeAfterLoad = false) => {
     if (!auth?.currentUser) return null;
     const requestUid = auth.currentUser.uid;
+
+    // Deduplicate in-flight profile requests for the same user to prevent callback races
+    if (
+      privateRecordInFlightRef.current &&
+      privateRecordInFlightRef.current.uid === requestUid
+    ) {
+      if (routeAfterLoad) {
+        privateRecordInFlightRef.current.routeAfterLoad = true;
+      }
+      return privateRecordInFlightRef.current.promise;
+    }
+
     const requestId = ++privateRecordRequestIdRef.current;
     activeAuthUidRef.current = requestUid;
     setPrivateRecordLoading(true);
     setPrivateRecordError(null);
-    try {
-      const res = await executePrivateRecordLoad({
-        requestUid,
-        requestId,
-        getCurrentRequestId: () => privateRecordRequestIdRef.current,
-        getActiveAuthUid: () => activeAuthUidRef.current,
-        getCurrentAuthUid: () => auth?.currentUser?.uid || null,
-        fetchRecord: async () => {
-          const response = await authFetch('/api/record');
-          return parseApiError(response);
-        },
-        setRecord,
-        setInvitation,
-        setAppError: (msg) => {
-          setAppError(msg);
-          if (msg) setPrivateRecordError(msg);
-        },
-        formatErrorMessage: (err) => getLocalizedErrorMessage(err, language),
-        routeAfterLoad,
-        onNavigate: navigateTo,
-        initialRecord,
-        initialInvitation
-      });
-      return res;
-    } catch (err) {
-      if (privateRecordRequestIdRef.current === requestId && activeAuthUidRef.current === requestUid) {
-        const localized = getLocalizedErrorMessage(err, language);
-        setPrivateRecordError(localized);
-        setAppError(localized);
+
+    const promise = (async () => {
+      try {
+        const res = await executePrivateRecordLoad({
+          requestUid,
+          requestId,
+          getCurrentRequestId: () => privateRecordRequestIdRef.current,
+          getActiveAuthUid: () => activeAuthUidRef.current,
+          getCurrentAuthUid: () => auth?.currentUser?.uid || null,
+          fetchRecord: async () => {
+            const response = await authFetch('/api/record');
+            return parseApiError(response);
+          },
+          setRecord,
+          setInvitation,
+          setAppError: (msg) => {
+            setAppError(msg);
+            if (msg) setPrivateRecordError(msg);
+          },
+          formatErrorMessage: (err) => getLocalizedErrorMessage(err, language),
+          routeAfterLoad: () => Boolean(privateRecordInFlightRef.current?.routeAfterLoad || routeAfterLoad),
+          onNavigate: navigateTo,
+          initialRecord,
+          initialInvitation
+        });
+        return res;
+      } catch (err) {
+        if (privateRecordRequestIdRef.current === requestId && activeAuthUidRef.current === requestUid) {
+          const localized = getLocalizedErrorMessage(err, language);
+          setPrivateRecordError(localized);
+          setAppError(localized);
+        }
+        return null;
+      } finally {
+        if (privateRecordInFlightRef.current?.requestId === requestId) {
+          privateRecordInFlightRef.current = null;
+        }
+        if (privateRecordRequestIdRef.current === requestId && activeAuthUidRef.current === requestUid) {
+          setPrivateRecordLoading(false);
+        }
       }
-      return null;
-    } finally {
-      if (privateRecordRequestIdRef.current === requestId && activeAuthUidRef.current === requestUid) {
-        setPrivateRecordLoading(false);
-      }
-    }
+    })();
+
+    privateRecordInFlightRef.current = {
+      uid: requestUid,
+      requestId,
+      promise,
+      routeAfterLoad
+    };
+
+    return promise;
   };
 
   const loadP2Profile = async () => {
@@ -325,14 +400,14 @@ export default function App() {
 
   const renderLoadingScreen = (title: string, subtitle: string) => (
     <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-      <div className="w-12 h-12 rounded-2xl bg-[#392D5A]/60 border border-[#9D6B87]/40 flex items-center justify-center shadow-lg">
-        <Loader2 className="w-6 h-6 animate-spin text-[#E7BCD3]" />
+      <div className="w-12 h-12 rounded-2xl bg-[#39436D]/60 border border-[#B8BCE6]/40 flex items-center justify-center shadow-lg">
+        <Loader2 className="w-6 h-6 animate-spin text-[#B8BCE6]" />
       </div>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-white">
           {title}
         </p>
-        <p className="text-xs text-[#B7ACC8]">
+        <p className="text-xs text-[#D6DAED]">
           {subtitle}
         </p>
       </div>
@@ -379,6 +454,19 @@ export default function App() {
     if (auth) auth.languageCode = language;
   }, [currentScreen, language]);
 
+  // Register service worker for push notifications on supported browsers
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      'serviceWorker' in navigator &&
+      (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
+        console.debug('Service worker registration notice:', err);
+      });
+    }
+  }, []);
+
   // Single coordinated authority for initial startup, login, and logout lifecycle
   useEffect(() => {
     if (!auth) {
@@ -396,6 +484,7 @@ export default function App() {
         hasAttemptedP2ProfileLoadRef.current = false;
         setAuthUser(toAuthUser(user.uid, user.email, user.displayName));
         setInvitationAuth(null);
+        void fetchActiveOccasions();
         const route = getRouteState();
 
         // Always load private record for authenticated users regardless of route
@@ -419,6 +508,7 @@ export default function App() {
         }
       } else {
         activeAuthUidRef.current = null;
+        privateRecordInFlightRef.current = null;
         p1DraftRef.current = null;
         p2DraftRef.current = null;
         setP2Profile(null);
@@ -450,11 +540,17 @@ export default function App() {
     });
   }, []);
 
-  // One-time cleanup: safely clear obsolete analytics consent key without affecting any other storage
+  // One-time cleanup: safely clear obsolete analytics consent & remember_me keys without affecting any other storage
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem('rid_analytics_consent');
+      if (typeof window !== 'undefined') {
+        if (window.localStorage) {
+          window.localStorage.removeItem('rid_analytics_consent');
+          window.localStorage.removeItem('rid_remember_me');
+        }
+        if (window.sessionStorage) {
+          window.sessionStorage.removeItem('rid_remember_me');
+        }
       }
     } catch {
       // safe ignore
@@ -654,6 +750,9 @@ export default function App() {
         if (invSnap.exists()) {
           const updated = invSnap.data() as Invitation;
           setInvitation(updated);
+          if (updated.status === 'accepted' || updated.status === 'declined') {
+            void fetchNotifications();
+          }
           if (updated.status === 'accepted' && currentScreen === 'p1_waiting') {
             if (!hasAutoNavigatedRef.current) {
               hasAutoNavigatedRef.current = true;
@@ -684,10 +783,33 @@ export default function App() {
     void loadPrivateRecord(true);
   };
 
+  const cleanupPushRegistrationOnDevice = async () => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+        if (reg) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await authFetch('/api/reminders/push-subscription', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: sub.endpoint })
+            }).catch(() => {});
+            await sub.unsubscribe().catch(() => {});
+          }
+        }
+      } catch {
+        // Safe fallback
+      }
+    }
+  };
+
   const handleSignOut = async () => {
     if (!auth) return;
     setAppError('');
+    await cleanupPushRegistrationOnDevice();
     activeAuthUidRef.current = null;
+    privateRecordInFlightRef.current = null;
     p1DraftRef.current = null;
     p2DraftRef.current = null;
     setP2Profile(null);
@@ -713,6 +835,7 @@ export default function App() {
   };
 
   const handleSwitchAccount = async (targetInviteId?: string) => {
+    await cleanupPushRegistrationOnDevice();
     activeAuthUidRef.current = null;
     p1DraftRef.current = null;
     p2DraftRef.current = null;
@@ -813,11 +936,43 @@ export default function App() {
     changeRequestsRequestIdRef.current += 1;
     notificationsRequestIdRef.current += 1;
     try {
-      const res = await authFetch('/api/account/delete', {
+      let res = await authFetch('/api/account/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ relationshipId: record.id })
       });
+
+      if (res.status === 401 && auth?.currentUser) {
+        // Handle REAUTH_REQUIRED
+        const providers = auth.currentUser.providerData.map(p => p.providerId);
+        const isGoogle = providers.includes('google.com');
+
+        if (isGoogle) {
+          await reauthenticateWithPopup(auth.currentUser, googleProvider);
+        } else {
+          const pass = window.prompt(
+            language === 'ar'
+              ? 'تطلب حذف الحساب إعادة المصادقة. يرجى إدخال كلمة المرور:'
+              : 'Account deletion requires recent login. Please enter your password:'
+          );
+          if (!pass) {
+            setAccountActionError(
+              language === 'ar' ? 'تم إلغاء إعادة المصادقة.' : 'Re-authentication cancelled.'
+            );
+            return;
+          }
+          const cred = EmailAuthProvider.credential(auth.currentUser.email || '', pass);
+          await reauthenticateWithCredential(auth.currentUser, cred);
+        }
+
+        await auth.currentUser.getIdToken(true);
+        res = await authFetch('/api/account/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ relationshipId: record.id })
+        });
+      }
+
       const data = await parseApiError(res);
       privateRecordRequestIdRef.current += 1;
       invitationRequestIdRef.current += 1;
@@ -843,26 +998,6 @@ export default function App() {
     }
   };
 
-  const handleDownloadMyData = async () => {
-    setAppError('');
-    try {
-      const res = await authFetch('/api/account/export');
-      const data = await parseApiError(res);
-      const jsonStr = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const yyyyMmDd = new Date().toISOString().slice(0, 10);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `relationship-id-export-${yyyyMmDd}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setAppError(getLocalizedErrorMessage(err, language));
-    }
-  };
 
   const handleSubmitChangeRequest = async (field: string, proposedValue: string) => {
     const res = await authFetch('/api/change-requests', {
@@ -1207,9 +1342,29 @@ export default function App() {
     }
   };
 
+  const isP1Registration = currentScreen === 'p1_details' && !hasActiveRelationship;
+  const currentRouteInviteId = getRouteState().inviteId;
+  const p2TargetInviteId = (invitation.id && invitation.id !== 'current')
+    ? invitation.id
+    : (currentRouteInviteId && currentRouteInviteId !== 'current' ? currentRouteInviteId : '');
+  const isP2Registration = currentScreen === 'p2_details' && record.status !== 'active' && shouldRenderP2RegistrationScreen(
+    evaluateP2Authorization({
+      authInitialized,
+      currentUserId: auth?.currentUser?.uid || authUser?.id || null,
+      targetInviteId: p2TargetInviteId,
+      invitationAuth,
+      invitation,
+      record,
+      invitationLoading,
+      invitationNotFound,
+      hasAppError: Boolean(appError)
+    })
+  );
+  const isRegistrationForm = isP1Registration || isP2Registration;
+
   return (
-    <div className="min-h-screen bg-[#19142F] text-[#F7F4FA] flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#9D6B87] selection:text-[#F7F4FA]">
-      <div className="w-full max-w-[430px] min-h-[844px] bg-[#141023] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-[#51465F]">
+    <div className="min-h-screen bg-[#2C345F] text-[#F7F8FC] flex flex-col justify-start items-center p-0 sm:py-6 selection:bg-[#B8BCE6] selection:text-[#202747]">
+      <div className={`w-full ${isRegistrationForm ? 'max-w-[920px]' : 'max-w-[430px]'} min-h-[844px] bg-[#252D52] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border sm:border-[#A0A9D1] transition-[max-width] duration-200`}>
         <TopBar
           language={language}
           onToggleLanguage={handleToggleLanguage}
@@ -1217,6 +1372,7 @@ export default function App() {
           onNavigate={(screen) => navigateTo(screen)}
           onOpenVerifyModal={() => setShowVerifyModal(true)}
           onOpenBlockedModal={authUser ? () => setShowBlockedModal(true) : undefined}
+          onOpenReminderSettings={authUser ? () => setShowReminderSettingsModal(true) : undefined}
           signedIn={Boolean(authUser)}
           onSignOut={() => void handleSignOut()}
           onAdjustInfo={handleAdjustInfo}
@@ -1230,7 +1386,6 @@ export default function App() {
             setAccountActionError('');
             setShowDeleteModal(true);
           } : undefined}
-          onDownloadMyData={accountMenuItems.deleteAccount ? handleDownloadMyData : undefined}
         />
 
         {appError && (
@@ -1240,12 +1395,63 @@ export default function App() {
         )}
 
         <div className="flex-1 flex flex-col justify-between overflow-y-auto">
+          {authUser && activeOccasions.length > 0 && (currentScreen === 'p1_details' || currentScreen === 'p2_details' || currentScreen === 'review_controls') && (
+            <div className="px-4 pt-3">
+              <ReminderBanner
+                language={language}
+                occasions={activeOccasions}
+                onDismiss={handleDismissOccasion}
+              />
+            </div>
+          )}
           {currentScreen === 'auth' && (
-            <AuthScreen
-              language={language}
-              onAuthSuccess={handleNormalAuthSuccess}
-              onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : screen === 'about' ? '/about' : undefined)}
-            />
+            authUser ? (
+              privateRecordLoading ? (
+                renderLoadingScreen(
+                  language === 'ar' ? 'جاري تحميل بيانات السجل...' : 'Loading your relationship record...',
+                  language === 'ar' ? 'يرجى الانتظار بينما نتحقق من حسابك' : 'Please wait while we verify your account'
+                )
+              ) : (
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4 max-w-md mx-auto w-full">
+                  <div className="w-full p-5 rounded-2xl bg-[#414A75] border border-[#A0A9D1] text-[#F7F8FC] space-y-4 shadow-xl">
+                    <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+                      <RefreshCw className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <h2 className="text-base font-semibold text-white">
+                        {language === 'ar' ? 'تعذر تحميل بيانات السجل' : 'Unable to Load Registry Record'}
+                      </h2>
+                      <p className="text-xs text-[#D6DAED] leading-relaxed">
+                        {privateRecordError || appError || (language === 'ar' ? 'حدث خطأ مؤقت أثناء تحميل بيانات حسابك. يمكنك المحاولة مرة أخرى.' : 'A temporary issue occurred while loading your account. Please try again.')}
+                      </p>
+                    </div>
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => void loadPrivateRecord(true)}
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-[#B8BCE6] hover:bg-[#C5C9EC] text-[#202747] text-sm font-medium transition cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>{language === 'ar' ? 'إعادة المحاولة' : 'Retry'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleSignOut()}
+                        className="py-2.5 px-4 rounded-xl bg-[#39436D] hover:bg-[#4F5A8C] text-[#D6DAED] text-sm font-medium transition cursor-pointer border border-[#A0A9D1]"
+                      >
+                        <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </main>
+              )
+            ) : (
+              <AuthScreen
+                language={language}
+                onAuthSuccess={handleNormalAuthSuccess}
+                onNavigate={(screen) => navigateTo(screen, screen === 'privacy' ? '/privacy' : screen === 'terms' ? '/terms' : screen === 'about' ? '/about' : undefined)}
+              />
+            )
           )}
 
           {currentScreen === 'p1_details' && (() => {
@@ -1558,16 +1764,18 @@ export default function App() {
 
           {currentScreen === 'official_certificate' && (
             isParticipant ? (
-              <CertificateScreen language={language} record={record} onHome={handleGoHome} />
+              <Suspense fallback={<FormSkeleton type="p1" language={language} />}>
+                <CertificateScreen language={language} record={record} onHome={handleGoHome} />
+              </Suspense>
             ) : (
               <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                <p className="text-sm sm:text-base text-[#B7ACC8]">
+                <p className="text-sm sm:text-base text-[#D6DAED]">
                   {language === 'ar' ? 'لا توجد شهادة نشطة لعرضها.' : 'No active certificate to display.'}
                 </p>
                 <button
                   type="button"
                   onClick={handleGoHome}
-                  className="mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] text-sm font-semibold cursor-pointer"
+                  className="mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] text-sm font-semibold cursor-pointer"
                 >
                   {language === 'ar' ? 'الرئيسية' : 'Home'}
                 </button>
@@ -1577,35 +1785,37 @@ export default function App() {
 
           {currentScreen === 'verify_portal' && (
             <div className="flex-1 p-4 flex flex-col items-center justify-center">
-              <button type="button" onClick={() => setShowVerifyModal(true)} className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] font-bold text-sm shadow-lg border border-[#51465F] cursor-pointer">
+              <button type="button" onClick={() => setShowVerifyModal(true)} className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] font-bold text-sm shadow-lg border border-[#A0A9D1] cursor-pointer">
                 {language === 'ar' ? 'فتح بوابة التحقق' : 'Open Verification Portal'}
               </button>
             </div>
           )}
 
           {(currentScreen === 'privacy' || currentScreen === 'terms' || currentScreen === 'about') && (
-            <LegalPage
-              page={currentScreen}
-              language={language}
-              onBack={() => {
-                if (window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  navigateTo(authUser ? 'p1_details' : 'auth', '/');
-                }
-              }}
-            />
+            <Suspense fallback={<FormSkeleton type="p1" language={language} />}>
+              <LegalPage
+                page={currentScreen}
+                language={language}
+                onBack={() => {
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    navigateTo(authUser ? 'p1_details' : 'auth', '/');
+                  }
+                }}
+              />
+            </Suspense>
           )}
 
           {currentScreen === 'not_found' && (
             <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4" role="main">
-              <div className="w-16 h-16 rounded-2xl bg-[#392D5A]/80 border border-[#51465F] flex items-center justify-center text-[#E7BCD3] mb-1 shadow-lg">
+              <div className="w-16 h-16 rounded-2xl bg-[#39436D]/80 border border-[#A0A9D1] flex items-center justify-center text-[#B8BCE6] mb-1 shadow-lg">
                 <span className="text-2xl font-bold font-mono">404</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                 {language === 'ar' ? 'الصفحة غير موجودة' : 'Page Not Found'}
               </h2>
-              <p className="text-base text-[#B7ACC8] max-w-sm leading-relaxed">
+              <p className="text-base text-[#D6DAED] max-w-sm leading-relaxed">
                 {language === 'ar'
                   ? 'عذراً، العنوان المطلوب غير موجود أو تم نقله.'
                   : 'Sorry, the requested address does not exist or has been moved.'}
@@ -1620,7 +1830,7 @@ export default function App() {
                       navigateTo('auth', '/');
                     }
                   }}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-[#F7F4FA] text-base font-bold transition shadow-lg inline-flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E7BCD3]"
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-[#202747] text-base font-bold transition shadow-lg inline-flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D3D8FF]"
                 >
                   <Home className="w-5 h-5" />
                   <span>{language === 'ar' ? 'العودة إلى الرئيسية' : 'Return Home'}</span>
@@ -1642,10 +1852,10 @@ export default function App() {
         />
 
         {allowScreenExplorer && showScreenSwitcher && (
-          <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#19142F]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
+          <aside aria-label="Screen explorer" className="absolute inset-x-0 bottom-0 top-[65px] bg-[#2C345F]/95 backdrop-blur-md z-40 p-4 overflow-y-auto flex flex-col justify-between border-t border-white/10">
             <div className="grid grid-cols-1 gap-1.5">
               {screensOrder.map((s, idx) => (
-                <button key={s.id} type="button" onClick={() => { navigateTo(s.id); setShowScreenSwitcher(false); }} className={`flex items-center justify-between p-2.5 rounded-xl text-xs border ${currentScreen === s.id ? 'bg-[#85516F] text-[#F7F4FA] font-semibold border-[#51465F]' : 'bg-[#30264D] text-[#B7ACC8] border-white/5'}`}>
+                <button key={s.id} type="button" onClick={() => { navigateTo(s.id); setShowScreenSwitcher(false); }} className={`flex items-center justify-between p-2.5 rounded-xl text-xs border ${currentScreen === s.id ? 'bg-[#B8BCE6] text-[#202747] font-semibold border-[#A0A9D1]' : 'bg-[#414A75] text-[#D6DAED] border-white/5'}`}>
                   <span>{language === 'ar' ? s.labelAr : s.labelEn}</span><span>#{idx + 1}</span>
                 </button>
               ))}
@@ -1654,8 +1864,8 @@ export default function App() {
         )}
 
         {allowScreenExplorer && (
-          <div className="px-4 py-2.5 bg-[#141023] border-t border-white/10 flex items-center justify-between text-[10px] text-[#B7ACC8]">
-            <button type="button" onClick={() => setShowScreenSwitcher(!showScreenSwitcher)} className="flex items-center gap-1.5 text-[#E7BCD3] bg-transparent border-none cursor-pointer"><LayoutGrid className="w-3.5 h-3.5" /> Screen Index</button>
+          <div className="px-4 py-2.5 bg-[#252D52] border-t border-white/10 flex items-center justify-between text-[10px] text-[#D6DAED]">
+            <button type="button" onClick={() => setShowScreenSwitcher(!showScreenSwitcher)} className="flex items-center gap-1.5 text-[#B8BCE6] bg-transparent border-none cursor-pointer"><LayoutGrid className="w-3.5 h-3.5" /> Screen Index</button>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => { setRecord(initialRecord); setInvitation(initialInvitation); navigateTo('auth', '/'); }} className="p-1 rounded text-white bg-transparent border-none"><RefreshCw className="w-3.5 h-3.5" /></button>
               <ChevronRight className="w-3.5 h-3.5" /><ChevronLeft className="w-3.5 h-3.5" />
@@ -1724,20 +1934,30 @@ export default function App() {
             aria-modal="true"
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           >
-            <div className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
+            <div className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-white/20 p-5 shadow-2xl relative text-start space-y-4 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
-                    <HeartOff className="w-4 h-4" />
+                    {activeNotification.type === 'relationship_ended' ? (
+                      <HeartOff className="w-4 h-4" />
+                    ) : (
+                      <Bell className="w-4 h-4" />
+                    )}
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
-                    {language === 'ar' ? 'إشعار إنهاء العلاقة' : 'Relationship Ended'}
+                    {activeNotification.type === 'relationship_ended'
+                      ? (language === 'ar' ? 'إشعار إنهاء العلاقة' : 'Relationship Ended')
+                      : activeNotification.type === 'invitation_accepted'
+                      ? (language === 'ar' ? 'تم قبول الدعوة' : 'Invitation accepted')
+                      : activeNotification.type === 'invitation_declined'
+                      ? (language === 'ar' ? 'تم رفض الدعوة' : 'Invitation declined')
+                      : (language === 'ar' ? 'إشعار' : 'Notification')}
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="p-1 text-[#B7ACC8] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
+                  className="p-1 text-[#D6DAED] hover:text-white rounded-lg bg-transparent border-none cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1748,7 +1968,7 @@ export default function App() {
                   {language === 'ar' ? activeNotification.messageAr : activeNotification.messageEn}
                 </p>
                 {activeNotification.secondaryAr && (
-                  <p className="text-xs text-[#B7ACC8]">
+                  <p className="text-xs text-[#D6DAED]">
                     {language === 'ar' ? activeNotification.secondaryAr : activeNotification.secondaryEn}
                   </p>
                 )}
@@ -1758,13 +1978,21 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void handleDismissNotification(activeNotification.id)}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] text-sm font-semibold text-[#F7F4FA] transition shadow-sm cursor-pointer active:scale-[0.98]"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] text-sm font-semibold text-[#202747] transition shadow-sm cursor-pointer active:scale-[0.98]"
                 >
                   {language === 'ar' ? 'فهمت ذلك ومتابعة' : 'Understood'}
                 </button>
               </div>
             </div>
           </div>
+        )}
+
+        {showReminderSettingsModal && (
+          <ReminderSettingsModal
+            language={language}
+            onClose={() => setShowReminderSettingsModal(false)}
+            userEmailVerified={Boolean(auth?.currentUser?.emailVerified)}
+          />
         )}
       </div>
     </div>

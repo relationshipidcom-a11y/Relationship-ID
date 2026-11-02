@@ -13,6 +13,20 @@ export interface ContactReservationDoc {
   updatedAt: string;
 }
 
+import {
+  EMAIL_VALIDATION_REGEX,
+  validateEmailAddress,
+  NAME_VALIDATION_REGEX,
+  validateFullName
+} from './validation';
+
+export {
+  EMAIL_VALIDATION_REGEX,
+  validateEmailAddress,
+  NAME_VALIDATION_REGEX,
+  validateFullName
+};
+
 /**
  * Normalizes an email address according to canonical business rules:
  * - Genuinely absent (null, undefined, or empty string): valid and canonical is empty string.
@@ -27,12 +41,11 @@ export function normalizeCanonicalEmail(email?: string | null): NormalizedContac
   if (trimmed === '') {
     return { canonical: '', isValid: true };
   }
-  // Standard RFC 5322 simplified email check: local@domain.tld without whitespace
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(trimmed)) {
+  const normalized = trimmed.toLowerCase();
+  if (!EMAIL_VALIDATION_REGEX.test(normalized)) {
     return { canonical: '', isValid: false };
   }
-  return { canonical: trimmed.toLowerCase(), isValid: true };
+  return { canonical: normalized, isValid: true };
 }
 
 /**
@@ -86,6 +99,7 @@ export interface PartnerContactInputs {
   whatsappNumber?: string | null;
   whatsappE164?: string | null;
   whatsappCountry?: string | null;
+  whatsappTrusted?: boolean | null;
 }
 
 /**
@@ -110,17 +124,33 @@ export function extractCanonicalContacts(
   if (p1) {
     if (p1.email) check(normalizeCanonicalEmail(p1.email), `p1.email: ${p1.email}`);
     const p1Phone = p1.phoneE164 || p1.phoneNumber;
-    if (p1Phone) check(normalizeCanonicalPhone(p1Phone, p1.phoneCountry), `p1.phone: ${p1Phone}`);
+    const p1PhoneNorm = p1Phone ? normalizeCanonicalPhone(p1Phone, p1.phoneCountry) : null;
+    if (p1PhoneNorm) check(p1PhoneNorm, `p1.phone: ${p1Phone}`);
+
     const p1Wa = p1.whatsappE164 || p1.whatsappNumber;
-    if (p1Wa) check(normalizeCanonicalPhone(p1Wa, p1.whatsappCountry || p1.phoneCountry), `p1.whatsapp: ${p1Wa}`);
+    if (p1Wa) {
+      const p1WaNorm = normalizeCanonicalPhone(p1Wa, p1.whatsappCountry || p1.phoneCountry);
+      const isSameAsPhone = Boolean(p1PhoneNorm?.isValid && p1WaNorm.isValid && p1WaNorm.canonical === p1PhoneNorm.canonical);
+      if (isSameAsPhone || p1.whatsappTrusted === true) {
+        check(p1WaNorm, `p1.whatsapp: ${p1Wa}`);
+      }
+    }
   }
 
   if (p2) {
     if (p2.email) check(normalizeCanonicalEmail(p2.email), `p2.email: ${p2.email}`);
     const p2Phone = p2.phoneE164 || p2.phoneNumber;
-    if (p2Phone) check(normalizeCanonicalPhone(p2Phone, p2.phoneCountry), `p2.phone: ${p2Phone}`);
+    const p2PhoneNorm = p2Phone ? normalizeCanonicalPhone(p2Phone, p2.phoneCountry) : null;
+    if (p2PhoneNorm) check(p2PhoneNorm, `p2.phone: ${p2Phone}`);
+
     const p2Wa = p2.whatsappE164 || p2.whatsappNumber;
-    if (p2Wa) check(normalizeCanonicalPhone(p2Wa, p2.whatsappCountry || p2.phoneCountry), `p2.whatsapp: ${p2Wa}`);
+    if (p2Wa) {
+      const p2WaNorm = normalizeCanonicalPhone(p2Wa, p2.whatsappCountry || p2.phoneCountry);
+      const isSameAsPhone = Boolean(p2PhoneNorm?.isValid && p2WaNorm.isValid && p2WaNorm.canonical === p2PhoneNorm.canonical);
+      if (isSameAsPhone || p2.whatsappTrusted === true) {
+        check(p2WaNorm, `p2.whatsapp: ${p2Wa}`);
+      }
+    }
   }
 
   const canonicals = Array.from(canonicalSet);

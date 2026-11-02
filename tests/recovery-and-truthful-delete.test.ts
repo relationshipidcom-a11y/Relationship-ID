@@ -5,7 +5,8 @@ import type { AddressInfo } from 'node:net';
 import {
   createApp,
   __setTestDeps,
-  runDeletionReconciliation
+  runDeletionReconciliation,
+  reconcilePendingAccountDeletions
 } from '../server';
 import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
 
@@ -336,5 +337,222 @@ test('Steps 9 & 10: Recovery executor and truthful account deletion', async (t) 
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
+  }
+});
+
+
+test('Revoked account boundaries protect profile mutations and invitation proposals', async (t) => {
+  const app = createApp();
+  const server: Server = await new Promise(resolve => {
+    const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
+  });
+  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    for (const state of ['active', 'deleted', 'disabled', 'revoked', 'expired', 'invalid', 'unavailable']) {
+      await t.test(state, async () => {
+        const db = createMockFirestore();
+        const uid = `session_${state}`;
+        const flags: Array<boolean | undefined> = [];
+        const auth = {
+          async verifyIdToken(_token: string, checkRevoked?: boolean) {
+            flags.push(checkRevoked);
+            if (['expired', 'invalid'].includes(state) || (checkRevoked && state !== 'active')) {
+              const error = new Error(`auth/${state}`);
+              throw error;
+            }
+            return { uid, email: 'recipient@example.invalid', email_verified: true };
+          }
+        };
+        __setTestDeps(db, auth);
+        db.seed('relationships', 'session_record', {
+          id: 'session_record', p1Uid: 'inviter', p2Uid: null, status: 'pending_partner',
+          type: 'Engaged', startDate: '1 January 2026', startDateIso: '2026-01-01',
+          partner1: { fullName: 'Inviter Example' }, partner2: { fullName: 'Recipient Example' }
+        });
+        db.seed('invitations', 'session_invite', {
+          id: 'session_invite', recordId: 'session_record', p1Uid: 'inviter', p2Uid: null,
+          inviterName: 'Inviter Example', partner2Name: 'Recipient Example',
+          partner2Email: 'recipient@example.invalid', partner2Phone: null, partner2Whatsapp: null,
+          relationshipType: 'Engaged', startDate: '1 January 2026', startDateIso: '2026-01-01',
+          status: 'pending', createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString()
+        });
+        const headers = { Authorization: 'Bearer modeled_token', 'Content-Type': 'application/json' };
+        const mutation = await fetch(`${baseUrl}/api/profile`, {
+          method: 'POST', headers, body: JSON.stringify({ fullName: 'Recipient Example' })
+        });
+        assert.equal(mutation.status, state === 'active' ? 200 : 401);
+        assert.equal(Boolean(db.getDoc('users', uid)), state === 'active');
+        const preview = await fetch(`${baseUrl}/api/invitations/session_invite`, { headers });
+        assert.equal(preview.status, 200);
+        const body = await preview.json() as any;
+        assert.equal(body.authorization.authorized, state === 'active');
+        assert.deepEqual(flags, [true, true]);
+        if (state === 'active') {
+          assert.equal(body.invitation.partner2Email, 'recipient@example.invalid');
+          assert.ok(body.record);
+        } else {
+          assert.equal(body.record, null);
+          assert.equal(body.authorization.reason, 'AUTH_REQUIRED');
+          assert.equal(body.authorization.authorizedUid, undefined);
+          assert.equal(body.invitation.partner2Email, undefined);
+          assert.equal(body.invitation.partner2Phone, undefined);
+          assert.equal(body.invitation.recordId, undefined);
+          assert.equal(body.invitation.startDate, undefined);
+          assert.deepEqual(Object.keys(body.invitation).sort(),
+            ['id', 'inviterName', 'relationshipType', 'status', 'expiresAt', 'contactRequirement'].sort());
+        }
+      });
+    }
+    const publicPreview = await fetch(`${baseUrl}/api/invitations/session_invite`);
+    const body = await publicPreview.json() as any;
+    assert.equal(publicPreview.status, 200);
+    assert.equal(body.record, null);
+    assert.equal(body.authorization.authenticated, false);
+    assert.equal(body.invitation.partner2Email, undefined);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+  }
+});
+
+const cleanupSingletons = ['reminder_settings', 'whatsapp_verify_attempts', 'whatsapp_verify_limits'];
+const cleanupQueries = ['push_subscriptions', 'in_app_dismissals', 'reminder_deliveries'];
+
+function seedAccountCleanup(db: ReturnType<typeof createMockFirestore>, uid: string, count = 2) {
+  db.seed('users', uid, { profile: { fullName: 'Cleanup Example' } });
+  db.seed('users', 'unrelated', { profile: { fullName: 'Unrelated Example' } });
+  for (const collection of cleanupSingletons) {
+    db.seed(collection, uid, { userId: uid });
+    db.seed(collection, 'unrelated', { userId: 'unrelated' });
+  }
+  for (const collection of cleanupQueries) {
+    for (let i = 0; i < count; i++) db.seed(collection, `${uid}_${i}`, { userId: uid });
+    db.seed(collection, 'unrelated', { userId: 'unrelated' });
+  }
+}
+
+function assertAccountCleanup(db: ReturnType<typeof createMockFirestore>, uid: string) {
+  assert.equal(db.getDoc('users', uid), undefined);
+  assert.equal(db.getDoc('account_deletions', uid), undefined);
+  assert.ok(db.getDoc('users', 'unrelated'));
+  for (const collection of [...cleanupSingletons, ...cleanupQueries]) {
+    assert.ok(db.getDoc(collection, 'unrelated'), `Preserve unrelated data in ${collection}`);
+    for (const data of db.store.get(collection)?.values() || []) assert.notEqual(data.userId, uid);
+  }
+}
+
+test('Account cleanup retains progress on failure and reconciles every owned collection', async (t) => {
+  const app = createApp();
+  const server: Server = await new Promise(resolve => {
+    const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
+  });
+  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    for (const failure of ['document', 'query', 'batch', 'whatsapp']) {
+      await t.test(`${failure} failure stays pending until successful reconciliation`, async () => {
+        const db = createMockFirestore();
+        const auth = createMockAuth();
+        const uid = `cleanup_${failure}`;
+        auth.addUser(uid, { uid, email: 'cleanup@example.invalid', email_verified: true });
+        seedAccountCleanup(db, uid);
+        let fail = true;
+        db.hooks.onBeforeDelete = (collection, id) => {
+          if (fail && id === uid && ((failure === 'document' && collection === 'reminder_settings') ||
+            (failure === 'whatsapp' && collection === 'whatsapp_verify_attempts'))) {
+            throw new Error('INJECTED_DELETE_FAILURE');
+          }
+        };
+        const collection = db.collection.bind(db);
+        db.collection = name => {
+          const ref = collection(name);
+          if (name === 'push_subscriptions' && failure === 'query') {
+            const where = ref.where.bind(ref);
+            ref.where = (field, op, value) => {
+              const query = where(field, op, value);
+              const get = query.get.bind(query);
+              query.get = async () => { if (fail) throw new Error('INJECTED_QUERY_FAILURE'); return get(); };
+              const limit = query.limit.bind(query);
+              query.limit = size => {
+                const bounded = limit(size);
+                const getBounded = bounded.get.bind(bounded);
+                bounded.get = async () => { if (fail) throw new Error('INJECTED_QUERY_FAILURE'); return getBounded(); };
+                return bounded;
+              };
+              return query;
+            };
+          }
+          return ref;
+        };
+        const makeBatch = db.batch.bind(db);
+        db.batch = () => {
+          const batch = makeBatch();
+          const commit = batch.commit.bind(batch);
+          batch.commit = async () => {
+            if (fail && failure === 'batch') throw new Error('INJECTED_BATCH_FAILURE');
+            await commit();
+          };
+          return batch;
+        };
+        __setTestDeps(db, auth);
+        const response = await fetch(`${baseUrl}/api/account/delete`, {
+          method: 'POST', headers: { Authorization: `Bearer ${uid}`, 'Content-Type': 'application/json' }, body: '{}'
+        });
+        const body = await response.json() as any;
+        assert.equal(response.status, 202);
+        assert.equal(body.status, 'DELETION_PENDING');
+        assert.ok(db.getDoc('account_deletions', uid));
+        const failed = await reconcilePendingAccountDeletions(db as any, auth as any, uid);
+        assert.deepEqual(failed.completed, []);
+        assert.deepEqual(failed.failed, [uid]);
+        assert.ok(db.getDoc('account_deletions', uid));
+        fail = false;
+        const completed = await reconcilePendingAccountDeletions(db as any, auth as any, uid);
+        assert.deepEqual(completed.completed, [uid]);
+        assert.deepEqual(completed.failed, []);
+        assertAccountCleanup(db, uid);
+        const repeated = await reconcilePendingAccountDeletions(db as any, auth as any, uid);
+        assert.equal(repeated.processed, 0);
+      });
+    }
+    await t.test('normal deletion cleans all supporting data and preserves unrelated users', async () => {
+      const db = createMockFirestore();
+      const auth = createMockAuth();
+      const uid = 'cleanup_success';
+      auth.addUser(uid, { uid, email_verified: true });
+      seedAccountCleanup(db, uid);
+      __setTestDeps(db, auth);
+      const response = await fetch(`${baseUrl}/api/account/delete`, {
+        method: 'POST', headers: { Authorization: `Bearer ${uid}`, 'Content-Type': 'application/json' }, body: '{}'
+      });
+      assert.equal(response.status, 200);
+      assert.equal((await response.json() as any).message, 'ACCOUNT_DELETED');
+      assertAccountCleanup(db, uid);
+    });
+    await t.test('reconciliation deletes multiple bounded pages and tolerates missing singletons', async () => {
+      const db = createMockFirestore();
+      const auth = createMockAuth();
+      const uid = 'cleanup_pages';
+      seedAccountCleanup(db, uid, 137);
+      db.seed('account_deletions', uid, { uid, status: 'pending_firestore_cleanup' });
+      await db.collection('reminder_settings').doc(uid).delete();
+      await db.collection('whatsapp_verify_attempts').doc(uid).delete();
+      const sizes: number[] = [];
+      const makeBatch = db.batch.bind(db);
+      db.batch = () => {
+        const batch = makeBatch();
+        let size = 0;
+        const remove = batch.delete.bind(batch);
+        batch.delete = ref => { size++; return remove(ref); };
+        const commit = batch.commit.bind(batch);
+        batch.commit = async () => { sizes.push(size); await commit(); };
+        return batch;
+      };
+      const outcome = await reconcilePendingAccountDeletions(db as any, auth as any, uid);
+      assert.deepEqual(outcome.completed, [uid]);
+      assert.deepEqual(sizes, [50, 50, 37, 50, 50, 37, 50, 50, 37]);
+      assertAccountCleanup(db, uid);
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
   }
 });

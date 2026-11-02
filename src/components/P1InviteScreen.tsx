@@ -147,11 +147,11 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
   return (
     <div className="flex-1 px-4 py-3 flex flex-col justify-between">
       <section className="mb-4 flex items-center justify-end">
-        <div className="inline-flex items-center gap-1 bg-[#30264D] border border-[#51465F] rounded-full px-3 py-1 text-sm text-[#B7ACC8]">
-          <span className="w-4 h-4 rounded-full bg-[#141023] text-sm flex items-center justify-center font-bold">1</span>
+        <div className="inline-flex items-center gap-1 bg-[#414A75] border border-[#A0A9D1] rounded-full px-3 py-1 text-sm text-[#D6DAED]">
+          <span className="w-4 h-4 rounded-full bg-[#252D52] text-sm flex items-center justify-center font-bold">1</span>
           <span className="text-sm">{t.step1Tab}</span>
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] rounded-full shadow-md font-semibold ml-1">
-            <span className="w-4 h-4 rounded-full bg-[#30264D] text-[#F7F4FA] text-sm flex items-center justify-center font-bold">2</span>
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] text-[#202747] rounded-full shadow-md font-semibold ml-1">
+            <span className="w-4 h-4 rounded-full bg-[#414A75] text-[#F7F8FC] text-sm flex items-center justify-center font-bold">2</span>
             <span className="text-sm">{t.step2Tab}</span>
           </div>
         </div>
@@ -159,14 +159,14 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
 
       <div className="text-center mb-4 px-1">
         <h2 className="text-xl font-bold text-white mb-1">{t.p1InviteTitle}</h2>
-        <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed max-w-[340px] mx-auto">{t.p1InviteDesc}</p>
+        <p className="text-base sm:text-sm text-[#D6DAED] leading-relaxed max-w-[340px] mx-auto">{t.p1InviteDesc}</p>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <div className="bg-[#30264D] border border-[#51465F] rounded-2xl p-4 shadow-xl space-y-4">
+        <div className="bg-[#414A75] border border-[#A0A9D1] rounded-2xl p-4 shadow-xl space-y-4">
           <div>
-            <label className="flex items-center gap-1.5 text-sm text-[#B7ACC8] font-medium mb-1.5" htmlFor="partner-name">
-              <User className="w-3.5 h-3.5 text-[#E7BCD3]" /> {t.partnerFullNameLabel}
+            <label className="flex items-center gap-1.5 text-sm text-[#D6DAED] font-medium mb-1.5" htmlFor="partner-name">
+              <User className="w-3.5 h-3.5 text-[#B8BCE6]" /> {t.partnerFullNameLabel}
             </label>
             <input
               id="partner-name"
@@ -183,8 +183,8 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
           </div>
 
           <div>
-            <label className="flex items-center gap-1.5 text-sm text-[#B7ACC8] font-medium mb-1.5" htmlFor="partner-email">
-              <Mail className="w-3.5 h-3.5 text-[#E7BCD3]" /> {t.partnerEmailLabel}
+            <label className="flex items-center gap-1.5 text-sm text-[#D6DAED] font-medium mb-1.5" htmlFor="partner-email">
+              <Mail className="w-3.5 h-3.5 text-[#B8BCE6]" /> {t.partnerEmailLabel}
             </label>
             <input
               id="partner-email"
@@ -201,15 +201,15 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
           </div>
 
           <div>
-            <label className="flex items-center gap-1.5 text-sm text-[#B7ACC8] font-medium mb-1.5" htmlFor="partner-phone">
-              <Phone className="w-3.5 h-3.5 text-[#E7BCD3]" /> {t.partnerPhoneLabel}
+            <label className="flex items-center gap-1.5 text-sm text-[#D6DAED] font-medium mb-1.5" htmlFor="partner-phone">
+              <Phone className="w-3.5 h-3.5 text-[#B8BCE6]" /> {t.partnerPhoneLabel}
             </label>
             <div className="grid grid-cols-12 gap-2" dir="ltr">
               <select
                 aria-label={language === 'ar' ? 'رمز الدولة' : 'Country code'}
                 value={phoneCountry}
                 onChange={(e) => setPhoneCountry(e.target.value as CountryCode)}
-                className="col-span-5 bg-[#141023] border border-[#51465F] text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#E7BCD3]"
+                className="col-span-5 bg-[#252D52] border border-[#A0A9D1] text-white rounded-xl px-2 py-3 text-base outline-none focus:border-[#B8BCE6]"
               >
                 {supportedCountries.map((item) => (
                   <option key={item.iso} value={item.iso}>
@@ -250,7 +250,7 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
             type="submit"
             disabled={submitting}
             aria-describedby={error ? 'p1-invite-error' : undefined}
-            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] active:scale-[0.99] text-[#F7F4FA] font-semibold text-base flex items-center justify-center gap-2 shadow-lg shadow-black/20 border border-[#51465F] transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] active:scale-[0.99] text-[#202747] font-semibold text-base flex items-center justify-center gap-2 shadow-lg shadow-black/20 border border-[#A0A9D1] transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -268,7 +268,7 @@ export const P1InviteScreen: React.FC<P1InviteScreenProps> = ({
               type="button"
               disabled={submitting}
               onClick={onBackToP1}
-              className="w-full py-3 px-4 rounded-xl border border-[#51465F] bg-transparent hover:bg-white/5 active:scale-[0.99] text-[#B7ACC8] hover:text-white font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px] disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-xl border border-[#A0A9D1] bg-transparent hover:bg-white/5 active:scale-[0.99] text-[#D6DAED] hover:text-white font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px] disabled:opacity-50"
             >
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
               <span>{language === 'ar' ? 'تعديل تفاصيل السجل' : 'Edit Relationship Details'}</span>

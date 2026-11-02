@@ -159,7 +159,7 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
 
             {/* Badges: Relationship Type & Record ID */}
             <div className="flex items-center justify-center gap-2.5 mt-2 mb-1 flex-wrap">
-              <span className="bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] font-bold text-sm sm:text-[10px] px-3.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
+              <span className={`${styles.stageBadge} text-sm sm:text-[10px] px-3.5 py-1 rounded-full uppercase tracking-widest shadow-sm`}>
                 {record.type === 'marriage' ? 'MARRIAGE' : record.type === 'engagement' ? 'ENGAGEMENT' : 'COUPLES'}
               </span>
               <span className="bg-white/10 border border-white/25 text-white font-mono font-medium text-sm sm:text-[10px] px-3.5 py-1 rounded-full uppercase tracking-wider">
@@ -212,8 +212,8 @@ export const CertificateScreen: React.FC<CertificateScreenProps> = ({
           <div className="pt-2 pb-1 border-t border-white/20 flex items-center justify-between gap-4">
             {/* Left: Concentric Seal */}
             <div className={`${styles.concentricSeal} shrink-0`}>
-              <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white stroke-[2.2]" />
-              <span className="text-sm sm:text-[7.5px] font-black text-white tracking-wider sm:tracking-[0.2em] uppercase mt-0.5 sm:mt-1 text-center">
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" style={{ color: 'var(--cert-gold-strong)' }} />
+              <span className="text-sm sm:text-[7.5px] font-black tracking-wider sm:tracking-[0.2em] uppercase mt-0.5 sm:mt-1 text-center" style={{ color: 'var(--cert-gold-strong)' }}>
                 {t.verifiedBadgeUpper}
               </span>
             </div>

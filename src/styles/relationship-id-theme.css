@@ -1,33 +1,33 @@
 :root {
-  --rid-gradient: linear-gradient(135deg, #19142F 0%, #261E3E 52%, #30264D 100%);
-  --rid-velvet-bg: #19142F;
-  --rid-canvas: #141023;
-  --rid-surface: #30264D;
-  --rid-surface-low: #221B38;
-  --rid-surface-container: #30264D;
-  --rid-surface-high: #392D5A;
-  --rid-surface-highest: #433568;
-  --rid-cert-surface: #30264D;
-  --rid-cert-elevated: #392D5A;
-  --rid-cert-border: #51465F;
-  --rid-pill: #85516F;
-  --rid-pill-gradient: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
-  --rid-pill-hover: #8E5876;
-  --rid-pill-border: #804E6A;
-  --rid-pill-text: #F7F4FA;
-  --rid-accent: #E7BCD3;
-  --rid-text-bright: #F7F4FA;
-  --rid-text-muted: #B7ACC8;
-  --rid-text-subtle: #8E82A3;
-  --rid-action-secondary: #3D305A;
-  --rid-action-secondary-hover: #4D3E70;
-  --rid-border-subtle: #51465F;
-  --rid-border-light: rgba(81, 70, 95, 0.5);
-  --rid-input-bg: #141023;
-  --rid-input-border: #51465F;
-  --rid-gold: #e2bd59;
-  --rid-gold-muted: #9a7b2c;
-  --rid-success: #10b981;
+  --rid-gradient: linear-gradient(135deg, #2C345F 0%, #252D52 52%, #2C345F 100%);
+  --rid-velvet-bg: #2C345F;
+  --rid-canvas: #252D52;
+  --rid-surface: #414A75;
+  --rid-surface-low: #252D52;
+  --rid-surface-container: #414A75;
+  --rid-surface-high: #39436D;
+  --rid-surface-highest: #4F5A8C;
+  --rid-cert-surface: #414A75;
+  --rid-cert-elevated: #39436D;
+  --rid-cert-border: #A0A9D1;
+  --rid-pill: #B8BCE6;
+  --rid-pill-gradient: linear-gradient(135deg, #B8BCE6 0%, #A8ACE0 100%);
+  --rid-pill-hover: #C5C9EC;
+  --rid-pill-border: #A0A9D1;
+  --rid-pill-text: #202747;
+  --rid-accent: #B8BCE6;
+  --rid-text-bright: #F7F8FC;
+  --rid-text-muted: #D6DAED;
+  --rid-text-subtle: #B8BED8;
+  --rid-action-secondary: #39436D;
+  --rid-action-secondary-hover: #4F5A8C;
+  --rid-border-subtle: #A0A9D1;
+  --rid-border-light: rgba(160, 169, 209, 0.4);
+  --rid-input-bg: #39436D;
+  --rid-input-border: #A0A9D1;
+  --rid-gold: #B8BCE6;
+  --rid-gold-muted: #8890C2;
+  --rid-success: #A9E4C2;
 }
 
 body {
@@ -146,8 +146,18 @@ label,
 
 /* Global Date Picker Input High Contrast Styling */
 input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
   color-scheme: dark;
 }
+
+input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 1.5em; }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;

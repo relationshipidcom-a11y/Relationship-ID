@@ -6,6 +6,8 @@ if (!process.env.CONTACT_HASH_SECRET || process.env.CONTACT_HASH_SECRET.length <
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import crypto from 'node:crypto';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import {
   normalizeCanonicalEmail,
   normalizeCanonicalPhone,
@@ -16,8 +18,12 @@ import {
 } from '../src/utils/contacts';
 import {
   checkActiveContactConflict,
-  validateContactUniqueness
+  validateContactUniqueness,
+  createApp,
+  __setTestDeps,
+  CURRENT_LEGAL_VERSION
 } from '../server';
+import { createMockFirestore, createMockAuth } from './helpers/mockFirestore';
 
 // 1. Email Case and Whitespace Equivalence
 test('1. Email normalization: case-insensitive, trimmed, and validates structure', () => {
@@ -170,7 +176,8 @@ test('6. extractCanonicalContacts: extracts unique canonical contacts across P1 
     phoneNumber: '+966552222222',
     phoneCountry: 'SA +966',
     whatsappNumber: '0553333333',
-    whatsappCountry: 'SA +966'
+    whatsappCountry: 'SA +966',
+    whatsappTrusted: true
   };
 
   const { canonicals, hashes, invalidContacts } = extractCanonicalContacts(p1, p2);
@@ -181,6 +188,13 @@ test('6. extractCanonicalContacts: extracts unique canonical contacts across P1 
   assert.equal(hashes.length, 5);
   assert.equal(canonicals.includes('+966551111111'), true);
   assert.equal(canonicals.includes('p2@example.com'), true);
+  assert.equal(canonicals.includes('+966553333333'), true);
+
+  // Negative test: Untrusted secondary WhatsApp is NOT reserved to prevent unverified contact squatting
+  const untrustedP2: PartnerContactInputs = { ...p2, whatsappTrusted: false };
+  const untrustedResult = extractCanonicalContacts(p1, untrustedP2);
+  assert.equal(untrustedResult.canonicals.length, 4);
+  assert.equal(untrustedResult.canonicals.includes('+966553333333'), false);
 });
 
 // 7. Contact Replacement and Preservation Logic
@@ -304,4 +318,312 @@ test('11. hashContact throws if CONTACT_HASH_SECRET is missing or shorter than 3
     process.env.CONTACT_HASH_SECRET = prevSecret;
   }
 });
+
+// 12. Invitation Creation Does Not Reveal Active Relationship Status, While Acceptance Is Rejected
+test('12. Invitation creation does not reveal active relationship status, while acceptance is rejected', async () => {
+  const app = createApp();
+  const server: Server = await new Promise(resolve => {
+    const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
+  });
+  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+  try {
+    const mockDb = createMockFirestore();
+    const mockAuth = createMockAuth();
+    __setTestDeps(mockDb, mockAuth);
+
+    const activeContactEmail = 'active.partner@example.com';
+    const activeContactPhone = '0500000002';
+    const activeContactPhoneE164 = '+966500000002';
+    const activeHashEmail = hashContact(activeContactEmail);
+    const activeHashPhone = hashContact(activeContactPhoneE164);
+
+    // 1. Seed an active relationship holding activeContactEmail and activeContactPhoneE164
+    mockDb.seed('users', 'uid_active_p1', {
+      uid: 'uid_active_p1',
+      email: 'p1.active@example.com',
+      phoneE164: '+966500000001',
+      activeRecordId: 'rel_active'
+    });
+    mockDb.seed('users', 'uid_active_p2', {
+      uid: 'uid_active_p2',
+      email: activeContactEmail,
+      phoneE164: activeContactPhoneE164,
+      whatsappTrusted: true,
+      whatsappE164: activeContactPhoneE164,
+      activeRecordId: 'rel_active'
+    });
+    mockAuth.addUser('uid_active_p2', {
+      uid: 'uid_active_p2',
+      email: activeContactEmail,
+      email_verified: true,
+      phone_number: activeContactPhoneE164
+    });
+
+    mockDb.seed('relationships', 'rel_active', {
+      id: 'rel_active',
+      recordNumber: '999001',
+      type: 'marriage',
+      status: 'active',
+      p1Uid: 'uid_active_p1',
+      p2Uid: 'uid_active_p2',
+      partner1: {
+        fullName: 'Active P1',
+        birthDay: '01',
+        birthMonth: '01',
+        birthYear: '1990',
+        email: 'p1.active@example.com',
+        phoneCountry: 'SA +966',
+        phoneNumber: '0500000001',
+        phoneE164: '+966500000001',
+        whatsappCountry: 'SA +966',
+        whatsappNumber: '0500000001',
+        whatsappE164: '+966500000001'
+      },
+      partner2: {
+        fullName: 'Active P2',
+        birthDay: '02',
+        birthMonth: '02',
+        birthYear: '1992',
+        email: activeContactEmail,
+        phoneCountry: 'SA +966',
+        phoneNumber: activeContactPhone,
+        phoneE164: activeContactPhoneE164,
+        whatsappCountry: 'SA +966',
+        whatsappNumber: activeContactPhone,
+        whatsappE164: activeContactPhoneE164
+      },
+      startDate: '2023-01-01',
+      startDateAr: '1 يناير 2023',
+      createdAt: '2023-01-01T00:00:00Z',
+      updatedAt: '2023-01-01T00:00:00Z'
+    });
+
+    // Seed contact reservations for active relationship
+    mockDb.seed('contact_reservations', activeHashEmail, { recordId: 'rel_active' });
+    mockDb.seed('contact_reservations', activeHashPhone, { recordId: 'rel_active' });
+
+    // 2. Setup user 1 inviting a completely free contact
+    mockDb.seed('users', 'uid_inviter_free', {
+      uid: 'uid_inviter_free',
+      email: 'inviter.free@example.com',
+      phoneE164: '+966500000010',
+      activeRecordId: 'rel_draft_free'
+    });
+    mockAuth.addUser('uid_inviter_free', {
+      uid: 'uid_inviter_free',
+      email: 'inviter.free@example.com',
+      email_verified: true
+    });
+    mockDb.seed('relationships', 'rel_draft_free', {
+      id: 'rel_draft_free',
+      recordNumber: '111001',
+      type: 'dating',
+      status: 'draft',
+      p1Uid: 'uid_inviter_free',
+      p2Uid: null,
+      partner1: {
+        fullName: 'Inviter Free',
+        birthDay: '10',
+        birthMonth: '10',
+        birthYear: '1991',
+        email: 'inviter.free@example.com',
+        phoneCountry: 'SA +966',
+        phoneNumber: '0500000010',
+        phoneE164: '+966500000010',
+        whatsappCountry: 'SA +966',
+        whatsappNumber: '0500000010',
+        whatsappE164: '+966500000010'
+      },
+      partner2: {
+        fullName: '',
+        birthDay: '',
+        birthMonth: '',
+        birthYear: '',
+        email: '',
+        phoneCountry: 'SA +966',
+        phoneNumber: '',
+        whatsappCountry: 'SA +966',
+        whatsappNumber: ''
+      },
+      startDate: '2024-01-01',
+      startDateAr: '1 يناير 2024',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z'
+    });
+
+    // 3. Setup user 2 inviting the contact that is in the active relationship
+    mockDb.seed('users', 'uid_inviter_busy', {
+      uid: 'uid_inviter_busy',
+      email: 'inviter.busy@example.com',
+      phoneE164: '+966500000020',
+      activeRecordId: 'rel_draft_busy'
+    });
+    mockAuth.addUser('uid_inviter_busy', {
+      uid: 'uid_inviter_busy',
+      email: 'inviter.busy@example.com',
+      email_verified: true
+    });
+    mockDb.seed('relationships', 'rel_draft_busy', {
+      id: 'rel_draft_busy',
+      recordNumber: '222002',
+      type: 'dating',
+      status: 'draft',
+      p1Uid: 'uid_inviter_busy',
+      p2Uid: null,
+      partner1: {
+        fullName: 'Inviter Busy',
+        birthDay: '11',
+        birthMonth: '11',
+        birthYear: '1991',
+        email: 'inviter.busy@example.com',
+        phoneCountry: 'SA +966',
+        phoneNumber: '0500000020',
+        phoneE164: '+966500000020',
+        whatsappCountry: 'SA +966',
+        whatsappNumber: '0500000020',
+        whatsappE164: '+966500000020'
+      },
+      partner2: {
+        fullName: '',
+        birthDay: '',
+        birthMonth: '',
+        birthYear: '',
+        email: '',
+        phoneCountry: 'SA +966',
+        phoneNumber: '',
+        whatsappCountry: 'SA +966',
+        whatsappNumber: ''
+      },
+      startDate: '2024-01-01',
+      startDateAr: '1 يناير 2024',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z'
+    });
+
+    // Send invitation to FREE contact
+    const freeRes = await fetch(`${baseUrl}/api/invitations`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer uid_inviter_free',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        partner2Name: 'Free Partner 2',
+        partner2Email: 'free.partner2@example.com',
+        partner2Phone: '0500000099',
+        partner2PhoneCountry: 'SA +966'
+      })
+    });
+    assert.equal(freeRes.status, 200);
+    const freeJson = await freeRes.json() as any;
+    assert.equal(freeJson.success, true);
+    assert.ok(freeJson.invitation?.id);
+
+    // Send invitation to BUSY contact (contact is in active relationship)
+    const busyRes = await fetch(`${baseUrl}/api/invitations`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer uid_inviter_busy',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        partner2Name: 'Active Partner 2',
+        partner2Email: activeContactEmail,
+        partner2Phone: activeContactPhone,
+        partner2PhoneCountry: 'SA +966'
+      })
+    });
+
+    // Step 1 check: identical status and response shape (no disclosure whether contact is in relationship)
+    assert.equal(busyRes.status, 200);
+    assert.equal(busyRes.status, freeRes.status);
+    const busyJson = await busyRes.json() as any;
+    assert.equal(busyJson.success, true);
+    assert.deepEqual(Object.keys(busyJson).sort(), Object.keys(freeJson).sort());
+    assert.deepEqual(Object.keys(busyJson.invitation).sort(), Object.keys(freeJson.invitation).sort());
+    assert.deepEqual(Object.keys(busyJson.record).sort(), Object.keys(freeJson.record).sort());
+    assert.equal(busyJson.invitation.status, 'pending');
+    assert.equal(busyJson.invitation.partner2Email, activeContactEmail);
+    assert.notEqual(busyJson.error, 'CONTACT_IN_ACTIVE_RELATIONSHIP');
+
+    // Step 2 check: acceptance by contact in active relationship is still rejected
+    const acceptRes = await fetch(`${baseUrl}/api/invitations/${busyJson.invitation.id}/accept`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer uid_active_p2',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        partner2: {
+          fullName: 'Active Partner 2',
+          fullNameEn: 'Active Partner 2',
+          birthDay: '02',
+          birthMonth: '02',
+          birthYear: '1992',
+          email: activeContactEmail,
+          phoneCountry: 'SA +966',
+          phoneNumber: activeContactPhone,
+          phoneE164: activeContactPhoneE164,
+          whatsappCountry: 'SA +966',
+          whatsappNumber: activeContactPhone,
+          whatsappE164: activeContactPhoneE164
+        },
+        acceptedLegalVersion: CURRENT_LEGAL_VERSION
+      })
+    });
+    assert.equal(acceptRes.status, 409);
+    const acceptJson = await acceptRes.json() as any;
+    assert.ok(
+      acceptJson.error === 'P2_ALREADY_IN_ACTIVE_RELATIONSHIP' ||
+      acceptJson.error === 'CONTACT_IN_ACTIVE_RELATIONSHIP'
+    );
+
+    // Also verify: even for an account without activeRecordId, the atomic contact reservation rejects acceptance
+    mockDb.seed('users', 'uid_p2_unbound', {
+      uid: 'uid_p2_unbound',
+      email: activeContactEmail,
+      phoneE164: activeContactPhoneE164,
+      whatsappTrusted: true,
+      whatsappE164: activeContactPhoneE164
+    });
+    mockAuth.addUser('uid_p2_unbound', {
+      uid: 'uid_p2_unbound',
+      email: activeContactEmail,
+      email_verified: true,
+      phone_number: activeContactPhoneE164
+    });
+
+    const unboundAcceptRes = await fetch(`${baseUrl}/api/invitations/${busyJson.invitation.id}/accept`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer uid_p2_unbound',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        partner2: {
+          fullName: 'Active Partner 2',
+          fullNameEn: 'Active Partner 2',
+          birthDay: '02',
+          birthMonth: '02',
+          birthYear: '1992',
+          email: activeContactEmail,
+          phoneCountry: 'SA +966',
+          phoneNumber: activeContactPhone,
+          phoneE164: activeContactPhoneE164,
+          whatsappCountry: 'SA +966',
+          whatsappNumber: activeContactPhone,
+          whatsappE164: activeContactPhoneE164
+        },
+        acceptedLegalVersion: CURRENT_LEGAL_VERSION
+      })
+    });
+    assert.equal(unboundAcceptRes.status, 409);
+    const unboundAcceptJson = await unboundAcceptRes.json() as any;
+    assert.equal(unboundAcceptJson.error, 'CONTACT_IN_ACTIVE_RELATIONSHIP');
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+  }
+});
+
 

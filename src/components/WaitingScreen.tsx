@@ -85,72 +85,72 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   return (
     <div className="px-4 pt-3 pb-4 flex-1 flex flex-col items-center">
       {/* Step Indicator Pill */}
-      <div className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#804E6A] to-[#8D5775] text-[#F7F4FA] text-sm font-bold mb-4 shadow-sm ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider'}`}>
-        <span className="w-1.5 h-1.5 rounded-full bg-[#F7F4FA] animate-ping" />
+      <div className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] text-[#202747] text-sm font-bold mb-4 shadow-sm ${language === 'ar' ? 'font-sans tracking-normal' : 'tracking-wider'}`}>
+        <span className="w-1.5 h-1.5 rounded-full bg-[#F7F8FC] animate-ping" />
         <span>{t.stepP2Waiting}</span>
       </div>
 
       {/* Hourglass Visual Status Icon */}
       <div className="relative my-1 flex items-center justify-center">
-        <div className="absolute inset-0 bg-[#E7BCD3]/20 rounded-full blur-xl scale-125" />
-        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-b from-[#392D5A] to-[#141023] border border-[#51465F] flex items-center justify-center shadow-lg">
-          <Hourglass className="w-8 h-8 text-[#E7BCD3] animate-pulse" />
+        <div className="absolute inset-0 bg-[#B8BCE6]/20 rounded-full blur-xl scale-125" />
+        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-b from-[#39436D] to-[#252D52] border border-[#A0A9D1] flex items-center justify-center shadow-lg">
+          <Hourglass className="w-8 h-8 text-[#B8BCE6] animate-pulse" />
         </div>
       </div>
 
       {/* Main Headline & Subtitle */}
       <div className="text-center mt-3 mb-4 px-2">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">{t.waitingTitle}</h2>
-        <p className="text-base sm:text-sm text-[#B7ACC8] leading-relaxed font-normal">
+        <p className="text-base sm:text-sm text-[#D6DAED] leading-relaxed font-normal">
           {t.waitingDesc}
         </p>
       </div>
 
       {/* Countdown Section */}
       <section className="w-full mb-4">
-        <p className="text-sm text-center text-[#B7ACC8] font-medium mb-2.5">
+        <p className="text-sm text-center text-[#D6DAED] font-medium mb-2.5">
           {t.timeRemainingLabel}
         </p>
         <div className={styles.timerGrid} dir="rtl">
           <div className={styles.timerBlock}>
-            <span className="text-xl font-bold text-[#F7F4FA] tracking-tight">{days}</span>
-            <span className="text-sm font-medium text-[#B7ACC8] mt-0.5">{t.days}</span>
+            <span className="text-xl font-bold text-[#F7F8FC] tracking-tight">{days}</span>
+            <span className="text-sm font-medium text-[#D6DAED] mt-0.5">{t.days}</span>
           </div>
           <div className={styles.timerBlock}>
-            <span className="text-xl font-bold text-[#F7F4FA] tracking-tight">{hours}</span>
-            <span className="text-sm font-medium text-[#B7ACC8] mt-0.5">{t.hours}</span>
+            <span className="text-xl font-bold text-[#F7F8FC] tracking-tight">{hours}</span>
+            <span className="text-sm font-medium text-[#D6DAED] mt-0.5">{t.hours}</span>
           </div>
           <div className={styles.timerBlock}>
-            <span className="text-xl font-bold text-[#F7F4FA] tracking-tight">{minutes}</span>
-            <span className="text-sm font-medium text-[#B7ACC8] mt-0.5">{t.minutes}</span>
+            <span className="text-xl font-bold text-[#F7F8FC] tracking-tight">{minutes}</span>
+            <span className="text-sm font-medium text-[#D6DAED] mt-0.5">{t.minutes}</span>
           </div>
           <div className={styles.timerBlockActive}>
-            <span className="text-xl font-bold text-[#E7BCD3] tracking-tight">
+            <span className="text-xl font-bold text-[#B8BCE6] tracking-tight">
               {seconds < 10 ? `0${seconds}` : seconds}
             </span>
-            <span className="text-sm font-medium text-[#E7BCD3] mt-0.5">{t.seconds}</span>
+            <span className="text-sm font-medium text-[#B8BCE6] mt-0.5">{t.seconds}</span>
           </div>
         </div>
       </section>
 
       {/* Details Card */}
-      <section className="w-full bg-[#30264D] border border-[#51465F] rounded-2xl p-4 text-sm space-y-3 shadow-lg">
+      <section className="w-full bg-[#414A75] border border-[#A0A9D1] rounded-2xl p-4 text-sm space-y-3 shadow-lg">
         <div className="flex items-center justify-between pb-2 border-b border-white/10">
-          <span className="text-[#B7ACC8] font-medium">{t.statusLabel}</span>
-          <span className="inline-flex items-center gap-1.5 text-[#E7BCD3] font-semibold text-sm bg-[#E7BCD3]/20 px-2.5 py-1 rounded-full border border-[#E7BCD3]/40">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E7BCD3] animate-ping" />
+          <span className="text-[#D6DAED] font-medium">{t.statusLabel}</span>
+          <span className="inline-flex items-center gap-1.5 text-[#B8BCE6] font-semibold text-sm bg-[#B8BCE6]/20 px-2.5 py-1 rounded-full border border-[#B8BCE6]/40">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#B8BCE6] animate-ping" />
             {t.statusWaitingApproval}
           </span>
         </div>
 
         <div className={styles.infoRow}>
-          <span className="text-[#B7ACC8]">{t.partner1Inviter}</span>
+          <span className="text-[#D6DAED]">{t.partner1Inviter}</span>
           <span className="font-bold text-white tracking-wide">{invitation.inviterName}</span>
         </div>
 
         <div className={styles.infoRow}>
-          <span className="text-[#B7ACC8]">{t.relationshipStage}</span>
-          <span className="font-medium text-[#F7F4FA]">
+          <span className="text-[#D6DAED]">{t.relationshipStage}</span>
+          <span className="font-medium text-[#F7F8FC]">
             {record.type === 'marriage'
               ? t.marriage
               : record.type === 'engagement'
@@ -160,34 +160,34 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
         </div>
 
         <div className={styles.infoRow}>
-          <span className="text-[#B7ACC8]">{t.startDateLabel}</span>
+          <span className="text-[#D6DAED]">{t.startDateLabel}</span>
           <span className="text-white/90">
             {language === 'ar' ? record.startDateAr : record.startDate}
           </span>
         </div>
 
         <div className={styles.infoRow}>
-          <span className="text-[#B7ACC8]">{t.createdDateLabel}</span>
-          <span className="text-[#B7ACC8] font-mono text-sm">
+          <span className="text-[#D6DAED]">{t.createdDateLabel}</span>
+          <span className="text-[#D6DAED] font-mono text-sm">
             {new Date(invitation.createdAt).toLocaleDateString()}
           </span>
         </div>
 
         <div className={styles.infoRow}>
-          <span className="text-[#B7ACC8]">{t.reminderCountLabel}</span>
+          <span className="text-[#D6DAED]">{t.reminderCountLabel}</span>
           <span className="text-white font-bold">{invitation.reminderCount}</span>
         </div>
 
         {/* Copyable link input */}
         <div className="pt-2 border-t border-white/10">
-          <label className="block text-[#B7ACC8] mb-1.5 text-sm font-medium">
+          <label className="block text-[#D6DAED] mb-1.5 text-sm font-medium">
             {t.shareableInviteLinkLabel}
           </label>
-          <div className="flex items-center bg-[#141023] border border-[#51465F] rounded-xl overflow-hidden p-1.5 shadow-inner">
+          <div className="flex items-center bg-[#252D52] border border-[#A0A9D1] rounded-xl overflow-hidden p-1.5 shadow-inner">
             <button
               type="button"
               onClick={handleCopy}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-[#804E6A] to-[#8D5775] hover:from-[#895472] hover:to-[#945E7D] active:scale-95 text-[#F7F4FA] font-semibold rounded-lg shadow transition-all px-3.5 py-2 text-sm shrink-0 cursor-pointer min-h-[40px]"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-[#B8BCE6] to-[#B8BCE6] hover:from-[#C5C9EC] hover:to-[#C5C9EC] active:scale-95 text-[#202747] font-semibold rounded-lg shadow transition-all px-3.5 py-2 text-sm shrink-0 cursor-pointer min-h-[40px]"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? t.copiedBtn : t.copyBtn}</span>
@@ -196,7 +196,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
               type="text"
               readOnly
               value={inviteUrl}
-              className="w-full bg-transparent border-0 text-[#B7ACC8] text-base font-mono px-2 text-left focus:ring-0 truncate"
+              className="w-full bg-transparent border-0 text-[#D6DAED] text-base font-mono px-2 text-left focus:ring-0 truncate"
               dir="ltr"
             />
           </div>
@@ -204,8 +204,8 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
       </section>
 
       {/* Manual invitation test shortcut */}
-      <div className="w-full mt-3 p-2.5 rounded-xl bg-[#30264D] border border-[#51465F] flex items-center justify-between text-sm">
-        <span className="text-sm text-[#E7BCD3]">
+      <div className="w-full mt-3 p-2.5 rounded-xl bg-[#414A75] border border-[#A0A9D1] flex items-center justify-between text-sm">
+        <span className="text-sm text-[#B8BCE6]">
           {language === 'ar'
             ? 'اختبار الدعوة في تبويب جديد'
             : 'Test invitation in a new tab'}
@@ -213,7 +213,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
         <button
           type="button"
           onClick={onOpenInvitation}
-          className="px-3 py-1.5 rounded-lg bg-[#85516F] hover:bg-[#8E5876] text-[#F7F4FA] text-sm font-semibold transition cursor-pointer flex items-center gap-1 min-h-[40px]"
+          className="px-3 py-1.5 rounded-lg bg-[#B8BCE6] hover:bg-[#C5C9EC] text-[#202747] text-sm font-semibold transition cursor-pointer flex items-center gap-1 min-h-[40px]"
         >
           <span>{language === 'ar' ? 'فتح الدعوة' : 'Open Invitation'}</span>
           <ExternalLink className="w-3.5 h-3.5" />
@@ -235,9 +235,9 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
         <button
           type="button"
           onClick={handleWhatsApp}
-          className="w-full py-3.5 px-4 rounded-xl bg-[#3D305A] hover:bg-[#4D3E70] border border-[#51465F] text-white text-base sm:text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-lg active:scale-95 cursor-pointer min-h-[44px]"
+          className="w-full py-3.5 px-4 rounded-xl bg-[#39436D] hover:bg-[#4F5A8C] border border-[#A0A9D1] text-white text-base sm:text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-lg active:scale-95 cursor-pointer min-h-[44px]"
         >
-          <MessageCircle className="w-4 h-4 text-[#E7BCD3]" />
+          <MessageCircle className="w-4 h-4 text-[#B8BCE6]" />
           <span>{t.shareWhatsAppBtn}</span>
         </button>
 
@@ -248,16 +248,16 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
             setCancelError('');
             setShowConfirmModal(true);
           }}
-          className="w-full py-3 px-4 rounded-xl border border-[#51465F] bg-[#392D5A] hover:bg-[#433568] disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-[#E7BCD3] hover:text-white text-base sm:text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-sm cursor-pointer min-h-[44px]"
+          className="w-full py-3 px-4 rounded-xl border border-[#A0A9D1] bg-[#39436D] hover:bg-[#4F5A8C] disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-[#B8BCE6] hover:text-white text-base sm:text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-sm cursor-pointer min-h-[44px]"
         >
           {isCancelling ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-[#E7BCD3]" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#B8BCE6]" />
               <span>{language === 'ar' ? 'جاري الإلغاء...' : 'Cancelling...'}</span>
             </>
           ) : (
             <>
-              <X className="w-4 h-4 text-[#E7BCD3]" />
+              <X className="w-4 h-4 text-[#B8BCE6]" />
               <span>{t.cancelInviteBtn}</span>
             </>
           )}
@@ -274,7 +274,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
           aria-describedby="cancel-dialog-desc"
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-[#30264D] border border-[#51465F] p-5 shadow-2xl flex flex-col gap-4 text-start"
+            className="w-full max-w-sm rounded-2xl bg-[#414A75] border border-[#A0A9D1] p-5 shadow-2xl flex flex-col gap-4 text-start"
             dir={language === 'ar' ? 'rtl' : 'ltr'}
           >
             <div className="flex items-center gap-2.5 text-rose-300">
@@ -284,7 +284,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
               </h3>
             </div>
 
-            <p id="cancel-dialog-desc" className="text-sm text-[#B7ACC8] leading-relaxed">
+            <p id="cancel-dialog-desc" className="text-sm text-[#D6DAED] leading-relaxed">
               {language === 'ar'
                 ? 'سيتم إلغاء رابط الدعوة وإعادة السجل إلى مسودة، مما يتيح لك تعديل البيانات وإعادة إرسال الدعوة لاحقاً.'
                 : 'The invitation link will be cancelled and the record will return to a draft, allowing you to update details and resend later.'}
@@ -322,7 +322,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
                 onClick={() => {
                   if (!isCancelling) setShowConfirmModal(false);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#392D5A] hover:bg-[#433568] border border-[#51465F] text-[#B7ACC8] hover:text-white font-medium text-sm flex items-center justify-center transition cursor-pointer min-h-[40px]"
+                className="w-full py-2.5 px-4 rounded-xl bg-[#39436D] hover:bg-[#4F5A8C] border border-[#A0A9D1] text-[#D6DAED] hover:text-white font-medium text-sm flex items-center justify-center transition cursor-pointer min-h-[40px]"
               >
                 <span>{language === 'ar' ? 'إبقاء الدعوة' : 'Keep Invitation'}</span>
               </button>

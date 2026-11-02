@@ -1,6 +1,6 @@
 .cardSection {
-  background-color: #30264D;
-  border: 1px solid #51465F;
+  background-color: #414A75;
+  border: 1px solid #A0A9D1;
   border-radius: 16px;
   padding: 14px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
@@ -14,14 +14,14 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(81, 70, 95, 0.6);
+  border-bottom: 1px solid rgba(160, 169, 209, 0.6);
 }
 
 .inputControl {
   width: 100%;
-  background-color: #141023;
-  border: 1px solid #51465F;
-  color: #F7F4FA;
+  background-color: #39436D;
+  border: 1px solid #A0A9D1;
+  color: #F7F8FC;
   font-size: 16px;
   border-radius: 12px;
   padding: 12px 14px;
@@ -31,15 +31,15 @@
 }
 
 .inputControl:focus {
-  border-color: #E7BCD3;
-  box-shadow: 0 0 0 2px rgba(231, 188, 211, 0.35);
+  border-color: #D3D8FF;
+  box-shadow: 0 0 0 2px rgba(184, 188, 230, 0.35);
 }
 
 .selectControl {
   width: 100%;
-  background-color: #141023;
-  border: 1px solid #51465F;
-  color: #F7F4FA;
+  background-color: #39436D;
+  border: 1px solid #A0A9D1;
+  color: #F7F8FC;
   font-size: 16px;
   border-radius: 12px;
   padding: 12px 14px;
@@ -56,10 +56,10 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  background: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
-  border: 1px solid rgba(231, 188, 211, 0.35);
-  color: #F7F4FA;
-  box-shadow: 0 4px 12px rgba(128, 78, 106, 0.35);
+  background: linear-gradient(135deg, #B8BCE6 0%, #B8BCE6 100%);
+  border: 1px solid rgba(184, 188, 230, 0.35);
+  color: #202747;
+  box-shadow: 0 4px 12px rgba(32, 39, 71, 0.35);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -73,21 +73,21 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
-  background-color: #30264D;
-  border: 1px solid #51465F;
-  color: #B7ACC8;
+  background-color: #414A75;
+  border: 1px solid #A0A9D1;
+  color: #D6DAED;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .inactiveTypeBtn:hover {
-  color: #F7F4FA;
+  color: #F7F8FC;
 }
 
 .primaryCta {
   width: 100%;
-  background: linear-gradient(135deg, #804E6A 0%, #8D5775 100%);
-  color: #F7F4FA;
+  background: linear-gradient(135deg, #B8BCE6 0%, #B8BCE6 100%);
+  color: #202747;
   padding: 14px 16px;
   border-radius: 12px;
   font-weight: 700;
@@ -96,14 +96,14 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid rgba(231, 188, 211, 0.25);
-  box-shadow: 0 8px 20px rgba(128, 78, 106, 0.35);
+  border: 1px solid rgba(184, 188, 230, 0.25);
+  box-shadow: 0 8px 20px rgba(32, 39, 71, 0.35);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .primaryCta:hover {
-  background: linear-gradient(135deg, #895472 0%, #945E7D 100%);
+  background: linear-gradient(135deg, #C5C9EC 0%, #C5C9EC 100%);
 }
 
 .primaryCta:active {

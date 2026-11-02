@@ -583,7 +583,7 @@ test('11. Auth deletion succeeds, Firestore fails -> durable progress reconciles
       commit: async () => {}
     }),
     collection: (col: string) => {
-      if (col === 'relationships' || col === 'invitation_blocks') {
+      if (['relationships', 'invitation_blocks', 'invitations', 'push_subscriptions', 'in_app_dismissals', 'reminder_deliveries'].includes(col)) {
         return {
           where: () => ({
             get: async () => ({ docs: [], empty: true, size: 0 }),

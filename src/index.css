@@ -2,13 +2,13 @@
 @import "./styles/relationship-id-theme.css";
 
 @theme {
-  --color-plum-bg: #19142F;
-  --color-plum-header: #141023;
-  --color-plum-surface: #30264D;
-  --color-dusty-rose: #85516F;
-  --color-dusty-rose-hover: #8E5876;
-  --color-pale-pink: #E7BCD3;
-  --color-plum-text: #F7F4FA;
-  --color-plum-muted: #B7ACC8;
-  --color-plum-border: #51465F;
+  --color-plum-bg: #2E122D;
+  --color-plum-header: #240E25;
+  --color-plum-surface: #471F45;
+  --color-dusty-rose: #7B3B59;
+  --color-dusty-rose-hover: #964D70;
+  --color-pale-pink: #E8C4D0;
+  --color-plum-text: #FDF5F8;
+  --color-plum-muted: #E2CAD4;
+  --color-plum-border: #8A4C6E;
 }

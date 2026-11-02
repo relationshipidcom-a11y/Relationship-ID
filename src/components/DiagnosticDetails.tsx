@@ -96,13 +96,13 @@ export const DiagnosticDetails: React.FC<Props> = ({
         onClick={() => setShowDetails(!showDetails)}
         aria-expanded={showDetails}
         aria-controls={panelId}
-        className="w-full min-h-[44px] flex items-center justify-between text-sm font-medium text-[#E7BCD3] bg-[#141023] p-3.5 sm:p-4 rounded-xl border border-[#51465F] hover:bg-[#1C172E] focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1 transition-colors cursor-pointer"
+        className="w-full min-h-[44px] flex items-center justify-between text-sm font-medium text-[#B8BCE6] bg-[#252D52] p-3.5 sm:p-4 rounded-xl border border-[#A0A9D1] hover:bg-[#252D52] focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1 transition-colors cursor-pointer"
       >
         <span>{t.title}</span>
         {showDetails ? <ChevronUp className="w-5 h-5 flex-shrink-0" aria-hidden="true" /> : <ChevronDown className="w-5 h-5 flex-shrink-0" aria-hidden="true" />}
       </button>
       {showDetails && (
-        <div id={panelId} className="mt-3 p-4 bg-[#141023] rounded-xl border border-[#51465F] text-xs text-[#B7ACC8] space-y-2 font-mono">
+        <div id={panelId} className="mt-3 p-4 bg-[#252D52] rounded-xl border border-[#A0A9D1] text-xs text-[#D6DAED] space-y-2 font-mono">
           <div>{t.initStatus}: {getInitStatusLabel(initStatus)}</div>
           <div>{t.failureCategory}: {getFailureCategoryLabel(failureCategory)}</div>
           <div>{t.authPersistence}: {getStatusLabel(authPersistence)}</div>

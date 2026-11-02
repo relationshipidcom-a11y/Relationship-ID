@@ -385,7 +385,7 @@ test('Step 6 accept & decline suite', async (t) => {
           Authorization: 'Bearer token_p2_diff'
         },
         body: JSON.stringify({
-          partner2: { ...validPartner2(), phoneE164: '+966500000099', phoneNumber: '0500000099' },
+          partner2: { ...validPartner2(), email: 'p2diff@example.com', phoneE164: '+966500000099', phoneNumber: '0500000099' },
           acceptedLegalVersion: CURRENT_LEGAL_VERSION
         })
       });
